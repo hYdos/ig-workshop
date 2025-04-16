@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use crate::core::fs::{igFileWorkItemProcessor, igStorageDevice};
 use crate::core::ig_file_context::igFileWorkItem;
 
-/// In igToolbox, this type is not too useful and mainly exists for parity between igAlchemy, and igCauldron
+/// In igWorkshop, this type is not too useful and mainly exists for parity between igAlchemy, and igCauldron
 pub struct igArchiveMountManager {
     next_processor: Option<Arc<Mutex<dyn igFileWorkItemProcessor>>>
 }

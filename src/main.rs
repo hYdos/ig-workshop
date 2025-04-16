@@ -38,7 +38,7 @@ fn main() {
     };
 
     eframe::run_native(
-        "igToolbox",
+        "igWorkshop",
         options,
         Box::new(|_cc| Ok(Box::new(igCauldronWindow::new(configs)))),
     )
