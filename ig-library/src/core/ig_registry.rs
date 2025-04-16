@@ -5,7 +5,7 @@ pub struct igRegistry {
 }
 
 impl igRegistry {
-    pub fn new(platform: IG_CORE_PLATFORM) -> Self {
+    pub fn new(_platform: IG_CORE_PLATFORM) -> Self {
         igRegistry {}
     }
 }

@@ -9,7 +9,7 @@ pub struct igTDataList<T> {
 }
 
 impl<T> igTDataList<T> {
-    
+
     pub fn new() -> igTDataList<T> {
         igTDataList {
             items: VecDeque::new(),

@@ -1,14 +1,14 @@
 use std::sync::{Arc, Mutex};
-use crate::core::fs::igFileWorkItemProcessor;
+use crate::core::fs::{igFileWorkItemProcessor, igStorageDevice};
 use crate::core::ig_file_context::igFileWorkItem;
 
 /// In igToolbox, this type is not too useful and mainly exists for parity between igAlchemy, and igCauldron
 pub struct igArchiveMountManager {
-    next_processor: Option<Arc<Mutex<dyn igFileWorkItemProcessor + Send + Sync>>>
+    next_processor: Option<Arc<Mutex<dyn igFileWorkItemProcessor>>>
 }
 
 impl igArchiveMountManager {
-    pub fn new() -> Arc<Mutex<dyn igFileWorkItemProcessor + Send + Sync>> {
+    pub fn new() -> Arc<Mutex<dyn igFileWorkItemProcessor>> {
         Arc::new(Mutex::new(Self {
             next_processor: None,
         }))
@@ -17,18 +17,22 @@ impl igArchiveMountManager {
 
 impl igFileWorkItemProcessor for igArchiveMountManager {
     
-    fn process(&self, work_item: igFileWorkItem) {
-        self.send_to_next_processor(work_item);
+    fn process(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        self.send_to_next_processor(this, work_item);
     }
 
-    fn set_next_processor(&mut self, processor: Arc<Mutex<dyn igFileWorkItemProcessor + Send + Sync>>) {
+    fn set_next_processor(&mut self, processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
         self.next_processor = Some(processor);
     }
 
-    fn send_to_next_processor(&self, work_item: igFileWorkItem) {
+    fn send_to_next_processor(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
         if let Some(processor) = self.next_processor.clone() {
             let processor_lock = processor.lock().unwrap();
-            processor_lock.process(work_item);
+            processor_lock.process(this, work_item);
         }
+    }
+
+    fn as_ig_storage(&self) -> &dyn igStorageDevice {
+        panic!("Tried getting igArchiveMountManager as igStorage")
     }
 }

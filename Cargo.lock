@@ -1796,6 +1796,7 @@ dependencies = [
  "log",
  "phf",
  "sonic-rs",
+ "walkdir",
 ]
 
 [[package]]
@@ -1805,6 +1806,7 @@ dependencies = [
  "byteorder",
  "log",
  "phf",
+ "walkdir",
 ]
 
 [[package]]

@@ -1,8 +1,12 @@
-use crate::core::fs::igFileDescriptor;
-use crate::core::ig_file_context::igFileContext;
+use crate::core::fs::{igFileDescriptor, igFileWorkItemProcessor, igStorageDevice};
+use crate::core::ig_file_context::{igFileContext, igFileWorkItem};
+use std::sync::{Arc, Mutex};
 
 /// Represents an archive file
 pub struct igArchive {
+    next_processor: Option<Arc<Mutex<dyn igFileWorkItemProcessor>>>,
+    pub _path: String,
+    pub _name: String,
     pub _load_name_table: bool,
     pub _sequential_read: bool,
     pub _loading_for_incremental_update: bool,
@@ -19,18 +23,115 @@ pub struct igArchive {
     pub _native_app_path: String,
 }
 
-impl igArchive {
+impl igFileWorkItemProcessor for igArchive {
 
+    fn set_next_processor(&mut self, processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
+        self.next_processor = Some(processor);
+    }
+
+    fn send_to_next_processor(
+        &self,
+        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        if let Some(processor) = self.next_processor.clone() {
+            let processor_lock = processor.lock().unwrap();
+            processor_lock.process(this, work_item);
+        }
+    }
+
+    fn as_ig_storage(&self) -> &dyn igStorageDevice {
+        self
+    }
+}
+
+impl igStorageDevice for igArchive {
+    fn get_path(&self) -> String {
+        self._path.clone()
+    }
+
+    fn get_name(&self) -> String {
+        self._name.clone()
+    }
+
+    fn exists(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn close(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn read(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn write(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn truncate(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn mkdir(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn rmdir(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn get_file_list(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn get_file_list_with_sizes(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn unlink(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn rename(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn prefetch(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn format(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+
+    fn commit(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        todo!()
+    }
+}
+
+impl igArchive {
     /// Opens an archive
     /// file_path is the path of the archive
-    pub fn open(file_context: &igFileContext, file_path: String) -> Result<igArchive, &'static str> {
+    pub fn open(
+        file_context: &igFileContext,
+        file_path: String,
+    ) -> Result<igArchive, &'static str> {
         let file_descriptor = file_context.open(file_path, 0);
-        
+
         Err("todo igArchive::open")
     }
-    
+
     pub fn new() -> Self {
         igArchive {
+            next_processor: None,
+            _path: "".to_string(),
+            _name: "".to_string(),
             _load_name_table: false,
             _sequential_read: false,
             _loading_for_incremental_update: false,

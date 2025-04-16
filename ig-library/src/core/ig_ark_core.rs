@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 pub struct igArkCore {}
 
 impl igArkCore {
-    pub fn new(game: EGame) -> Self {
+    pub fn new(_game: EGame) -> Self {
         igArkCore {}
     }
 }

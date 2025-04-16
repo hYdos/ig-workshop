@@ -1,10 +1,11 @@
-use crate::core::fs::igFileWorkItemProcessor;
+use crate::core::fs::{igFileDescriptor, igFileWorkItemProcessor, Endian};
 use crate::core::ig_archive::igArchive;
-use phf::phf_map;
-use std::sync::{Arc, Mutex};
 use crate::core::ig_archive_manager::igArchiveManager;
 use crate::core::ig_archive_mount_manager::igArchiveMountManager;
 use crate::core::ig_std_lib_storage_device::igStdLibStorageDevice;
+use phf::phf_map;
+use std::sync::{Arc, Mutex};
+use crate::core::ig_file_context::WorkItemBuffer::Invalid;
 
 static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
     "actors"            => "actors",
@@ -37,10 +38,11 @@ static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
 };
 
 pub struct igFileContext {
-    _root: String,
-    processor_stack: Arc<Mutex<dyn igFileWorkItemProcessor + Send + Sync>>
+    pub _root: String,
+    processor_stack: Arc<Mutex<dyn igFileWorkItemProcessor + Send + Sync>>,
 }
 
+#[derive(Debug)]
 pub enum WorkType {
     kTypeInvalid = 0,
     kTypeExists = 1,
@@ -60,15 +62,83 @@ pub enum WorkType {
     kTypeCommit = 15,
 }
 
-pub struct igFileWorkItem {
-    pub path: String,
+#[derive(Debug)]
+pub enum WorkStatus {
+    kStatusInactive,
+    kStatusActive,
+    kStatusComplete,
+    kStatusDeviceNotFound,
+    kStatusInvalidPath,
+    kStatusTooManyOpenFiles,
+    kStatusBadParam,
+    kStatusOutOfMemory,
+    kStatusDiskFull,
+    kStatusDoorOpen,
+    kStatusReadError,
+    kStatusWriteError,
+    kStatusAlreadyInUse,
+    kStatusAlreadyExists,
+    kStatusEndOfFile,
+    kStatusDeviceNotInitialized,
+    kStatusMediaUnformatted,
+    kStatusMediaCorrupt,
+    kStatusPermissionDenied,
+    kStatusGeneralError,
+    kStatusStopped,
+    kStatusUnsupported,
+}
+
+pub enum WorkItemBuffer {
+    /// Not a reference list. This is owned, But named like this to match Alchemy's igStringRefList
+    StringRefList(Vec<String>),
+    Bytes(Vec<u8>),
+    Invalid(),
+}
+
+pub struct igFileWorkItem<'a> {
+    /// Context to avoid any possible leaking of state.
+    pub _ctx: &'a igFileContext,
+    /// The (usual) result after processing a igFileWorkItem
+    pub _file: igFileDescriptor,
+    /// The path to the file
+    pub _path: String,
+    /// Flags for opening the file
     pub flags: u32,
+    /// The type of work to be completed
     pub work_type: WorkType,
+    /// Allows returning a status after a job has been completed
+    pub _status: WorkStatus,
+    /// used on igStorage read()
+    pub _offset: u64,
+    /// used on igStorage read()
+    pub _buffer: WorkItemBuffer,
 }
 
 impl igFileContext {
-    pub fn open(&self, path: String, flags: u32) -> Self {
-        todo!()
+    pub fn open(&self, path: String, flags: u32) -> igFileDescriptor {
+        let mut work_item = igFileWorkItem {
+            _ctx: &self,
+            _file: igFileDescriptor {
+                _path: path.clone(),
+                _position: 0,
+                _size: 0,
+                _device: None,
+                _handle: None,
+                _flags: 0,
+                _work_item_active_count: 0,
+                endianness: Endian::Unknown,
+            },
+            _path: path,
+            flags,
+            work_type: WorkType::kTypeInvalid,
+            _status: WorkStatus::kStatusActive,
+            _offset: 0,
+            _buffer: Invalid(),
+        };
+        let processor_stack = self.processor_stack.lock().unwrap();
+        processor_stack.process(self.processor_stack.clone(), &mut work_item);
+
+        work_item._file
     }
 
     pub fn new(game_path: String) -> Self {
@@ -78,7 +148,8 @@ impl igFileContext {
             .to_string();
 
         let processor_stack = igArchiveMountManager::new();
-        { // Drop the lock as soon as possible
+        {
+            // Drop the lock as soon as possible
             let mut stack_lock = processor_stack.lock().unwrap();
             stack_lock.set_next_processor(igArchiveManager::new());
             stack_lock.set_next_processor(igStdLibStorageDevice::new());
@@ -86,11 +157,11 @@ impl igFileContext {
 
         igFileContext {
             _root,
-            processor_stack
+            processor_stack,
         }
     }
 
     pub fn initialize_update(&self, update_path: String) {
-        let ig_arc = igArchive::open(self, update_path);
+        let _ig_arc = igArchive::open(self, update_path);
     }
 }
