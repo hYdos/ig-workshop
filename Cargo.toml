@@ -1,0 +1,21 @@
+workspace = { members = ["ig-library"] }
+[package]
+# todo: ig-workshop
+name = "ig-cauldron-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ig-library = { path = "ig-library" }
+log = "0.4"
+env_logger = { version = "0.11.8", features = ["color", "humantime"] }
+egui = { version = "0.31.1", features = [] }
+#egui_extras = "0.31.1" requires 2024 edition
+eframe = { version = "0.31.1", features = ["glow"] }
+image = "0.25.6"
+egui_dock = "0.16.0"
+dirs = "6.0.0"
+sonic-rs = "0.5.0"
+lazy_static = "1.5.0"
+phf = { version = "0.11.3", features = ["macros"] }
+byteorder = "1.5.0"

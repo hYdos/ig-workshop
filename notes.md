@@ -1,0 +1,13 @@
+# Harass me to add these (Or PR them for me 🙏)
+- ability to load more than 1 game at once (no static state 😢 )
+- transfer igObject tool (for multiple game instances)
+- undo/redo tracking
+- extension system for writing custom egui handlers for igObject's which can use them.
+- store version info in about button for user bugs
+- search bar for files and igObject's
+- keeping igLibrary, igToolbox, and igExtensions separate (igExtensions is the tools to make igObjects user readable like texture importer/exporter, model importer/exporter, level editor/viewer, etc)
+- write down type of integer stuff is (helps with knowing max/min value or intended value)
+- igx support for maff (should be really easy tbh)
+- igb support for saves
+- deep copy (copy all children) and surface copy (keep references)
+- proper asset extraction (allow exporting of wav's, vvl's, and other assets)
