@@ -5,42 +5,44 @@ use crate::core::ig_archive_mount_manager::igArchiveMountManager;
 use crate::core::ig_file_context::WorkItemBuffer::Invalid;
 use crate::core::ig_registry::igRegistry;
 use crate::core::ig_std_lib_storage_device::igStdLibStorageDevice;
-use log::{debug, error, info};
-use phf::phf_map;
+use log::{debug, error};
 use std::sync::{Arc, Mutex};
+// use phf::phf_map;
 
-static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
-    "actors"            => "actors",
-    "anims"             => "anims",
-    "behavior_events"   => "behavior_events",
-    "animation_events"  => "animation_events",
-    "behaviors"         => "behaviors",
-    "cutscene"          => "cutscene",
-    "data"              => "",
-    "fonts"             => "fonts",
-    "graphs"            => "graphs",
-    "vsc"               => "vsc",
-    "loosetextures"     => "loosetextures",
-    "luts"              => "loosetextures/luts",
-    "maps"              => "maps",
-    "materials"         => "materialInstances",
-    "models"            => "models",
-    "motionpaths"       => "motionpaths",
-    "renderer"          => "renderer",
-    "scripts"           => "scripts",
-    "shaders"           => "shaders",
-    "sky"               => "sky",
-    "sounds"            => "sounds",
-    "spawnmeshes"       => "spawnmeshes",
-    "textures"          => "textures",
-    "ui"                => "ui",
-    "vfx"               => "vfx",
-    "cwd"               => "",
-    "app"               => "",
-};
+//
+// static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
+//     "actors"            => "actors",
+//     "anims"             => "anims",
+//     "behavior_events"   => "behavior_events",
+//     "animation_events"  => "animation_events",
+//     "behaviors"         => "behaviors",
+//     "cutscene"          => "cutscene",
+//     "data"              => "",
+//     "fonts"             => "fonts",
+//     "graphs"            => "graphs",
+//     "vsc"               => "vsc",
+//     "loosetextures"     => "loosetextures",
+//     "luts"              => "loosetextures/luts",
+//     "maps"              => "maps",
+//     "materials"         => "materialInstances",
+//     "models"            => "models",
+//     "motionpaths"       => "motionpaths",
+//     "renderer"          => "renderer",
+//     "scripts"           => "scripts",
+//     "shaders"           => "shaders",
+//     "sky"               => "sky",
+//     "sounds"            => "sounds",
+//     "spawnmeshes"       => "spawnmeshes",
+//     "textures"          => "textures",
+//     "ui"                => "ui",
+//     "vfx"               => "vfx",
+//     "cwd"               => "",
+//     "app"               => "",
+// };
 
 pub struct igFileContext {
     pub _root: String,
+    archive_manager: Arc<Mutex<igArchiveManager>>,
     processor_stack: Arc<Mutex<dyn igFileWorkItemProcessor + Send + Sync>>,
 }
 
@@ -64,8 +66,7 @@ pub enum WorkType {
     kTypeCommit = 15,
 }
 
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum WorkStatus {
     kStatusInactive,
     kStatusActive,
@@ -154,16 +155,19 @@ impl igFileContext {
             .trim_end_matches("/")
             .to_string();
 
+        let archive_manager = igArchiveManager::new();
+
         let processor_stack = igArchiveMountManager::new();
         {
             // Drop the lock as soon as possible
             let mut stack_lock = processor_stack.lock().unwrap();
-            stack_lock.set_next_processor(igArchiveManager::new());
+            stack_lock.set_next_processor(archive_manager.clone());
             stack_lock.set_next_processor(igStdLibStorageDevice::new());
         }
 
         igFileContext {
             _root,
+            archive_manager,
             processor_stack,
         }
     }
@@ -171,9 +175,14 @@ impl igFileContext {
     pub fn initialize_update(&self, ig_registry: &igRegistry, update_path: String) {
         let load_update_result = igArchive::open(self, ig_registry, update_path);
         if let Ok(update_pak) = load_update_result {
-            info!("Awesome Sauce")
-        } else { 
-            error!("Failed to load update.pak: {}", load_update_result.err().unwrap())
+            if let Ok(mut archive_manager) = self.archive_manager.lock() {
+                archive_manager._patch_archives.push(update_pak);
+            }
+        } else {
+            error!(
+                "Failed to load update.pak: {}",
+                load_update_result.err().unwrap()
+            )
         }
     }
 }

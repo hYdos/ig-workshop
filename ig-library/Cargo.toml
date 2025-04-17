@@ -5,10 +5,22 @@ edition = "2021"
 
 [dependencies]
 log = "0.4"
+# Static Lazy
 phf = "0.11.3"
+
+# File Reading
 byteorder = "1.5.0"
+
+# File Impl Util
 walkdir = "2.5.0"
+
+# Compression Libs
 flate2 = "1.1.1" #zlib
 lzma-rs = "0.3.0"#annoying lzma library
 lz4 = "1.28.1" #lz4
+
+# For macros
 paste = "1.0.15"
+
+# For metadata reading
+quick-xml = "0.37.4"

@@ -6,13 +6,13 @@ use crate::util::ig_hash;
 use std::sync::{Arc, Mutex};
 
 pub struct igArchiveManager {
-    next_processor: Option<Arc<Mutex<dyn igFileWorkItemProcessor + Send + Sync>>>,
+    next_processor: Option<Arc<Mutex<dyn igFileWorkItemProcessor>>>,
     _archive_list: igArchiveList,
-    _patch_archives: igArchiveList,
+    pub _patch_archives: igArchiveList,
 }
 
 impl igArchiveManager {
-    pub fn new() -> Arc<Mutex<dyn igFileWorkItemProcessor + Send + Sync>> {
+    pub fn new() -> Arc<Mutex<igArchiveManager>> {
         Arc::new(Mutex::new(Self {
             next_processor: None,
             _archive_list: igArchiveList::new(),
@@ -30,13 +30,13 @@ impl igFileWorkItemProcessor for igArchiveManager {
         match work_item.work_type {
             WorkType::kTypeFileList => {
                 let hash = ig_hash::hash(&work_item._path);
-                for patch_archive in &self._patch_archives.items {
+                for patch_archive in &self._patch_archives {
                     if ig_hash::hash(&patch_archive._path) == hash {
                         igStorageDevice::process(patch_archive, this.clone(), work_item);
                         return;
                     }
                 }
-                for archive in &self._archive_list.items {
+                for archive in &self._archive_list {
                     if ig_hash::hash(&archive._path) == hash {
                         igStorageDevice::process(archive, this.clone(), work_item);
                         return;
@@ -48,13 +48,13 @@ impl igFileWorkItemProcessor for igArchiveManager {
                 return;
             }
             _ => {
-                for patch_archive in &self._patch_archives.items {
+                for patch_archive in &self._patch_archives {
                     igStorageDevice::process(patch_archive, this.clone(), work_item);
                     if work_item._status == kStatusComplete {
                         return;
                     }
                 }
-                for archive in &self._archive_list.items {
+                for archive in &self._archive_list {
                     igStorageDevice::process(archive, this.clone(), work_item);
                     if work_item._status == kStatusComplete {
                         return;

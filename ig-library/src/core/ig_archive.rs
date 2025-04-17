@@ -196,7 +196,7 @@ impl igArchive {
         ig_registry: &igRegistry,
         file_path: String,
     ) -> Result<igArchive, String> {
-        let file_descriptor = file_context.open(ig_registry, file_path, 0);
+        let mut file_descriptor = file_context.open(ig_registry, file_path, 0);
         let _path = file_descriptor._path;
         let mut header = Header {
             endian: Endian::Little,
@@ -349,8 +349,8 @@ impl igArchive {
                 
                 for i in 0..block_count {
                     let block_idx = ((file._block_index & 0x0FFFFFFF) + i) as usize;
-                    let mut is_compressed = false;
-                    let mut block: u32 = 0;
+                    let is_compressed;
+                    let mut block;
                     if 0x7F * header._sector_size < file._length {
                         if 0x7FFF * header._sector_size < file._length {
                             block = large_block_tbl[block_idx];
@@ -377,6 +377,9 @@ impl igArchive {
                 file._blocks = Some(fixed_blocks);
                 file._compressed_data = Vec::from(read_struct_array_u8(&mut cursor, &header.endian, (sector_count * header._sector_size) as usize).unwrap())
             }
+            
+            // Hint to the compiler to drop this as soon as possible
+            file_descriptor._handle = None;
             
             Ok(igArchive {
                 next_processor: None,

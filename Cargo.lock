@@ -1825,6 +1825,7 @@ dependencies = [
  "lzma-rs",
  "paste",
  "phf",
+ "quick-xml 0.37.4",
  "walkdir",
 ]
 
