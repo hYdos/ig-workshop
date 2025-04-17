@@ -52,24 +52,29 @@ pub fn load_game_data(game_cfg: GameConfig, dock_state: Arc<Mutex<DockState<wind
             let start_time = Instant::now();
 
             let ig_file_context = igFileContext::new(game_cfg.clone()._path);
-            
+            let mut ig_registry = igRegistry::new(game_cfg.clone()._platform);
+
             if !game_cfg._update_path.is_empty() {
-                ig_file_context.initialize_update(game_cfg.clone()._update_path);
+                ig_file_context.initialize_update(&ig_registry, game_cfg.clone()._update_path);
             }
             
-            let ig_registry = igRegistry::new(game_cfg.clone()._platform);
             let ig_ark_core = igArkCore::new(game_cfg.clone()._game);
-            load_init_script(game_cfg.clone()._game, false);
+            load_init_script(game_cfg.clone()._game, &mut ig_registry,  false);
             
-            // I'm going to be honest I'm not a fan of this method.
-            // however, with how complex these games are we need to save performance (by not recreating tabs) as much as possible
-            let mut dock_guard = dock_state.lock().unwrap();
-            dock_guard.push_to_focused_leaf(Some(Arc::new(Mutex::new(LoadedGame {
+            let new_leaf = Some(Arc::new(Mutex::new(LoadedGame {
                 cfg: game_cfg.clone(),
                 ig_file_context,
                 ig_registry,
                 ig_ark_core,
-            }))));
+            })));
+
+            // I'm going to be honest I'm not a fan of this method.
+            // however, with how complex these games are we need to save performance (by not recreating tabs) as much as possible
+            if let Ok(mut dock_guard) = dock_state.lock() {
+                dock_guard.push_to_focused_leaf(new_leaf);
+            } else { 
+                panic!("We somehow failed the Mutex lock on the UI :(")
+            }
 
             let total_time = Instant::now().sub(start_time);
             info!("Game data loaded in {:?}", total_time);

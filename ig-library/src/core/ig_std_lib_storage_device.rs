@@ -28,7 +28,7 @@ impl igStdLibStorageDevice {
 impl igStdLibStorageDevice {
     fn get_combined_path(&self, work_item: &mut igFileWorkItem) -> String {
         // igCauldron accidentally did an if check here for no reason. Unsure as to why.
-        PathBuf::from(&work_item._ctx._root)
+        PathBuf::from(&work_item.file_context._root)
             .join(&work_item._path)
             .to_str()
             .unwrap()
@@ -232,8 +232,14 @@ impl igFileWorkItemProcessor for igStdLibStorageDevice {
         igStorageDevice::process(self, this, work_item);
     }
 
-    fn set_next_processor(&mut self, processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
-        self.next_processor = Some(processor);
+    fn set_next_processor(&mut self, new_processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
+        if let Some(next_processor) = &self.next_processor {
+            if let Ok(mut processor) = next_processor.lock() {
+                processor.set_next_processor(new_processor);
+                return;
+            }
+        }
+        self.next_processor = Some(new_processor);
     }
 
     fn send_to_next_processor(

@@ -111,36 +111,6 @@ impl TabViewer for CauldronTabViewer {
                             egui::ComboBox::from_id_salt("Target Game")
                                 .selected_text(format!("{}", game_cfg._game))
                                 .show_ui(ui, |ui| {
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_ZooCube, format!("{}", EGame::EV_ZooCube));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_HootersRoadTrip, format!("{}", EGame::EV_HootersRoadTrip));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_DogsPlayingPoker, format!("{}", EGame::EV_DogsPlayingPoker));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_EnigmaRisingTide, format!("{}", EGame::EV_EnigmaRisingTide));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_CrashNitroKart, format!("{}", EGame::EV_CrashNitroKart));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SpiderMan2, format!("{}", EGame::EV_SpiderMan2));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_LupinSenseiColumbusNoIsanWaAkeNiSomaru, format!("{}", EGame::EV_LupinSenseiColumbusNoIsanWaAkeNiSomaru));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_YuGiOhTheDawnOfDestiny, format!("{}", EGame::EV_YuGiOhTheDawnOfDestiny));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_GraffitiKingdom, format!("{}", EGame::EV_GraffitiKingdom));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_XMenLegends, format!("{}", EGame::EV_XMenLegends));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_GradiusV, format!("{}", EGame::EV_GradiusV));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_ShamanKingPowerOfSpirit, format!("{}", EGame::EV_ShamanKingPowerOfSpirit));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_UltimateSpiderMan, format!("{}", EGame::EV_UltimateSpiderMan));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_XMenLegendsIIRiseOfApocalypse, format!("{}", EGame::EV_XMenLegendsIIRiseOfApocalypse));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_TonyHawksAmericanSk8land, format!("{}", EGame::EV_TonyHawksAmericanSk8land));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_DigimonWorld4, format!("{}", EGame::EV_DigimonWorld4));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SpiderManBattleForNewYork, format!("{}", EGame::EV_SpiderManBattleForNewYork));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_MarvelUltimateAlliance, format!("{}", EGame::EV_MarvelUltimateAlliance));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_TonyHawksDownhillJam, format!("{}", EGame::EV_TonyHawksDownhillJam));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_TransformersAutobots, format!("{}", EGame::EV_TransformersAutobots));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_TransformersDecpticons, format!("{}", EGame::EV_TransformersDecpticons));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_TonyHawksProvingGround, format!("{}", EGame::EV_TonyHawksProvingGround));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_ShrekTheThird, format!("{}", EGame::EV_ShrekTheThird));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_BeautfilKatamari, format!("{}", EGame::EV_BeautfilKatamari));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_LupinSenseiLupinNiWaShiOZenigataNiWaKoiO, format!("{}", EGame::EV_LupinSenseiLupinNiWaShiOZenigataNiWaKoiO));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SpiderMan3_DS, format!("{}", EGame::EV_SpiderMan3_DS));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_WanganMidnightMaximumTune3, format!("{}", EGame::EV_WanganMidnightMaximumTune3));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_BackyardBasketball2007, format!("{}", EGame::EV_BackyardBasketball2007));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SpiderMan3_HC, format!("{}", EGame::EV_SpiderMan3_HC));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_OperationDarkness, format!("{}", EGame::EV_OperationDarkness));
                                     ui.selectable_value(&mut game_cfg._game, EGame::EV_MadagascarTMEscape2AfricaTMTheGameTM, format!("{}", EGame::EV_MadagascarTMEscape2AfricaTMTheGameTM));
                                     ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersSpyrosAdventure, format!("{}", EGame::EV_SkylandersSpyrosAdventure));
                                     ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersSpyrosAdventure_3DS, format!("{}", EGame::EV_SkylandersSpyrosAdventure_3DS));

@@ -1,5 +1,18 @@
-use crate::core::fs::{igFileDescriptor, igFileWorkItemProcessor, igStorageDevice};
-use crate::core::ig_file_context::{igFileContext, igFileWorkItem};
+use crate::core::fs::{igFileWorkItemProcessor, igStorageDevice, Endian};
+use crate::core::ig_file_context::WorkStatus::{
+    kStatusComplete, kStatusGeneralError, kStatusInvalidPath, kStatusUnsupported,
+};
+use crate::core::ig_file_context::{igFileContext, igFileWorkItem, WorkItemBuffer};
+use crate::core::ig_registry::{igRegistry, BuildTool};
+use crate::util::byteorder_fixes::{
+    read_string, read_struct_array_u16, read_struct_array_u32, read_struct_array_u8, read_u32,
+    read_u64,
+};
+use crate::util::ig_hash;
+use byteorder::{LittleEndian, ReadBytesExt};
+use flate2::read::ZlibDecoder;
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 /// Represents an archive file
@@ -12,7 +25,6 @@ pub struct igArchive {
     pub _loading_for_incremental_update: bool,
     pub _enable_cache: bool,
     pub _override: bool,
-    pub _file_descriptor: igFileDescriptor,
     pub _open: bool,
     pub _configured: bool,
     pub _needs_endian_swap: bool,
@@ -23,10 +35,432 @@ pub struct igArchive {
     pub _native_app_path: String,
 }
 
-impl igFileWorkItemProcessor for igArchive {
+/// Deletes a file present in an archive
+fn delete(_path: &str) -> Result<(), ()> {
+    todo!("implement delete file in igArchive")
+}
 
-    fn set_next_processor(&mut self, processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
-        self.next_processor = Some(processor);
+impl igArchive {
+    pub fn hash_file_path(&self, file_path: &str) -> u32 {
+        let mut path_copy = file_path.to_string();
+
+        // kCaseInsensitiveHash
+        if (self._archive_header._flags & 1u32) != 0 {
+            path_copy = path_copy.replace("\\", "/");
+            path_copy = path_copy.to_lowercase();
+        }
+
+        // kHashNameAndExtensionOnly
+        if (self._archive_header._flags & 1u32) != 0 {
+            path_copy = Path::new(&path_copy)
+                .file_name()
+                .and_then(|os_str| os_str.to_str())
+                .unwrap_or("")
+                .to_string();
+        }
+
+        path_copy = path_copy
+            .trim_start_matches(|c| c == '/' || c == '\\')
+            .to_string();
+        ig_hash::hash(&path_copy)
+    }
+
+    /// Reverse engineered by DTZxPorter. It will Search the list of files for a given hash and will return the index of the file info
+    pub fn hash_search(
+        file_info: &[FileInfo],
+        hash_search_divider: u32,
+        hash_search_slop: u32,
+        file_hash: u32,
+    ) -> Option<usize> {
+        let mut file_count = file_info.len() as u32;
+        let mut file_hash_divided = file_hash / hash_search_divider; // most likely an optimization to make searching easier when fewer collisions can happen.
+
+        let mut search_at = 0;
+        if hash_search_slop < file_hash_divided {
+            search_at = file_hash_divided - hash_search_slop;
+        }
+
+        file_hash_divided += hash_search_slop + 1;
+        if file_hash_divided < file_count {
+            file_count = file_hash_divided;
+        }
+
+        let mut index = search_at;
+        search_at = file_count - index;
+        let mut i = search_at;
+        while 0 < i {
+            i = search_at / 2;
+            if file_info[(index + i) as usize]._hash < file_hash {
+                index += i + 1;
+                i = search_at - 1 - i;
+            }
+            search_at = i;
+        }
+
+        if index < file_info.len() as u32 && file_info[index as usize]._hash == file_hash {
+            return Some(index as usize);
+        }
+
+        None // no file was found :(
+    }
+
+    /// Will check if the archive contains a file based on the path provided
+    fn has_file(&self, path: &str) -> bool {
+        self.has_hash(self.hash_file_path(path))
+    }
+
+    /// Similar to [has_file], but will use a hash instead of a file path.
+    fn has_hash(&self, _hash: u32) -> bool {
+        Self::hash_search(
+            &self._files,
+            self._archive_header._hash_search_divider,
+            self._archive_header._hash_search_slop,
+            _hash,
+        )
+        .is_some()
+    }
+
+    fn decompress_as_handle(&self, file_info: &FileInfo) -> Cursor<Vec<u8>> {
+        Cursor::new(self.decompress(file_info))
+    }
+
+    fn decompress(&self, file_info: &FileInfo) -> Vec<u8> {
+        let mut dst = Vec::<u8>::new();
+        if file_info._block_index == 0xFFFFFFFF {
+            dst.write_all(&file_info._compressed_data).unwrap();
+            return dst;
+        }
+        let blocks = file_info._blocks.clone().unwrap();
+        let compression_type = CompressionType::from_index(file_info._block_index);
+        for i in 0..blocks.len() {
+            let decompressed_size = if file_info._length < ((i + 1) * 0x8000) as u32 {
+                file_info._length & 0x7FFF
+            } else {
+                0x8000
+            };
+
+            // let should_decompress = blocks[i] & 0x80000000u32 != 0; unused
+            let mut offset =
+                ((blocks[i] & 0x7FFFFFFF) * self._archive_header._sector_size) as usize;
+            if blocks[i] & 0x80000000u32 == 0 {
+                let compressed_data =
+                    &file_info._compressed_data[offset..(offset + decompressed_size as usize)];
+                dst.write_all(compressed_data).unwrap();
+                continue;
+            }
+
+            let mut cursor = Cursor::new(&file_info._compressed_data);
+            cursor.seek(SeekFrom::Start(offset as u64)).unwrap();
+            let compressed_size = cursor.read_u16::<LittleEndian>().unwrap(); // C# Implementation does not state what endian igCauldron is reading this in.
+            drop(cursor);
+            offset += 2;
+
+            match compression_type {
+                CompressionType::kZlib => {
+                    let slice =
+                        &file_info._compressed_data[offset..(offset + compressed_size as usize)];
+                    let mut decoder = ZlibDecoder::new(slice);
+                    decoder.read_to_end(&mut dst).unwrap();
+                }
+                CompressionType::kLzma => {
+                    let lzma_properties = &file_info._compressed_data[offset..offset + 5];
+                    let slice = &file_info._compressed_data
+                        [offset + 5..(5 + offset + compressed_size as usize)];
+
+                    let mut header = Vec::with_capacity(13);
+                    header.extend_from_slice(lzma_properties);
+                    header.extend_from_slice(&(decompressed_size as u64).to_le_bytes());
+
+                    let mut compressed_reader = Cursor::new(slice);
+
+                    lzma_rs::lzma_decompress(&mut compressed_reader, &mut dst).unwrap();
+                }
+                CompressionType::kLz4 => {
+                    let slice =
+                        &file_info._compressed_data[offset..(offset + compressed_size as usize)];
+                    dst.extend(
+                        lz4::block::decompress(slice, Some(decompressed_size as i32)).unwrap(),
+                    );
+                }
+                _ => panic!("Unsupported compression type {:?}", compression_type),
+            }
+        }
+
+        dst
+    }
+
+    /// Opens an archive
+    /// file_path is the path of the archive
+    pub fn open(
+        file_context: &igFileContext,
+        ig_registry: &igRegistry,
+        file_path: String,
+    ) -> Result<igArchive, String> {
+        let file_descriptor = file_context.open(ig_registry, file_path, 0);
+        let _path = file_descriptor._path;
+        let mut header = Header {
+            endian: Endian::Little,
+            _magic_number: 0,
+            _version: 0,
+            _toc_size: 0,
+            _num_files: 0,
+            _sector_size: 0,
+            _hash_search_divider: 0,
+            _hash_search_slop: 0,
+            _num_large_file_blocks: 0,
+            _num_medium_file_blocks: 0,
+            _num_small_file_blocks: 0,
+            _name_table_offset: 0,
+            _name_table_size: 0,
+            _flags: 0,
+        };
+
+        if let Some(mut cursor) = file_descriptor._handle {
+            cursor.seek(SeekFrom::Start(0)).unwrap();
+            header._magic_number = read_u32(&mut cursor, &Endian::Little).unwrap();
+
+            if header._magic_number == u32::from_be_bytes(*b"IGA\x1A") {
+                header.endian = Endian::Big;
+            } else if header._magic_number != u32::from_le_bytes(*b"IGA\x1A") {
+                return Err(format!("{} is not a valid igArchive.", _path));
+            }
+
+            header._version = read_u32(&mut cursor, &header.endian).unwrap();
+            match header._version {
+                0x0B => {
+                    // Latest Version
+                    header._toc_size = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._num_files = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._sector_size = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._hash_search_divider = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._hash_search_slop = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._num_large_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._num_medium_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._num_small_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._name_table_offset = read_u64(&mut cursor, &header.endian).unwrap();
+                    header._name_table_size = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._flags = read_u32(&mut cursor, &header.endian).unwrap();
+                }
+                _ => {
+                    return Err(format!(
+                        "igArchive version {} is not implemented.",
+                        header._version
+                    ))
+                }
+            }
+
+            // File entries are stored in three sections: one section stores the hash, the second gets offset and other general info, and the last has a second set of info relating to names
+            let mut _files: Vec<FileInfo> = Vec::with_capacity(header._num_files as usize);
+            for _i in 0..header._num_files {
+                _files.push(FileInfo {
+                    _offset: 0,
+                    _ordinal: 0,
+                    _length: 0,
+                    _block_index: 0,
+                    _name: "".to_string(),
+                    _logical_name: "".to_string(),
+                    _modification_time: 0,
+                    _blocks: None,
+                    _compressed_data: vec![],
+                    _hash: read_u32(&mut cursor, &header.endian).unwrap(),
+                })
+            }
+
+            for i in 0..header._num_files {
+                let file = &mut _files[i as usize];
+                // technically the offset is 5 bytes and the ordinal is 3
+                let tmp = read_u64(&mut cursor, &header.endian).unwrap(); // Read all 8 bytes together at once
+                file._ordinal = (tmp >> 40) as u32;
+                file._offset = (tmp & 0xFFFFFFFF) as u32; // FIXME: this looks like its reading 4 bytes, not 5...
+                file._length = read_u32(&mut cursor, &header.endian).unwrap();
+                file._block_index = read_u32(&mut cursor, &header.endian).unwrap();
+            }
+
+            let name_tbl_offset = header._name_table_offset as u64;
+
+            for i in 0..header._num_files {
+                let file = &mut _files[i as usize];
+                // pointer to a pointer to the name information
+                cursor
+                    .seek(SeekFrom::Start(name_tbl_offset + i as u64 * 0x04))
+                    .unwrap();
+                let inner_ptr = read_u32(&mut cursor, &header.endian).unwrap() as u64;
+                cursor
+                    .seek(SeekFrom::Start(name_tbl_offset + inner_ptr))
+                    .unwrap();
+
+                let name1 = read_string(&mut cursor).unwrap();
+                let mut name2 = None;
+
+                if header._version >= 0x0A {
+                    name2 = Some(read_string(&mut cursor).unwrap());
+                }
+
+                if header._version >= 0x08 {
+                    file._modification_time = read_u32(&mut cursor, &header.endian).unwrap();
+                }
+
+                if header._version >= 0x0B {
+                    file._name = name1;
+                    file._logical_name = name2.unwrap_or_default();
+                } else {
+                    file._logical_name = name1;
+                    file._name = name2.unwrap_or_default();
+                }
+            }
+
+            let block_info_start = get_header_size(header._version) as u64
+                + header._num_files as u64 * (0x04 + get_file_info_size(header._version)) as u64;
+
+            cursor.seek(SeekFrom::Start(block_info_start)).unwrap();
+            let large_block_tbl = read_struct_array_u32(
+                &mut cursor,
+                &header.endian,
+                header._num_large_file_blocks as usize,
+            )
+            .unwrap();
+            let medium_block_tbl = read_struct_array_u16(
+                &mut cursor,
+                &header.endian,
+                header._num_medium_file_blocks as usize,
+            )
+            .unwrap();
+            let small_block_tbl = read_struct_array_u8(
+                &mut cursor,
+                &header.endian,
+                header._num_small_file_blocks as usize,
+            )
+            .unwrap();
+
+            for file in &mut _files {
+                cursor.seek(SeekFrom::Start(file._offset as u64)).unwrap();
+                if file._block_index == 0xFFFFFFFF {
+                    file._compressed_data = Vec::from(read_struct_array_u8(&mut cursor, &header.endian, file._length as usize)
+                            .unwrap());
+                    continue;
+                }
+
+                let mut sector_count = 0;
+                let block_count = (file._length + 0x7FFF) >> 0xF;
+                let mut fixed_blocks: Vec<u32> = Vec::with_capacity(block_count as usize);
+                for _i in 0..block_count as usize {
+                    fixed_blocks.push(0);
+                }
+                
+                for i in 0..block_count {
+                    let block_idx = ((file._block_index & 0x0FFFFFFF) + i) as usize;
+                    let mut is_compressed = false;
+                    let mut block: u32 = 0;
+                    if 0x7F * header._sector_size < file._length {
+                        if 0x7FFF * header._sector_size < file._length {
+                            block = large_block_tbl[block_idx];
+                            is_compressed = if (block >> 0x1F) == 1 { true } else { false };
+                            block &= 0x7FFFFFFF;
+                            sector_count += (large_block_tbl[block_idx + 1] & 0x7FFFFFFF) - block;
+                        } else {
+                            block = medium_block_tbl[block_idx] as u32;
+                            is_compressed = if (block >> 0x0F) == 1 { true } else { false };
+                            block &= 0x7FFF;
+                            sector_count += (medium_block_tbl[block_idx + 1] & 0x7FFF) as u32 - block;
+                        }
+                    } else {
+                        block = small_block_tbl[block_idx] as u32;
+                        is_compressed = if (block >> 0x07) == 1 { true } else { false };
+                        block &= 0x7F;
+                        sector_count += (small_block_tbl[block_idx + 1] & 0x7F) as u32 - block;
+                    }
+
+                    fixed_blocks[i as usize] =
+                        if is_compressed { 0x80000000u32 } else { 0u32 } | block;
+                }
+                
+                file._blocks = Some(fixed_blocks);
+                file._compressed_data = Vec::from(read_struct_array_u8(&mut cursor, &header.endian, (sector_count * header._sector_size) as usize).unwrap())
+            }
+            
+            Ok(igArchive {
+                next_processor: None,
+                _path,
+                _name: "".to_string(),
+                _load_name_table: false,
+                _sequential_read: false,
+                _loading_for_incremental_update: false,
+                _enable_cache: false,
+                _override: false,
+                _open: false,
+                _configured: false,
+                _needs_endian_swap: false,
+                _archive_header: header,
+                _files,
+                _native_media: "".to_string(),
+                _native_path: "".to_string(),
+                _native_app_path: "".to_string(),
+            })
+        } else {
+            Err("file_descriptor._handle was not available".to_string())
+        }
+    }
+
+    pub fn new() -> Self {
+        igArchive {
+            next_processor: None,
+            _path: "".to_string(),
+            _name: "".to_string(),
+            _load_name_table: false,
+            _sequential_read: false,
+            _loading_for_incremental_update: false,
+            _enable_cache: false,
+            _override: false,
+            _open: false,
+            _configured: false,
+            _needs_endian_swap: false,
+            _archive_header: Header {
+                endian: Endian::Little,
+                _magic_number: 0,
+                _version: 0,
+                _toc_size: 0,
+                _num_files: 0,
+                _sector_size: 0,
+                _hash_search_divider: 0,
+                _hash_search_slop: 0,
+                _num_large_file_blocks: 0,
+                _num_medium_file_blocks: 0,
+                _num_small_file_blocks: 0,
+                _name_table_offset: 0,
+                _name_table_size: 0,
+                _flags: 0,
+            },
+            _files: vec![],
+            _native_media: "".to_string(),
+            _native_path: "".to_string(),
+            _native_app_path: "".to_string(),
+        }
+    }
+}
+
+fn get_header_size(version: u32) -> u8 {
+    match version {
+        0x0B => 0x38,
+        _ => panic!("IGA version {} is unsupported", version),
+    }
+}
+
+fn get_file_info_size(version: u32) -> u8 {
+    match version {
+        0x0B => 0x10,
+        _ => panic!("IGA version {} is unsupported", version),
+    }
+}
+
+impl igFileWorkItemProcessor for igArchive {
+    fn set_next_processor(&mut self, new_processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
+        if let Some(next_processor) = &self.next_processor {
+            if let Ok(mut processor) = next_processor.lock() {
+                processor.set_next_processor(new_processor);
+                return;
+            }
+        }
+        self.next_processor = Some(new_processor);
     }
 
     fn send_to_next_processor(
@@ -54,117 +488,171 @@ impl igStorageDevice for igArchive {
         self._name.clone()
     }
 
-    fn exists(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
+    fn exists(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        if self.has_file(&work_item._path) {
+            work_item._status = kStatusComplete;
+        } else {
+            work_item._status = kStatusInvalidPath;
+        }
     }
 
     fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn close(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn read(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn write(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn truncate(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn mkdir(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn rmdir(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn get_file_list(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn get_file_list_with_sizes(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn unlink(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn rename(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn prefetch(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn format(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-
-    fn commit(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        todo!()
-    }
-}
-
-impl igArchive {
-    /// Opens an archive
-    /// file_path is the path of the archive
-    pub fn open(
-        file_context: &igFileContext,
-        file_path: String,
-    ) -> Result<igArchive, &'static str> {
-        let file_descriptor = file_context.open(file_path, 0);
-
-        Err("todo igArchive::open")
-    }
-
-    pub fn new() -> Self {
-        igArchive {
-            next_processor: None,
-            _path: "".to_string(),
-            _name: "".to_string(),
-            _load_name_table: false,
-            _sequential_read: false,
-            _loading_for_incremental_update: false,
-            _enable_cache: false,
-            _override: false,
-            _file_descriptor: igFileDescriptor::empty(),
-            _open: false,
-            _configured: false,
-            _needs_endian_swap: false,
-            _archive_header: Header {
-                _magic_number: 0,
-                _version: 0,
-                _toc_size: 0,
-                _num_files: 0,
-                _sector_size: 0,
-                _hash_search_divider: 0,
-                _hash_search_slop: 0,
-                _num_large_file_blocks: 0,
-                _num_medium_file_blocks: 0,
-                _num_small_file_blocks: 0,
-                _name_table_offset: 0,
-                _name_table_size: 0,
-                _flags: 0,
-            },
-            _files: vec![],
-            _native_media: "".to_string(),
-            _native_path: "".to_string(),
-            _native_app_path: "".to_string(),
+        match work_item.ig_registry.build_tool {
+            BuildTool::AlchemyLaboratory => {
+                if let Some(file_idx) = Self::hash_search(
+                    &self._files,
+                    self._archive_header._hash_search_divider,
+                    self._archive_header._hash_search_slop,
+                    self.hash_file_path(&work_item._path),
+                ) {
+                    let file = &self._files[file_idx];
+                    work_item._file._path = work_item._path.clone();
+                    work_item._file._size = file._length as u64;
+                    work_item._file._position = 0;
+                    work_item._file._device = Some(this.clone());
+                    work_item._file._handle = Some(self.decompress_as_handle(file));
+                    work_item._status = kStatusComplete;
+                } else {
+                    work_item._status = kStatusInvalidPath
+                }
+            }
+            _ => {
+                for file in &self._files {
+                    if file._name.eq(&work_item._path) {
+                        work_item._file._path = work_item._path.clone();
+                        work_item._file._size = file._length as u64;
+                        work_item._file._position = 0;
+                        work_item._file._device = Some(this.clone());
+                        work_item._file._handle = Some(self.decompress_as_handle(file));
+                        work_item._status = kStatusComplete;
+                    }
+                }
+            }
         }
+    }
+
+    fn close(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn read(&self, _this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn write(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn truncate(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn mkdir(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn rmdir(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn get_file_list(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        match &mut work_item._buffer {
+            WorkItemBuffer::StringRefList(files) => {
+                for file_info in &self._files {
+                    files.push(file_info._logical_name.clone())
+                }
+            }
+            _ => {
+                work_item._status = kStatusGeneralError;
+                return;
+            }
+        }
+    }
+
+    fn get_file_list_with_sizes(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn unlink(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        if delete(&work_item._path).is_ok() {
+            work_item._status = kStatusComplete
+        } else {
+            work_item._status = kStatusInvalidPath
+        }
+    }
+
+    fn rename(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn prefetch(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn format(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn commit(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
     }
 }
 
 pub struct Header {
+    /// Custom field added by ig-workshop. Not present in real igArchives
+    pub endian: Endian,
     pub _magic_number: u32,
     pub _version: u32,
     pub _toc_size: u32,
@@ -175,7 +663,7 @@ pub struct Header {
     pub _num_large_file_blocks: u32,
     pub _num_medium_file_blocks: u32,
     pub _num_small_file_blocks: u32,
-    pub _name_table_offset: u32,
+    pub _name_table_offset: u64,
     pub _name_table_size: u32,
     pub _flags: u32,
 }
@@ -183,6 +671,7 @@ pub struct Header {
 /// <summary>
 /// Different compression formats
 /// </summary>
+#[derive(Debug)]
 pub enum CompressionType {
     kUncompressed = 0,
     kZlib = 1,
@@ -192,6 +681,16 @@ pub enum CompressionType {
     kCompressionFormatMask = 0xF0000000,
     kFirstBlockMask = 0x0FFFFFFF,
     kOffsetBits = 40,
+}
+
+impl CompressionType {
+    fn from_index(block_index: u32) -> CompressionType {
+        let shift = block_index >> 28;
+
+        match shift {
+            _ => panic!("Unknown compression type"),
+        }
+    }
 }
 
 /// <summary>

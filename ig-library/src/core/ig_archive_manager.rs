@@ -1,7 +1,8 @@
 use crate::core::fs::{igFileWorkItemProcessor, igStorageDevice};
+use crate::core::ig_file_context::WorkStatus::kStatusComplete;
 use crate::core::ig_file_context::{igFileWorkItem, WorkType};
 use crate::core::ig_lists::igArchiveList;
-use crate::core::util::ig_hash;
+use crate::util::ig_hash;
 use std::sync::{Arc, Mutex};
 
 pub struct igArchiveManager {
@@ -23,7 +24,7 @@ impl igArchiveManager {
 impl igFileWorkItemProcessor for igArchiveManager {
     fn process(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         match work_item.work_type {
@@ -31,22 +32,48 @@ impl igFileWorkItemProcessor for igArchiveManager {
                 let hash = ig_hash::hash(&work_item._path);
                 for patch_archive in &self._patch_archives.items {
                     if ig_hash::hash(&patch_archive._path) == hash {
-                        todo!("patch_archive.process(work_item)");
+                        igStorageDevice::process(patch_archive, this.clone(), work_item);
+                        return;
                     }
                 }
                 for archive in &self._archive_list.items {
                     if ig_hash::hash(&archive._path) == hash {
-                        todo!("archive.process(work_item)");
+                        igStorageDevice::process(archive, this.clone(), work_item);
+                        return;
                     }
                 }
             }
-            WorkType::kTypeInvalid => return,
-            _ => {}
+            WorkType::kTypeInvalid => {
+                self.send_to_next_processor(this, work_item);
+                return;
+            }
+            _ => {
+                for patch_archive in &self._patch_archives.items {
+                    igStorageDevice::process(patch_archive, this.clone(), work_item);
+                    if work_item._status == kStatusComplete {
+                        return;
+                    }
+                }
+                for archive in &self._archive_list.items {
+                    igStorageDevice::process(archive, this.clone(), work_item);
+                    if work_item._status == kStatusComplete {
+                        return;
+                    }
+                }
+            }
         }
+
+        self.send_to_next_processor(this, work_item);
     }
 
-    fn set_next_processor(&mut self, processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
-        self.next_processor = Some(processor);
+    fn set_next_processor(&mut self, new_processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
+        if let Some(next_processor) = &self.next_processor {
+            if let Ok(mut processor) = next_processor.lock() {
+                processor.set_next_processor(new_processor);
+                return;
+            }
+        }
+        self.next_processor = Some(new_processor);
     }
 
     fn send_to_next_processor(

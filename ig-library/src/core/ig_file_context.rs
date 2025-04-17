@@ -2,10 +2,12 @@ use crate::core::fs::{igFileDescriptor, igFileWorkItemProcessor, Endian};
 use crate::core::ig_archive::igArchive;
 use crate::core::ig_archive_manager::igArchiveManager;
 use crate::core::ig_archive_mount_manager::igArchiveMountManager;
+use crate::core::ig_file_context::WorkItemBuffer::Invalid;
+use crate::core::ig_registry::igRegistry;
 use crate::core::ig_std_lib_storage_device::igStdLibStorageDevice;
+use log::{debug, error, info};
 use phf::phf_map;
 use std::sync::{Arc, Mutex};
-use crate::core::ig_file_context::WorkItemBuffer::Invalid;
 
 static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
     "actors"            => "actors",
@@ -63,6 +65,7 @@ pub enum WorkType {
 }
 
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub enum WorkStatus {
     kStatusInactive,
     kStatusActive,
@@ -96,8 +99,10 @@ pub enum WorkItemBuffer {
 }
 
 pub struct igFileWorkItem<'a> {
-    /// Context to avoid any possible leaking of state.
-    pub _ctx: &'a igFileContext,
+    /// The current [igFileContext] for this Alchemy instance
+    pub file_context: &'a igFileContext,
+    /// The current [igRegistry] for this Alchemy instance
+    pub ig_registry: &'a igRegistry,
     /// The (usual) result after processing a igFileWorkItem
     pub _file: igFileDescriptor,
     /// The path to the file
@@ -115,9 +120,11 @@ pub struct igFileWorkItem<'a> {
 }
 
 impl igFileContext {
-    pub fn open(&self, path: String, flags: u32) -> igFileDescriptor {
+    pub fn open(&self, ig_registry: &igRegistry, path: String, flags: u32) -> igFileDescriptor {
+        debug!("Opening path \"{}\"", path);
         let mut work_item = igFileWorkItem {
-            _ctx: &self,
+            file_context: &self,
+            ig_registry,
             _file: igFileDescriptor {
                 _path: path.clone(),
                 _position: 0,
@@ -130,7 +137,7 @@ impl igFileContext {
             },
             _path: path,
             flags,
-            work_type: WorkType::kTypeInvalid,
+            work_type: WorkType::kTypeOpen,
             _status: WorkStatus::kStatusActive,
             _offset: 0,
             _buffer: Invalid(),
@@ -161,7 +168,12 @@ impl igFileContext {
         }
     }
 
-    pub fn initialize_update(&self, update_path: String) {
-        let _ig_arc = igArchive::open(self, update_path);
+    pub fn initialize_update(&self, ig_registry: &igRegistry, update_path: String) {
+        let load_update_result = igArchive::open(self, ig_registry, update_path);
+        if let Ok(update_pak) = load_update_result {
+            info!("Awesome Sauce")
+        } else { 
+            error!("Failed to load update.pak: {}", load_update_result.err().unwrap())
+        }
     }
 }
