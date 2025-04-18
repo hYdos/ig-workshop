@@ -70,7 +70,15 @@ impl TryFrom<String> for IG_CORE_PLATFORM {
     type Error = ();
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
+        self::IG_CORE_PLATFORM::try_from(value.as_str()).map_err(|_| ())
+    }
+}
+
+impl TryFrom<&str> for IG_CORE_PLATFORM {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
             "IG_CORE_PLATFORM_DEFAULT" => Ok(IG_CORE_PLATFORM_DEFAULT),
             "IG_CORE_PLATFORM_DEPRECATED" => Ok(IG_CORE_PLATFORM_DEPRECATED),
             "IG_CORE_PLATFORM_DEPRECATED_2" => Ok(Self::IG_CORE_PLATFORM_DEPRECATED_2),

@@ -1,6 +1,7 @@
 use crate::core::ig_ark_core::EGame::*;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
+use log::info;
 use crate::core::meta::ig_xml_metadata::load_xml_metadata;
 
 /// Contains reflection metadata information. Stands for Application Runtime Kernel.
@@ -8,9 +9,13 @@ pub struct igArkCore {}
 
 impl igArkCore {
     pub fn new(game: EGame) -> Self {
-        let metadata_path = PathBuf::from(format!("{:?}/", game));
+        let metadata_path = PathBuf::from(format!("ArkCore/{:?}/", game));
         let _result = load_xml_metadata(metadata_path).unwrap();
+        let meta_fields = _result.0;
+        let meta_enums = _result.1;
+        let meta_objects = _result.2;
         
+        info!("ok");
         igArkCore {}
     }
 }

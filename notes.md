@@ -1,6 +1,6 @@
 # Harass me to add these (Or PR them for me 🙏)
 - ability to load more than 1 _game at once (no static state 😢 )
-- transfer igObject tool (for multiple _game instances)
+- transfer igObject tool (for multiple _game instances) to make porting objects between different platforms or games easier.
 - undo/redo tracking
 - extension system for writing custom egui handlers for igObject's which can use them.
 - store version info in about button for user bugs
