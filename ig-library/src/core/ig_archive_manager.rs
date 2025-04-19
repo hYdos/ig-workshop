@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex, RwLock};
 
 pub struct igArchiveManager {
     next_processor: Option<Arc<RwLock<dyn igFileWorkItemProcessor>>>,
-    _archive_list: igArchiveList,
+    pub _archive_list: igArchiveList,
     pub _patch_archives: igArchiveList,
 }
 

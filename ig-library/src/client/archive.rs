@@ -1,6 +1,8 @@
+use std::sync::Arc;
 use crate::client::cdn::CContentDeployment;
+use crate::core::fs::igStorageDevice;
 use crate::core::ig_archive::igArchive;
-use crate::core::ig_file_context::{get_file_name, igFileContext};
+use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_registry::igRegistry;
 
 pub struct CArchive {
@@ -25,7 +27,7 @@ impl CArchive {
         ig_registry: &igRegistry,
         path: &str,
         flags: u32,
-    ) -> Result<igArchive, String> {
+    ) -> Result<Arc<igArchive>, String> {
         let mut res = 0;
         let mut archive_path = path.to_string();
 
@@ -44,7 +46,12 @@ impl CArchive {
 
             if res == 0 && ((flags & 4) != 0 || self.do_packages) {
                 // igCauldron sets some fields in the archive before it is opened. However, these are not used and I really don't feel like messing with that atm
-                return igArchive::open(&ig_file_context, &ig_registry, &archive_path);
+                let arc = Arc::new(igArchive::open(&ig_file_context, &ig_registry, &archive_path)?);
+                if let Ok(mut archive_manager) = ig_file_context.archive_manager.write() {
+                    archive_manager._archive_list.push(arc.clone());
+                }
+                
+                return Ok(arc);
             }
         }
 

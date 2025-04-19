@@ -29,6 +29,7 @@ macro_rules! define_read {
     };
 }
 
+// Custom implementation separate to macro doubles the speed
 pub fn read_struct_array_u8<'a>(
     cursor: &mut Cursor<Vec<u8>>,
     _endian: &Endian,

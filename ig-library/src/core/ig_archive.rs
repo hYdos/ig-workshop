@@ -10,7 +10,8 @@ use crate::util::byteorder_fixes::{
 };
 use crate::util::ig_hash;
 use byteorder::{LittleEndian, ReadBytesExt};
-use flate2::read::ZlibDecoder;
+use flate2::read::{DeflateDecoder, ZlibDecoder};
+use log::debug;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
@@ -51,7 +52,7 @@ impl igArchive {
         }
 
         // kHashNameAndExtensionOnly
-        if (self._archive_header._flags & 1u32) != 0 {
+        if (self._archive_header._flags & 2u32) != 0 {
             path_copy = Path::new(&path_copy)
                 .file_name()
                 .and_then(|os_str| os_str.to_str())
@@ -139,7 +140,7 @@ impl igArchive {
                 0x8000
             };
 
-            // let should_decompress = blocks[i] & 0x80000000u32 != 0; unused
+            // let should_decompress = blocks[i] & 0x80000000u32 != 0; // unused
             let mut offset =
                 ((blocks[i] & 0x7FFFFFFF) * self._archive_header._sector_size) as usize;
             if blocks[i] & 0x80000000u32 == 0 {
@@ -158,8 +159,8 @@ impl igArchive {
             match compression_type {
                 CompressionType::kZlib => {
                     let slice =
-                        &file_info._compressed_data[offset..(offset + compressed_size as usize)];
-                    let mut decoder = ZlibDecoder::new(slice);
+                        &file_info._compressed_data[offset..offset + compressed_size as usize];
+                    let mut decoder = DeflateDecoder::new(slice);
                     decoder.read_to_end(&mut dst).unwrap();
                 }
                 CompressionType::kLzma => {
@@ -335,8 +336,10 @@ impl igArchive {
             for file in &mut _files {
                 cursor.seek(SeekFrom::Start(file._offset as u64)).unwrap();
                 if file._block_index == 0xFFFFFFFF {
-                    file._compressed_data = Vec::from(read_struct_array_u8(&mut cursor, &header.endian, file._length as usize)
-                            .unwrap());
+                    file._compressed_data = Vec::from(
+                        read_struct_array_u8(&mut cursor, &header.endian, file._length as usize)
+                            .unwrap(),
+                    );
                     continue;
                 }
 
@@ -346,7 +349,7 @@ impl igArchive {
                 for _i in 0..block_count as usize {
                     fixed_blocks.push(0);
                 }
-                
+
                 for i in 0..block_count {
                     let block_idx = ((file._block_index & 0x0FFFFFFF) + i) as usize;
                     let is_compressed;
@@ -361,7 +364,8 @@ impl igArchive {
                             block = medium_block_tbl[block_idx] as u32;
                             is_compressed = if (block >> 0x0F) == 1 { true } else { false };
                             block &= 0x7FFF;
-                            sector_count += (medium_block_tbl[block_idx + 1] & 0x7FFF) as u32 - block;
+                            sector_count +=
+                                (medium_block_tbl[block_idx + 1] & 0x7FFF) as u32 - block;
                         }
                     } else {
                         block = small_block_tbl[block_idx] as u32;
@@ -373,14 +377,21 @@ impl igArchive {
                     fixed_blocks[i as usize] =
                         if is_compressed { 0x80000000u32 } else { 0u32 } | block;
                 }
-                
+
                 file._blocks = Some(fixed_blocks);
-                file._compressed_data = Vec::from(read_struct_array_u8(&mut cursor, &header.endian, (sector_count * header._sector_size) as usize).unwrap())
+                file._compressed_data = Vec::from(
+                    read_struct_array_u8(
+                        &mut cursor,
+                        &header.endian,
+                        (sector_count * header._sector_size) as usize,
+                    )
+                    .unwrap(),
+                )
             }
-            
+
             // Hint to the compiler to drop this as soon as possible
             file_descriptor._handle = None;
-            
+
             Ok(igArchive {
                 next_processor: None,
                 _path,
@@ -506,6 +517,11 @@ impl igStorageDevice for igArchive {
     fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
         match work_item.ig_registry.build_tool {
             BuildTool::AlchemyLaboratory => {
+                debug!(
+                    "{} has hash {}",
+                    work_item._path,
+                    self.hash_file_path(&work_item._path)
+                );
                 if let Some(file_idx) = Self::hash_search(
                     &self._files,
                     self._archive_header._hash_search_divider,
@@ -698,6 +714,11 @@ impl igStorageDevice for Arc<igArchive> {
     fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
         match work_item.ig_registry.build_tool {
             BuildTool::AlchemyLaboratory => {
+                debug!(
+                    "{} has hash {}",
+                    work_item._path,
+                    self.hash_file_path(&work_item._path)
+                );
                 if let Some(file_idx) = igArchive::hash_search(
                     &self._files,
                     self._archive_header._hash_search_divider,
@@ -883,6 +904,14 @@ impl CompressionType {
         let shift = block_index >> 28;
 
         match shift {
+            0 => CompressionType::kUncompressed,
+            1 => CompressionType::kZlib,
+            2 => CompressionType::kLzma,
+            3 => CompressionType::kLz4,
+            28 => CompressionType::kCompressionFormatShift,
+            0xF0000000 => CompressionType::kCompressionFormatMask,
+            0x0FFFFFFF => CompressionType::kFirstBlockMask,
+            40 => CompressionType::kOffsetBits,
             _ => panic!("Unknown compression type"),
         }
     }

@@ -1,5 +1,6 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM::*;
 use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
 ///
 /// Used to associate other objects with platform. Critical for reading .igz files due to them being processed memory dumps.
@@ -70,14 +71,14 @@ impl TryFrom<String> for IG_CORE_PLATFORM {
     type Error = ();
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        self::IG_CORE_PLATFORM::try_from(value.as_str()).map_err(|_| ())
+        IG_CORE_PLATFORM::from_str(value.as_str())
     }
 }
 
-impl TryFrom<&str> for IG_CORE_PLATFORM {
-    type Error = ();
+impl FromStr for IG_CORE_PLATFORM {
+    type Err = ();
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "IG_CORE_PLATFORM_DEFAULT" => Ok(IG_CORE_PLATFORM_DEFAULT),
             "IG_CORE_PLATFORM_DEPRECATED" => Ok(IG_CORE_PLATFORM_DEPRECATED),

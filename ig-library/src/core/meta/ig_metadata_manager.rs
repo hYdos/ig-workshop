@@ -35,4 +35,9 @@ impl igMetadataManager {
             meta_objects,
         }
     }
+    
+    pub fn get_enum<T>(&self, _igz_value: u32, _enum_from_str: fn(&str) -> Result<T, ()>) -> T {
+        todo!("e");
+        // enum_from_str("enum").unwrap()
+    }
 }

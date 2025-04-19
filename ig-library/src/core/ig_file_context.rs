@@ -40,7 +40,7 @@ static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
 
 pub struct igFileContext {
     pub _root: String,
-    archive_manager: Arc<RwLock<igArchiveManager>>,
+    pub archive_manager: Arc<RwLock<igArchiveManager>>,
     processor_stack: Arc<Mutex<dyn igFileWorkItemProcessor>>,
 }
 
@@ -146,6 +146,7 @@ impl igFileContext {
         let processor_stack = self.processor_stack.lock().unwrap();
         processor_stack.process(self.processor_stack.clone(), &mut work_item);
 
+        debug!("Work Item completed with status {:?}", work_item._status);
         work_item._file
     }
 
@@ -210,6 +211,13 @@ fn interpret_path(alchemy_path: &str) -> String {
             alchemy_path[media_separator_idx + 2..alchemy_path.len()].to_string()
         }
     }
+}
+
+pub fn get_native_path(mut path: String) -> String {
+    path = path.replace("\\", "/");
+    path = interpret_path(&path);
+    
+    path
 }
 
 /// Will just get the file name without the full path

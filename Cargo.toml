@@ -23,3 +23,5 @@ walkdir = "2.5.0"
 
 [profile.release]
 debug = true
+codegen-units = 1
+lto = "fat"

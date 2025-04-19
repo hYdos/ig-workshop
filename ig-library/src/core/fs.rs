@@ -13,6 +13,7 @@ pub struct igFileDescriptor {
     pub _handle: Option<Cursor<Vec<u8>>>,
     pub _flags: u32,
     pub _work_item_active_count: i32,
+    /// Exists only as a utility for reading. Does not exist in VV Alchemy
     pub endianness: Endian,
 }
 

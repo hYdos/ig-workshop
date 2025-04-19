@@ -20,7 +20,7 @@ impl igAlchemy {
         igAlchemy {
             ark_core: ig_ark_core,
             file_context: ig_file_context,
-            object_stream_manager: igObjectStreamManager,
+            object_stream_manager: igObjectStreamManager::new(),
             client: CClient::init(&ig_registry),
             registry: ig_registry,
         }

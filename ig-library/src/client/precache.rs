@@ -6,6 +6,7 @@ use crate::core::ig_file_context::{get_file_name, igFileContext};
 use crate::core::ig_objects::igObjectStreamManager;
 use crate::core::ig_registry::{igRegistry, BuildTool};
 use crate::core::memory::EMemoryPoolID;
+use crate::core::meta::ig_metadata_manager::igMetadataManager;
 use crate::util::ig_common::{get_platform_string, igAlchemy};
 use log::{error, info};
 use once_cell::sync::Lazy;
@@ -425,12 +426,13 @@ impl CPrecacheManager {
         ig_registry: &igRegistry,
         ig_file_context: &igFileContext,
         ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_metadata_manager: &igMetadataManager,
         package_name: String,
         pool_id: EMemoryPoolID,
     ) {
         let mut package_path = package_name.to_lowercase();
 
-        if package_path.starts_with("packages") {
+        if !package_path.starts_with("packages") {
             package_path = format!("packages/{}", package_path);
         }
 
@@ -453,7 +455,14 @@ impl CPrecacheManager {
             )
             .unwrap();
 
-        let _pkg_dir = ig_object_stream_manager.load(package_path).unwrap();
+        let _pkg_dir = ig_object_stream_manager
+            .load(
+                ig_file_context,
+                ig_registry,
+                ig_metadata_manager,
+                package_path,
+            )
+            .unwrap();
     }
 
     pub fn package_cached(&self, package_name: &str, pool_id: EMemoryPoolID) -> bool {
@@ -526,12 +535,13 @@ pub fn load_init_script(game: EGame, is_weakly_loaded: bool, ig_alchemy: &mut ig
             }
 
             process_task(
-                task.clone(),
-                path.unwrap(),
                 &mut ig_alchemy.client,
                 &mut ig_alchemy.file_context,
                 &mut ig_alchemy.registry,
                 &mut ig_alchemy.object_stream_manager,
+                &mut ig_alchemy.ark_core.metadata_manager,
+                task.clone(),
+                path.unwrap(),
             );
         }
     }
@@ -595,12 +605,13 @@ pub fn parse_file_path(line: String, ig_registry: &igRegistry) -> Option<String>
 }
 
 fn process_task(
-    task: LoaderTask,
-    line: String,
     client: &mut CClient,
     ig_file_context: &mut igFileContext,
     ig_registry: &mut igRegistry,
     ig_object_stream_manager: &mut igObjectStreamManager,
+    ig_metadata_manager: &mut igMetadataManager,
+    task: LoaderTask,
+    line: String,
 ) {
     info!("initscript -> {:?} {}", task, line);
     let precache_manager = &client.precache_manager;
@@ -616,6 +627,7 @@ fn process_task(
                 ig_registry,
                 ig_file_context,
                 ig_object_stream_manager,
+                ig_metadata_manager,
                 line,
                 EMemoryPoolID::MP_DEFAULT,
             );

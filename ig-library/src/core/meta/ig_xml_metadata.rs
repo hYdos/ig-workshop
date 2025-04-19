@@ -161,7 +161,7 @@ fn load_meta_fields(path: &PathBuf) -> Result<Vec<MetaField>, String> {
                         b"platform" => {
                             let raw = String::from(attrib.unescape_value().unwrap());
                             let err_msg = format!("Alchemy Error: Parsing metafields.xml failed. Unknown platform {}", raw);
-                            platform = Some(IG_CORE_PLATFORM::try_from(raw.as_str()).expect(&err_msg));
+                            platform = Some(IG_CORE_PLATFORM::from_str(raw.as_str()).expect(&err_msg));
                         }
                         b"size" => {
                             let raw = String::from(attrib.unescape_value().unwrap());

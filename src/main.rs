@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod logger;
 mod window;
@@ -13,7 +13,7 @@ use ig_library::core::ig_core_platform::IG_CORE_PLATFORM;
 use ig_library::core::ig_file_context::igFileContext;
 use ig_library::core::ig_registry::igRegistry;
 use image::{ImageFormat, ImageReader};
-use log::{info, warn};
+use log::{info, warn, LevelFilter};
 use sonic_rs::{Array, JsonContainerTrait, JsonValueTrait, Object, Value};
 use std::collections::VecDeque;
 use std::fs;
@@ -28,7 +28,7 @@ use ig_library::client::precache::load_init_script;
 use ig_library::util::ig_common::igAlchemy;
 
 fn main() {
-    init_logger();
+    init_logger(LevelFilter::Debug);
     let configs = init_config();
 
     let options = eframe::NativeOptions {

@@ -37,9 +37,9 @@ impl log::Log for CaptureLogger {
     }
 }
 
-pub fn init_logger() {
-    let env_logger = Builder::new().filter_level(LevelFilter::Info).build();
+pub fn init_logger(filter: LevelFilter) {
+    let env_logger = Builder::new().filter_level(filter).build();
     let logger = CaptureLogger { env_logger };
     log::set_boxed_logger(Box::new(logger)).unwrap();
-    log::set_max_level(LevelFilter::Info);
+    log::set_max_level(filter);
 }
