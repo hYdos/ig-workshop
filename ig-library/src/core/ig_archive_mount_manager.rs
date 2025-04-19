@@ -1,10 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use crate::core::fs::{igFileWorkItemProcessor, igStorageDevice};
 use crate::core::ig_file_context::igFileWorkItem;
 
 /// In igWorkshop, this type is not too useful and mainly exists for parity between igAlchemy, and igCauldron
 pub struct igArchiveMountManager {
-    next_processor: Option<Arc<Mutex<dyn igFileWorkItemProcessor>>>
+    next_processor: Option<Arc<RwLock<dyn igFileWorkItemProcessor>>>
 }
 
 impl igArchiveMountManager {
@@ -21,9 +21,9 @@ impl igFileWorkItemProcessor for igArchiveMountManager {
         self.send_to_next_processor(this, work_item);
     }
 
-    fn set_next_processor(&mut self, new_processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
+    fn set_next_processor(&mut self, new_processor: Arc<RwLock<dyn igFileWorkItemProcessor>>) {
         if let Some(next_processor) = &self.next_processor {
-            if let Ok(mut processor) = next_processor.lock() {
+            if let Ok(mut processor) = next_processor.write() {
                 processor.set_next_processor(new_processor);
                 return;
             }
@@ -33,7 +33,7 @@ impl igFileWorkItemProcessor for igArchiveMountManager {
 
     fn send_to_next_processor(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
         if let Some(processor) = &self.next_processor {
-            let processor_lock = processor.lock().unwrap();
+            let processor_lock = processor.read().unwrap();
             processor_lock.process(this, work_item);
         }
     }

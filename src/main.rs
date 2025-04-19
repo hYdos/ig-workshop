@@ -12,18 +12,20 @@ use ig_library::core::ig_ark_core::{igArkCore, EGame};
 use ig_library::core::ig_core_platform::IG_CORE_PLATFORM;
 use ig_library::core::ig_file_context::igFileContext;
 use ig_library::core::ig_registry::igRegistry;
-use image::ImageReader;
+use image::{ImageFormat, ImageReader};
 use log::{info, warn};
 use sonic_rs::{Array, JsonContainerTrait, JsonValueTrait, Object, Value};
 use std::collections::VecDeque;
 use std::fs;
 use std::fs::File;
+use std::io::Cursor;
 use std::ops::Sub;
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
 use std::thread::Builder;
 use std::time::Instant;
-use ig_library::client::c_precache_file_loader::load_init_script;
+use ig_library::client::precache::load_init_script;
+use ig_library::util::ig_common::igAlchemy;
 
 fn main() {
     init_logger();
@@ -52,20 +54,20 @@ pub fn load_game_data(game_cfg: GameConfig, dock_state: Arc<Mutex<DockState<wind
             let start_time = Instant::now();
 
             let ig_file_context = igFileContext::new(game_cfg.clone()._path);
-            let mut ig_registry = igRegistry::new(game_cfg.clone()._platform);
+            let ig_registry = igRegistry::new(game_cfg.clone()._platform);
 
             if !game_cfg._update_path.is_empty() {
                 ig_file_context.initialize_update(&ig_registry, game_cfg.clone()._update_path);
             }
             
-            let ig_ark_core = igArkCore::new(game_cfg.clone()._game);
-            load_init_script(game_cfg.clone()._game, &mut ig_registry,  false);
+            // Early init is complete after these last few objects, finish init & build the igAlchemy object
+            let mut ig_alchemy = igAlchemy::new(ig_file_context, ig_registry, igArkCore::new(game_cfg.clone()._game));
+            
+            load_init_script(game_cfg.clone()._game, false, &mut ig_alchemy);
             
             let new_leaf = Some(Arc::new(Mutex::new(LoadedGame {
                 cfg: game_cfg.clone(),
-                ig_file_context,
-                ig_registry,
-                ig_ark_core,
+                ig_alchemy
             })));
 
             // I'm going to be honest I'm not a fan of this method.
@@ -132,8 +134,9 @@ fn init_config() -> VecDeque<Arc<Mutex<GameConfig>>> {
 }
 
 fn icon() -> Arc<IconData> {
-    let img = ImageReader::open("data/icon.png")
-        .unwrap()
+    let bytes = include_bytes!("../data/icon.png");
+    
+    let img = ImageReader::with_format(Cursor::new(bytes), ImageFormat::Png)
         .decode()
         .unwrap();
     let rgba = img.clone().as_rgba8().unwrap().to_vec();

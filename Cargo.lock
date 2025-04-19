@@ -1823,6 +1823,7 @@ dependencies = [
  "log",
  "lz4",
  "lzma-rs",
+ "once_cell",
  "paste",
  "phf",
  "quick-xml 0.37.4",

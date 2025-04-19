@@ -1,7 +1,7 @@
 use crate::core::ig_file_context::{igFileWorkItem, WorkType};
 use log::error;
 use std::io::Cursor;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 pub struct igFileDescriptor {
     pub _path: String,
@@ -61,7 +61,7 @@ pub trait igFileWorkItemProcessor: Send + Sync {
     }
 
     /// Allows setting the next processor in the chain. If the next processor is already set and this is called,  pass this to the next processor to process its next processor
-    fn set_next_processor(&mut self, processor: Arc<Mutex<dyn igFileWorkItemProcessor>>);
+    fn set_next_processor(&mut self, processor: Arc<RwLock<dyn igFileWorkItemProcessor>>);
     fn send_to_next_processor(
         &self,
         this: Arc<Mutex<dyn igFileWorkItemProcessor>>,

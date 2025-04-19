@@ -5,19 +5,19 @@ use std::fs;
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use walkdir::WalkDir;
 
 /// This struct is shared across any device using rust's standard library. In igCauldron, this type is most similar to igWin32StorageDevice
 pub struct igStdLibStorageDevice {
     _path: String,
     _name: String,
-    next_processor: Option<Arc<Mutex<dyn igFileWorkItemProcessor>>>,
+    next_processor: Option<Arc<RwLock<dyn igFileWorkItemProcessor>>>,
 }
 
 impl igStdLibStorageDevice {
-    pub fn new() -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self {
+    pub fn new() -> Arc<RwLock<Self>> {
+        Arc::new(RwLock::new(Self {
             _path: "".to_string(),
             _name: "".to_string(),
             next_processor: None,
@@ -232,9 +232,9 @@ impl igFileWorkItemProcessor for igStdLibStorageDevice {
         igStorageDevice::process(self, this, work_item);
     }
 
-    fn set_next_processor(&mut self, new_processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
+    fn set_next_processor(&mut self, new_processor: Arc<RwLock<dyn igFileWorkItemProcessor>>) {
         if let Some(next_processor) = &self.next_processor {
-            if let Ok(mut processor) = next_processor.lock() {
+            if let Ok(mut processor) = next_processor.write() {
                 processor.set_next_processor(new_processor);
                 return;
             }
@@ -248,7 +248,7 @@ impl igFileWorkItemProcessor for igStdLibStorageDevice {
         work_item: &mut igFileWorkItem,
     ) {
         if let Some(processor) = self.next_processor.clone() {
-            let processor_lock = processor.lock().unwrap();
+            let processor_lock = processor.read().unwrap();
             processor_lock.process(this, work_item);
         }
     }

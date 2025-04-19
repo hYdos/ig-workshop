@@ -6,44 +6,41 @@ use crate::core::ig_file_context::WorkItemBuffer::Invalid;
 use crate::core::ig_registry::igRegistry;
 use crate::core::ig_std_lib_storage_device::igStdLibStorageDevice;
 use log::{debug, error};
-use std::sync::{Arc, Mutex};
-// use phf::phf_map;
+use phf::phf_map;
+use std::sync::{Arc, Mutex, RwLock};
 
-//
-// static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
-//     "actors"            => "actors",
-//     "anims"             => "anims",
-//     "behavior_events"   => "behavior_events",
-//     "animation_events"  => "animation_events",
-//     "behaviors"         => "behaviors",
-//     "cutscene"          => "cutscene",
-//     "data"              => "",
-//     "fonts"             => "fonts",
-//     "graphs"            => "graphs",
-//     "vsc"               => "vsc",
-//     "loosetextures"     => "loosetextures",
-//     "luts"              => "loosetextures/luts",
-//     "maps"              => "maps",
-//     "materials"         => "materialInstances",
-//     "models"            => "models",
-//     "motionpaths"       => "motionpaths",
-//     "renderer"          => "renderer",
-//     "scripts"           => "scripts",
-//     "shaders"           => "shaders",
-//     "sky"               => "sky",
-//     "sounds"            => "sounds",
-//     "spawnmeshes"       => "spawnmeshes",
-//     "textures"          => "textures",
-//     "ui"                => "ui",
-//     "vfx"               => "vfx",
-//     "cwd"               => "",
-//     "app"               => "",
-// };
+static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
+    "actors"            => "actors",
+    "anims"             => "anims",
+    "behavior_events"   => "behavior_events",
+    "animation_events"  => "animation_events",
+    "behaviors"         => "behaviors",
+    "cutscene"          => "cutscene",
+    "data"              => "",
+    "fonts"             => "fonts",
+    "graphs"            => "graphs",
+    "vsc"               => "vsc",
+    "loosetextures"     => "loosetextures",
+    "luts"              => "loosetextures/luts",
+    "maps"              => "maps",
+    "materials"         => "materialInstances",
+    "models"            => "models",
+    "motionpaths"       => "motionpaths",
+    "renderer"          => "renderer",
+    "scripts"           => "scripts",
+    "shaders"           => "shaders",
+    "sky"               => "sky",
+    "sounds"            => "sounds",
+    "spawnmeshes"       => "spawnmeshes",
+    "textures"          => "textures",
+    "ui"                => "ui",
+    "vfx"               => "vfx",
+};
 
 pub struct igFileContext {
     pub _root: String,
-    archive_manager: Arc<Mutex<igArchiveManager>>,
-    processor_stack: Arc<Mutex<dyn igFileWorkItemProcessor + Send + Sync>>,
+    archive_manager: Arc<RwLock<igArchiveManager>>,
+    processor_stack: Arc<Mutex<dyn igFileWorkItemProcessor>>,
 }
 
 #[derive(Debug)]
@@ -123,6 +120,8 @@ pub struct igFileWorkItem<'a> {
 impl igFileContext {
     pub fn open(&self, ig_registry: &igRegistry, path: String, flags: u32) -> igFileDescriptor {
         debug!("Opening path \"{}\"", path);
+        let path = interpret_path(path);
+
         let mut work_item = igFileWorkItem {
             file_context: &self,
             ig_registry,
@@ -147,6 +146,10 @@ impl igFileContext {
         processor_stack.process(self.processor_stack.clone(), &mut work_item);
 
         work_item._file
+    }
+
+    pub fn load_archive(&self, ig_registry: &igRegistry, path: String) -> Arc<igArchive> {
+        igArchiveManager::load_archive(self.archive_manager.clone(), self, ig_registry, path)
     }
 
     pub fn new(game_path: String) -> Self {
@@ -175,14 +178,30 @@ impl igFileContext {
     pub fn initialize_update(&self, ig_registry: &igRegistry, update_path: String) {
         let load_update_result = igArchive::open(self, ig_registry, update_path);
         if let Ok(update_pak) = load_update_result {
-            if let Ok(mut archive_manager) = self.archive_manager.lock() {
-                archive_manager._patch_archives.push(update_pak);
+            if let Ok(mut archive_manager) = self.archive_manager.write() {
+                archive_manager._patch_archives.push(Arc::new(update_pak));
             }
         } else {
             error!(
                 "Failed to load update.pak: {}",
                 load_update_result.err().unwrap()
             )
+        }
+    }
+}
+
+/// Takes an alchemy path and converts it to a path that is usable by ig-workshop
+fn interpret_path(alchemy_path: String) -> String {
+    let media_separator_idx = alchemy_path.find(":").unwrap_or_default();
+    if media_separator_idx <= 1 { // Windows paths have C:\ or whatever drive is targeted, remember
+        alchemy_path
+    } else {
+        let media = &alchemy_path[..media_separator_idx];
+        if VIRTUAL_DEVICES.contains_key(media) {
+            format!("{}/{}", VIRTUAL_DEVICES[media], alchemy_path[media_separator_idx + 2..alchemy_path.len()].to_string())
+        } else {
+            // app, and cwd remove the media and don't change the path all
+            alchemy_path[media_separator_idx + 2..alchemy_path.len()].to_string()
         }
     }
 }

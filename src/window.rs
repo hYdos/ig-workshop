@@ -4,14 +4,13 @@ use crate::load_game_data;
 use crate::logger::LAST_LOG_LINE;
 use egui::{menu, CollapsingHeader, Ui, WidgetText};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
-use ig_library::core::ig_ark_core::{igArkCore, EGame};
+use ig_library::core::ig_ark_core::EGame;
 use ig_library::core::ig_core_platform::IG_CORE_PLATFORM;
-use ig_library::core::ig_file_context::igFileContext;
-use ig_library::core::ig_registry::igRegistry;
 use log::error;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use ig_library::util::ig_common::igAlchemy;
 
 pub struct igCauldronWindow {
     dock_state: Arc<Mutex<DockState<Tab>>>,
@@ -28,9 +27,7 @@ pub struct GameConfig {
 
 pub struct LoadedGame {
     pub cfg: GameConfig,
-    pub ig_file_context: igFileContext,
-    pub ig_registry: igRegistry,
-    pub ig_ark_core: igArkCore,
+    pub ig_alchemy: igAlchemy
 }
 
 pub(crate) type Tab = Option<Arc<Mutex<LoadedGame>>>;

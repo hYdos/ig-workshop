@@ -13,11 +13,11 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use flate2::read::ZlibDecoder;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 /// Represents an archive file
 pub struct igArchive {
-    next_processor: Option<Arc<Mutex<dyn igFileWorkItemProcessor>>>,
+    next_processor: Option<Arc<RwLock<dyn igFileWorkItemProcessor>>>,
     pub _path: String,
     pub _name: String,
     pub _load_name_table: bool,
@@ -456,9 +456,9 @@ fn get_file_info_size(version: u32) -> u8 {
 }
 
 impl igFileWorkItemProcessor for igArchive {
-    fn set_next_processor(&mut self, new_processor: Arc<Mutex<dyn igFileWorkItemProcessor>>) {
+    fn set_next_processor(&mut self, new_processor: Arc<RwLock<dyn igFileWorkItemProcessor>>) {
         if let Some(next_processor) = &self.next_processor {
-            if let Ok(mut processor) = next_processor.lock() {
+            if let Ok(mut processor) = next_processor.write() {
                 processor.set_next_processor(new_processor);
                 return;
             }
@@ -472,7 +472,7 @@ impl igFileWorkItemProcessor for igArchive {
         work_item: &mut igFileWorkItem,
     ) {
         if let Some(processor) = self.next_processor.clone() {
-            let processor_lock = processor.lock().unwrap();
+            let processor_lock = processor.read().unwrap();
             processor_lock.process(this, work_item);
         }
     }
@@ -507,6 +507,198 @@ impl igStorageDevice for igArchive {
         match work_item.ig_registry.build_tool {
             BuildTool::AlchemyLaboratory => {
                 if let Some(file_idx) = Self::hash_search(
+                    &self._files,
+                    self._archive_header._hash_search_divider,
+                    self._archive_header._hash_search_slop,
+                    self.hash_file_path(&work_item._path),
+                ) {
+                    let file = &self._files[file_idx];
+                    work_item._file._path = work_item._path.clone();
+                    work_item._file._size = file._length as u64;
+                    work_item._file._position = 0;
+                    work_item._file._device = Some(this.clone());
+                    work_item._file._handle = Some(self.decompress_as_handle(file));
+                    work_item._status = kStatusComplete;
+                } else {
+                    work_item._status = kStatusInvalidPath
+                }
+            }
+            _ => {
+                for file in &self._files {
+                    if file._name.eq(&work_item._path) {
+                        work_item._file._path = work_item._path.clone();
+                        work_item._file._size = file._length as u64;
+                        work_item._file._position = 0;
+                        work_item._file._device = Some(this.clone());
+                        work_item._file._handle = Some(self.decompress_as_handle(file));
+                        work_item._status = kStatusComplete;
+                    }
+                }
+            }
+        }
+    }
+
+    fn close(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn read(&self, _this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn write(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn truncate(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn mkdir(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn rmdir(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn get_file_list(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        match &mut work_item._buffer {
+            WorkItemBuffer::StringRefList(files) => {
+                for file_info in &self._files {
+                    files.push(file_info._logical_name.clone())
+                }
+            }
+            _ => {
+                work_item._status = kStatusGeneralError;
+                return;
+            }
+        }
+    }
+
+    fn get_file_list_with_sizes(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn unlink(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        if delete(&work_item._path).is_ok() {
+            work_item._status = kStatusComplete
+        } else {
+            work_item._status = kStatusInvalidPath
+        }
+    }
+
+    fn rename(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn prefetch(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn format(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+
+    fn commit(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        work_item._status = kStatusUnsupported
+    }
+}
+
+impl igFileWorkItemProcessor for Arc<igArchive> {
+    fn set_next_processor(&mut self, _new_processor: Arc<RwLock<dyn igFileWorkItemProcessor>>) {
+        panic!("Arc<igArchive> is not mutable.")
+    }
+
+    fn send_to_next_processor(
+        &self,
+        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        if let Some(processor) = self.next_processor.clone() {
+            let processor_lock = processor.read().unwrap();
+            processor_lock.process(this, work_item);
+        }
+    }
+
+    fn as_ig_storage(&self) -> &dyn igStorageDevice {
+        self
+    }
+}
+
+impl igStorageDevice for Arc<igArchive> {
+    fn get_path(&self) -> String {
+        self._path.clone()
+    }
+
+    fn get_name(&self) -> String {
+        self._name.clone()
+    }
+
+    fn exists(
+        &self,
+        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        work_item: &mut igFileWorkItem,
+    ) {
+        if self.has_file(&work_item._path) {
+            work_item._status = kStatusComplete;
+        } else {
+            work_item._status = kStatusInvalidPath;
+        }
+    }
+
+    fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+        match work_item.ig_registry.build_tool {
+            BuildTool::AlchemyLaboratory => {
+                if let Some(file_idx) = igArchive::hash_search(
                     &self._files,
                     self._archive_header._hash_search_divider,
                     self._archive_header._hash_search_slop,

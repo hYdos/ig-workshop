@@ -1,40 +1,40 @@
+use std::cell::RefCell;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
-use log::{error, info};
+use log::info;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
-use std::cell::RefCell;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 type igMetaFieldXml = Vec<MetaField>;
 
 #[derive(Debug, Clone)]
 pub struct PlatformInfo {
-    platform: IG_CORE_PLATFORM,
-    align: u16,
-    size: u16,
+    pub platform: IG_CORE_PLATFORM,
+    pub align: u16,
+    pub size: u16,
 }
 
 #[derive(Debug, Clone)]
 pub struct MetaField {
-    name: String,
-    platform_info: Vec<PlatformInfo>,
+    pub name: String,
+    pub platform_info: Vec<PlatformInfo>,
 }
 
 type igMetaEnumXml = Vec<MetaEnum>;
 
 #[derive(Debug, Clone)]
 pub struct MetaEnumValue {
-    name: String,
-    value: i32,
+    pub name: String,
+    pub value: i32,
 }
 
 #[derive(Debug, Clone)]
 pub struct MetaEnum {
-    ref_name: String,
-    values: Vec<MetaEnumValue>,
+    pub ref_name: String,
+    pub values: Vec<MetaEnumValue>,
 }
 
 type igMetaObjectXml = Vec<MetaObject>;
@@ -42,24 +42,24 @@ type igMetaObjectXml = Vec<MetaObject>;
 /// Stores extra information about what the hash table expects
 #[derive(Debug, Clone)]
 pub struct HashTableInfo {
-    invalid_value: String,
-    invalid_key: String,
+    pub invalid_value: String,
+    pub invalid_key: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct BitShiftInfo {
-    shift: u8,
-    bits: u8,
+    pub shift: u8,
+    pub bits: u8,
     /// The name of the field to store the result at
-    storage_field: String,
+    pub storage_field: String,
     /// The type of the new data created with the bits. Once data is finalized this will always be present
-    _type: Option<MetaObjectField>,
+    pub _type: Option<MetaObjectField>,
 }
 
 /// Stores the meta object inside a igPropertyFieldMetaField
 type PropertyInfo = MetaObjectField;
 
-type MetaObjectField = Arc<RefCell<RawMetaObjectField>>;
+type MetaObjectField = Arc<RwLock<RawMetaObjectField>>;
 
 #[derive(Debug, Clone)]
 pub struct VectorInfo {
@@ -86,7 +86,7 @@ pub struct RawMetaObjectField {
     /// Present when _type is equal to "igMemoryRefMetaField"
     pub ig_memory_ref_info: Option<MetaObjectField>,
     /// Present when _type is equal to "igBitFieldMetaField"
-    pub ig_bit_shift_info: Option<Arc<RefCell<BitShiftInfo>>>,
+    pub ig_bit_shift_info: Option<Arc<RwLock<BitShiftInfo>>>,
     /// Present when _type is equal to "igPropertyFieldMetaField"
     pub ig_property_info: Option<PropertyInfo>,
     /// Present when _type is equal to "igEnumMetaField". Stores the meta enum to use with the field
@@ -348,8 +348,8 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
 
 fn on_metafield_tag(
     meta_objects: &mut Vec<MetaObject>,
-    mut current_meta_object: &mut Option<Arc<RefCell<MetaObject>>>,
-    mut current_meta_field: &mut Option<MetaObjectField>,
+    current_meta_object: &mut Option<Arc<RefCell<MetaObject>>>,
+    current_meta_field: &mut Option<MetaObjectField>,
     field_type: &mut FieldType,
     e: &BytesStart,
 ) -> Result<(), String> {
@@ -451,12 +451,12 @@ fn on_metafield_tag(
             // Let's find out if we are a child first before we do anything.
             if current_meta_field.is_some() {
                 let current_meta_field_ref = current_meta_field.clone().unwrap();
-                let current_type = current_meta_field_ref.borrow().clone()._type;
+                let current_type = current_meta_field_ref.read().unwrap().clone()._type;
 
                 match current_type.as_str() {
                     "igPropertyFieldMetaField" => {
                         let child_metafield = process_new_metafield(&e);
-                        current_meta_field_ref.borrow_mut().ig_property_info = Some(
+                        current_meta_field_ref.write().unwrap().ig_property_info = Some(
                             child_metafield
                                 .clone()
                                 .expect("Failed to process child field of igPropertyFieldMetaField"),
@@ -482,7 +482,7 @@ fn on_metafield_tag(
 
                     "igStaticMetaField" => {
                         let child_metafield = process_new_metafield(&e);
-                        current_meta_field_ref.borrow_mut().ig_static_info = Some(
+                        current_meta_field_ref.write().unwrap().ig_static_info = Some(
                             child_metafield
                                 .clone()
                                 .expect("Failed to process child field of igStaticMetaField"),
@@ -509,7 +509,8 @@ fn on_metafield_tag(
                     "igVectorMetaField" => {
                         let child_metafield = process_new_metafield(&e);
                         current_meta_field_ref
-                            .borrow_mut()
+                            .write()
+                            .unwrap()
                             .ig_vector_info
                             .as_mut()
                             .unwrap()
@@ -539,11 +540,13 @@ fn on_metafield_tag(
                     "igBitFieldMetaField" => {
                         let child_metafield = process_new_metafield(&e);
                         current_meta_field_ref
-                            .borrow()
+                            .read()
+                            .unwrap()
                             .ig_bit_shift_info
                             .as_ref()
                             .unwrap()
-                            .borrow_mut()
+                            .write()
+                            .unwrap()
                             ._type = Some(
                             child_metafield
                                 .clone()
@@ -573,7 +576,7 @@ fn on_metafield_tag(
                         // to process an entire new metafield which itself has a chance of having its own metafields...
 
                         let child_metafield = process_new_metafield(&e);
-                        current_meta_field_ref.borrow_mut().ig_memory_ref_info = Some(
+                        current_meta_field_ref.write().unwrap().ig_memory_ref_info = Some(
                             child_metafield
                                 .clone()
                                 .expect("Failed to process child field of igMemoryRefMetaField"),
@@ -708,7 +711,7 @@ fn process_new_metafield(e: &BytesStart) -> Option<MetaObjectField> {
     // Don't store bit shift info when it's not a bit metafield to not confuse users of metadata
     let mut optional_ig_bit_shift = None;
     if ig_bit_shift_info.storage_field != "" {
-        optional_ig_bit_shift = Some(Arc::new(RefCell::new(ig_bit_shift_info)))
+        optional_ig_bit_shift = Some(Arc::new(RwLock::new(ig_bit_shift_info)))
     }
 
     // Don't store vector info when it's not a igVectorMetaField to not confuse users of metadata
@@ -717,7 +720,7 @@ fn process_new_metafield(e: &BytesStart) -> Option<MetaObjectField> {
         optional_ig_vector = Some(ig_vector_info)
     }
 
-    Some(Arc::new(RefCell::new(RawMetaObjectField {
+    Some(Arc::new(RwLock::new(RawMetaObjectField {
         _type: _type.unwrap(),
         offset: offset.unwrap(),
         name,
