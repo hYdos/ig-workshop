@@ -7,6 +7,7 @@ use crate::core::ig_registry::igRegistry;
 use crate::core::ig_std_lib_storage_device::igStdLibStorageDevice;
 use log::{debug, error};
 use phf::phf_map;
+use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
 
 static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
@@ -118,7 +119,7 @@ pub struct igFileWorkItem<'a> {
 }
 
 impl igFileContext {
-    pub fn open(&self, ig_registry: &igRegistry, path: String, flags: u32) -> igFileDescriptor {
+    pub fn open(&self, ig_registry: &igRegistry, path: &str, flags: u32) -> igFileDescriptor {
         debug!("Opening path \"{}\"", path);
         let path = interpret_path(path);
 
@@ -176,7 +177,7 @@ impl igFileContext {
     }
 
     pub fn initialize_update(&self, ig_registry: &igRegistry, update_path: String) {
-        let load_update_result = igArchive::open(self, ig_registry, update_path);
+        let load_update_result = igArchive::open(self, ig_registry, &update_path);
         if let Ok(update_pak) = load_update_result {
             if let Ok(mut archive_manager) = self.archive_manager.write() {
                 archive_manager._patch_archives.push(Arc::new(update_pak));
@@ -191,17 +192,27 @@ impl igFileContext {
 }
 
 /// Takes an alchemy path and converts it to a path that is usable by ig-workshop
-fn interpret_path(alchemy_path: String) -> String {
+fn interpret_path(alchemy_path: &str) -> String {
     let media_separator_idx = alchemy_path.find(":").unwrap_or_default();
-    if media_separator_idx <= 1 { // Windows paths have C:\ or whatever drive is targeted, remember
-        alchemy_path
+    if media_separator_idx <= 1 {
+        // Windows paths have C:\ or whatever drive is targeted, remember
+        alchemy_path.to_string()
     } else {
         let media = &alchemy_path[..media_separator_idx];
         if VIRTUAL_DEVICES.contains_key(media) {
-            format!("{}/{}", VIRTUAL_DEVICES[media], alchemy_path[media_separator_idx + 2..alchemy_path.len()].to_string())
+            format!(
+                "{}/{}",
+                VIRTUAL_DEVICES[media],
+                alchemy_path[media_separator_idx + 2..alchemy_path.len()].to_string()
+            )
         } else {
             // app, and cwd remove the media and don't change the path all
             alchemy_path[media_separator_idx + 2..alchemy_path.len()].to_string()
         }
     }
+}
+
+/// Will just get the file name without the full path
+pub fn get_file_name(file_path: &str) -> Option<&str> {
+    Path::new(file_path).file_stem().and_then(|os| os.to_str())
 }

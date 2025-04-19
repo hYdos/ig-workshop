@@ -1,6 +1,6 @@
 use crate::client::cdn::CContentDeployment;
 use crate::core::ig_archive::igArchive;
-use crate::core::ig_file_context::igFileContext;
+use crate::core::ig_file_context::{get_file_name, igFileContext};
 use crate::core::ig_registry::igRegistry;
 
 pub struct CArchive {
@@ -33,7 +33,7 @@ impl CArchive {
             //res = 0;
         } else {
             if (flags & 8) == 0 {
-                archive_path = self.get_archive_path(archive_path)
+                archive_path = get_archive_path(archive_path)
             }
 
             if self.do_packages && !cdn.enabled {
@@ -44,14 +44,14 @@ impl CArchive {
 
             if res == 0 && ((flags & 4) != 0 || self.do_packages) {
                 // igCauldron sets some fields in the archive before it is opened. However, these are not used and I really don't feel like messing with that atm
-                return igArchive::open(&ig_file_context, &ig_registry, archive_path);
+                return igArchive::open(&ig_file_context, &ig_registry, &archive_path);
             }
         }
 
         Err("No criteria were met that lead to an archive been opened".to_string())
     }
+}
 
-    fn get_archive_path(&self, file_path: String) -> String {
-        format!("app:/archives/{}.pak", file_path)
-    }
+fn get_archive_path(file_path: String) -> String {
+    format!("app:/archives/{}.pak", file_path)
 }

@@ -1,4 +1,7 @@
-#[derive(PartialEq, Eq, Hash)]
+use strum_macros::EnumIter;
+
+#[repr(u16)]
+#[derive(EnumIter, PartialEq, Eq, Hash)]
 pub enum EMemoryPoolID {
     MP_INVALID = 0,
     MP_DEFAULT = 51,

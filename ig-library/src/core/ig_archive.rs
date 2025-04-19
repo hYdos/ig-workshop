@@ -194,7 +194,7 @@ impl igArchive {
     pub fn open(
         file_context: &igFileContext,
         ig_registry: &igRegistry,
-        file_path: String,
+        file_path: &str,
     ) -> Result<igArchive, String> {
         let mut file_descriptor = file_context.open(ig_registry, file_path, 0);
         let _path = file_descriptor._path;

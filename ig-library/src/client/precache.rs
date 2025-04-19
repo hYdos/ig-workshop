@@ -2,7 +2,8 @@ use crate::client::archive::CArchive;
 use crate::client::cdn::CContentDeployment;
 use crate::client::client::CClient;
 use crate::core::ig_ark_core::EGame;
-use crate::core::ig_file_context::igFileContext;
+use crate::core::ig_file_context::{get_file_name, igFileContext};
+use crate::core::ig_objects::igObjectStreamManager;
 use crate::core::ig_registry::{igRegistry, BuildTool};
 use crate::core::memory::EMemoryPoolID;
 use crate::util::ig_common::{get_platform_string, igAlchemy};
@@ -13,7 +14,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::Arc;
-use crate::core::ig_objects::igObjectStreamManager;
+use strum::IntoEnumIterator;
 
 pub trait CResourcePreCacher: Send + Sync {
     fn precache(&mut self);
@@ -24,7 +25,7 @@ pub trait CResourcePreCacher: Send + Sync {
 pub struct CPrecacheManager {
     pub resource_pre_cachers: Vec<Arc<dyn CResourcePreCacher>>,
     pub resource_pre_cacher_lookup: HashMap<String, Arc<dyn CResourcePreCacher>>,
-    pub pool_package_lookup: HashMap<EMemoryPoolID, Arc<String>>,
+    pub pool_package_lookup: HashMap<EMemoryPoolID, Vec<String>>,
 }
 
 pub struct COtherPackagePreCacher;
@@ -359,10 +360,15 @@ impl CResourcePreCacher for CScriptPreCacher {
 
 impl CPrecacheManager {
     pub fn new() -> CPrecacheManager {
+        let mut pool_package_lookup = HashMap::with_capacity(EMemoryPoolID::MP_POOL_COUNT as usize);
+        for pool in EMemoryPoolID::iter() {
+            pool_package_lookup.insert(pool, Vec::<String>::new());
+        }
+
         CPrecacheManager {
             resource_pre_cachers: Vec::with_capacity(0x24),
             resource_pre_cacher_lookup: HashMap::with_capacity(0x24),
-            pool_package_lookup: HashMap::new(),
+            pool_package_lookup,
         }
     }
 
@@ -442,7 +448,7 @@ impl CPrecacheManager {
                 cdn,
                 ig_file_context,
                 ig_registry,
-                package_path.trim_end_matches("_pkg.igz"),
+                get_file_name(&package_path.trim_end_matches("_pkg.igz")).unwrap(),
                 0,
             )
             .unwrap();
@@ -525,7 +531,7 @@ pub fn load_init_script(game: EGame, is_weakly_loaded: bool, ig_alchemy: &mut ig
                 &mut ig_alchemy.client,
                 &mut ig_alchemy.file_context,
                 &mut ig_alchemy.registry,
-                &mut ig_alchemy.object_stream_manager
+                &mut ig_alchemy.object_stream_manager,
             );
         }
     }
@@ -594,7 +600,7 @@ fn process_task(
     client: &mut CClient,
     ig_file_context: &mut igFileContext,
     ig_registry: &mut igRegistry,
-    ig_object_stream_manager: &mut igObjectStreamManager
+    ig_object_stream_manager: &mut igObjectStreamManager,
 ) {
     info!("initscript -> {:?} {}", task, line);
     let precache_manager = &client.precache_manager;
