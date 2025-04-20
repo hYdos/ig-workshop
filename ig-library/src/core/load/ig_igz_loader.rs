@@ -6,7 +6,7 @@ use crate::core::ig_objects::igObjectDirectory;
 use crate::core::ig_registry::igRegistry;
 use crate::core::load::ig_loader::igObjectLoader;
 use crate::core::memory::igMemoryPool;
-use crate::core::meta::ig_metadata_manager::{igMetadataManager, igObjectMeta};
+use crate::core::meta::ig_metadata_manager::{igMetadataManager, igMetaObject};
 use crate::util::byteorder_fixes::{read_string, read_u32};
 use log::{debug, error, info};
 use std::io::{Cursor, Seek, SeekFrom};
@@ -71,7 +71,7 @@ struct LoaderContext {
     /// Offset where fixup's are present
     fixup_offset: u32,
     /// A list of all igObject instances present inside the igz
-    vtbl_list: Vec<Arc<igObjectMeta>>,
+    vtbl_list: Vec<Arc<igMetaObject>>,
 }
 
 impl igIGZLoader {

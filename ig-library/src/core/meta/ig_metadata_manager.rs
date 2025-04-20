@@ -14,7 +14,7 @@ pub struct igMetadataManager {
     meta_fields: HashMap<String, MetaField>,
     meta_enums: HashMap<String, MetaEnum>,
     meta_objects: HashMap<String, MetaObject>,
-    object_meta_lookup: HashMap<String, Arc<igObjectMeta>>,
+    object_meta_lookup: HashMap<String, Arc<igMetaObject>>,
     platform: IG_CORE_PLATFORM,
 }
 
@@ -72,15 +72,15 @@ impl FieldStorage {
 
 /// Represents the data needed to instantiate an instance of the meta object stored.
 #[derive(Debug)]
-pub struct igObjectMeta {
+pub struct igMetaObject {
     pub name: String,
-    parent: Option<Arc<igObjectMeta>>,
+    parent: Option<Arc<igMetaObject>>,
     field_storage: FieldStorage,
 }
 
 impl igMetadataManager {
     /// Will search the cache for the type from the given name, if there is no match, It will load the type now and cache it for later use
-    pub fn get_or_create_meta(&mut self, type_name: &str) -> Result<Arc<igObjectMeta>, ()> {
+    pub fn get_or_create_meta(&mut self, type_name: &str) -> Result<Arc<igMetaObject>, ()> {
         if self.object_meta_lookup.contains_key(type_name) {
             return Ok(self.object_meta_lookup[type_name].clone());
         }
@@ -91,7 +91,7 @@ impl igMetadataManager {
         Ok(ig_object_meta)
     }
 
-    fn create_object_meta(&self, type_name: &str) -> igObjectMeta {
+    fn create_object_meta(&self, type_name: &str) -> igMetaObject {
         let object = &self.meta_objects[type_name];
         let mut parent_meta = None;
 
@@ -101,7 +101,7 @@ impl igMetadataManager {
 
         let field_storage = self.get_current_fields(&self.platform, &parent_meta, object);
 
-        igObjectMeta {
+        igMetaObject {
             name: type_name.to_string(),
             parent: parent_meta,
             field_storage,
@@ -121,7 +121,7 @@ impl igMetadataManager {
     fn get_current_fields(
         &self,
         platform: &IG_CORE_PLATFORM,
-        parent: &Option<Arc<igObjectMeta>>,
+        parent: &Option<Arc<igMetaObject>>,
         current_object: &MetaObject,
     ) -> FieldStorage {
         // TODO: handle however compound fields work
