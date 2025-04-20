@@ -1820,6 +1820,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "flate2",
+ "ig-proc-macros",
  "log",
  "lz4",
  "lzma-rs",
@@ -1830,6 +1831,15 @@ dependencies = [
  "strum 0.27.1",
  "strum_macros 0.27.1",
  "walkdir",
+]
+
+[[package]]
+name = "ig-proc-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

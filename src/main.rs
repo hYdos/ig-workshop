@@ -28,7 +28,7 @@ use ig_library::client::precache::load_init_script;
 use ig_library::util::ig_common::igAlchemy;
 
 fn main() {
-    init_logger(LevelFilter::Debug);
+    init_logger(LevelFilter::Info);
     let configs = init_config();
 
     let options = eframe::NativeOptions {
@@ -61,7 +61,11 @@ pub fn load_game_data(game_cfg: GameConfig, dock_state: Arc<Mutex<DockState<wind
             }
             
             // Early init is complete after these last few objects, finish init & build the igAlchemy object
-            let mut ig_alchemy = igAlchemy::new(ig_file_context, ig_registry, igArkCore::new(game_cfg.clone()._game));
+            let platform = ig_registry.platform.clone();
+            let mut ig_alchemy = igAlchemy::new(ig_file_context, ig_registry, igArkCore::new(game_cfg.clone()._game, platform));
+
+            // Try out caching all metadata at the start
+            ig_alchemy.ark_core.metadata_manager.stupid_idea();
             
             load_init_script(game_cfg.clone()._game, false, &mut ig_alchemy);
             

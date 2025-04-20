@@ -1,4 +1,3 @@
-use crate::core::ig_file_context;
 use crate::core::ig_file_context::{get_native_path, igFileContext};
 use crate::core::ig_lists::{igNameList, igObjectDirectoryList};
 use crate::core::ig_registry::igRegistry;
@@ -52,7 +51,7 @@ impl igObjectStreamManager {
         &mut self,
         ig_file_context: &igFileContext,
         ig_registry: &igRegistry,
-        ig_metadata_manager: &igMetadataManager,
+        ig_metadata_manager: &mut igMetadataManager,
         _path: String,
     ) -> Result<Arc<RwLock<igObjectDirectory>>, String> {
         self.load_inner(
@@ -68,7 +67,7 @@ impl igObjectStreamManager {
         &mut self,
         ig_file_context: &igFileContext,
         ig_registry: &igRegistry,
-        ig_metadata_manager: &igMetadataManager,
+        ig_metadata_manager: &mut igMetadataManager,
         path: String,
         namespace: igName,
     ) -> Result<Arc<RwLock<igObjectDirectory>>, String> {
@@ -91,7 +90,7 @@ impl igObjectStreamManager {
                     &mut dir_guard,
                     &file_path,
                 );
-                todo!("igObjectHandleManager.Singleton.AddDirectory(objDir);");
+                //todo!("igObjectHandleManager.Singleton.AddDirectory(objDir);");
             } else {
                 warn!("No loader found for file {}", file_path);
             }

@@ -1,9 +1,9 @@
-workspace = { members = ["ig-library"] }
+workspace = { members = ["ig-library", "ig-proc-macros"] }
 [package]
 # todo: ig-workshop
 name = "ig-cauldron-rs"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 ig-library = { path = "ig-library" }

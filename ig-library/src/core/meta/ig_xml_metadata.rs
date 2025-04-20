@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use log::info;
 use quick_xml::events::{BytesStart, Event};
@@ -11,8 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 type igMetaFieldXml = Vec<MetaField>;
 
 #[derive(Debug, Clone)]
-pub struct PlatformInfo {
-    pub platform: IG_CORE_PLATFORM,
+pub struct PlatformSizingInfo {
     pub align: u16,
     pub size: u16,
 }
@@ -20,7 +20,7 @@ pub struct PlatformInfo {
 #[derive(Debug, Clone)]
 pub struct MetaField {
     pub name: String,
-    pub platform_info: Vec<PlatformInfo>,
+    pub platform_info: HashMap<IG_CORE_PLATFORM, PlatformSizingInfo>,
 }
 
 type igMetaEnumXml = Vec<MetaEnum>;
@@ -143,7 +143,7 @@ fn load_meta_fields(path: &PathBuf) -> Result<Vec<MetaField>, String> {
 
     let mut meta_fields: Vec<MetaField> = Vec::new();
     let mut current_meta_field_name: Option<String> = None;
-    let mut platform_info_buffer: Vec<PlatformInfo> = Vec::new();
+    let mut platform_info_buffer: HashMap<IG_CORE_PLATFORM, PlatformSizingInfo> = HashMap::new();
     loop {
         match reader.read_event_into(&mut buf) {
             Err(e) => {
@@ -177,11 +177,10 @@ fn load_meta_fields(path: &PathBuf) -> Result<Vec<MetaField>, String> {
                     }
                 }
 
-                platform_info_buffer.push(PlatformInfo {
-                    platform: platform.unwrap(),
+                platform_info_buffer.insert(platform.unwrap(), PlatformSizingInfo {
                     align: align.unwrap(),
                     size: size.unwrap(),
-                })
+                });
             }
             Ok(Event::Start(e)) => match e.name().as_ref() {
                 b"metafield" => {
@@ -202,11 +201,11 @@ fn load_meta_fields(path: &PathBuf) -> Result<Vec<MetaField>, String> {
 
                     meta_fields.push(MetaField {
                         name: metafield_name,
-                        platform_info: platform_info_buffer.to_vec(),
+                        platform_info: platform_info_buffer,
                     });
 
                     current_meta_field_name = None;
-                    platform_info_buffer.clear();
+                    platform_info_buffer = HashMap::new();
                 }
                 &_ => {}
             },
@@ -315,12 +314,23 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
                 panic!("at position {}: {:?}", reader.error_position(), e)
             }
             Ok(Event::Eof) => break,
+            Ok(Event::End(e)) => {
+                match e.local_name().as_ref() {
+                    b"metaobject" => {
+                        if let Some(old_meta_obj) = current_meta_object.clone() {
+                            meta_objects.push(old_meta_obj.borrow().to_owned());
+                        }
+                        
+                        current_meta_object = None;
+                    },
+                    _ => {}
+                }
+            }
             Ok(Event::Empty(e)) => match e.local_name().as_ref() {
                 b"overriddenmetafields" => field_type = FieldType::OverridenField,
                 b"metafields" => field_type = FieldType::NewField,
                 b"compoundfields" => field_type = FieldType::CompoundField,
                 b"metafield" => on_metafield_tag(
-                    &mut meta_objects,
                     &mut current_meta_object,
                     &mut current_meta_field,
                     &mut field_type,
@@ -329,7 +339,6 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
                 _ => {}
             },
             Ok(Event::Start(e)) => on_metafield_tag(
-                &mut meta_objects,
                 &mut current_meta_object,
                 &mut current_meta_field,
                 &mut field_type,
@@ -347,7 +356,6 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
 }
 
 fn on_metafield_tag(
-    meta_objects: &mut Vec<MetaObject>,
     current_meta_object: &mut Option<Arc<RefCell<MetaObject>>>,
     current_meta_field: &mut Option<MetaObjectField>,
     field_type: &mut FieldType,
@@ -355,10 +363,6 @@ fn on_metafield_tag(
 ) -> Result<(), String> {
     match e.local_name().as_ref() {
         b"metaobject" => {
-            if let Some(old_meta_obj) = current_meta_object.clone() {
-                meta_objects.push(old_meta_obj.clone().borrow().to_owned());
-            }
-
             let mut _type: Option<String> = None;
             let mut ref_name: Option<String> = None;
             let mut base_type: Option<String> = None;

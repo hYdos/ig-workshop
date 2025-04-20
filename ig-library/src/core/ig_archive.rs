@@ -10,7 +10,7 @@ use crate::util::byteorder_fixes::{
 };
 use crate::util::ig_hash;
 use byteorder::{LittleEndian, ReadBytesExt};
-use flate2::read::{DeflateDecoder, ZlibDecoder};
+use flate2::read::DeflateDecoder;
 use log::debug;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;

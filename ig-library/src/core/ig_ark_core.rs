@@ -3,6 +3,7 @@ use crate::core::meta::ig_metadata_manager::igMetadataManager;
 use crate::core::meta::ig_xml_metadata::load_xml_metadata;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
+use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 
 /// Contains reflection metadata information. Stands for Application Runtime Kernel.
 pub struct igArkCore {
@@ -10,10 +11,10 @@ pub struct igArkCore {
 }
 
 impl igArkCore {
-    pub fn new(game: EGame) -> Self {
+    pub fn new(game: EGame, platform: IG_CORE_PLATFORM) -> Self {
         let metadata_path = PathBuf::from(format!("ArkCore/{:?}/", game));
         let _result = load_xml_metadata(metadata_path).unwrap();
-        igArkCore { metadata_manager: igMetadataManager::new(_result.0, _result.1, _result.2) }
+        igArkCore { metadata_manager: igMetadataManager::new(_result.0, _result.1, _result.2, platform) }
     }
 }
 

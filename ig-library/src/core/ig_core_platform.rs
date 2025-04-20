@@ -1,32 +1,54 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM::*;
+use crate::core::meta::ig_metadata_manager::MetaEnumImpl;
+use ig_proc_macros::MetaEnum;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 ///
-/// Used to associate other objects with platform. Critical for reading .igz files due to them being processed memory dumps.
+/// Used to associate other objects with platform.
 ///
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, MetaEnum)]
 pub enum IG_CORE_PLATFORM {
     IG_CORE_PLATFORM_DEFAULT,
+    /// Any platform that is marked for removal in alchemy.
     IG_CORE_PLATFORM_DEPRECATED,
+    /// Windows 32-bit
     IG_CORE_PLATFORM_WIN32,
+    /// Wii
     IG_CORE_PLATFORM_WII,
+    /// Xbox One
     IG_CORE_PLATFORM_DURANGO,
+    /// iOS 32-bit
     IG_CORE_PLATFORM_ASPEN,
+    /// Xbox 360
     IG_CORE_PLATFORM_XENON,
+    /// Playstation 3
     IG_CORE_PLATFORM_PS3,
+    /// MacOS
     IG_CORE_PLATFORM_OSX,
+    /// Windows 64-bit
     IG_CORE_PLATFORM_WIN64,
+    /// WiiU
     IG_CORE_PLATFORM_CAFE,
+    /// Playstation Vita
     IG_CORE_PLATFORM_NGP,
+    /// unknown platform
     IG_CORE_PLATFORM_MARMALADE,
+    /// Raspberry Pi
     IG_CORE_PLATFORM_RASPI,
+    /// Android
     IG_CORE_PLATFORM_ANDROID,
+    /// iOS 64-bit
     IG_CORE_PLATFORM_ASPEN64,
+    /// LG tv
     IG_CORE_PLATFORM_LGTV,
+    /// Playstation 4
     IG_CORE_PLATFORM_PS4,
+    /// Windows 8 phone
     IG_CORE_PLATFORM_WP8,
+    /// Linux
     IG_CORE_PLATFORM_LINUX,
+    /// Nintendo Switch
     IG_CORE_PLATFORM_NX,
     /// This variant indicates that there can be no more valid platforms beyond this limit.
     IG_CORE_PLATFORM_MAX,
@@ -36,6 +58,42 @@ impl IG_CORE_PLATFORM {
     pub const IG_CORE_PLATFORM_DEPRECATED_2: IG_CORE_PLATFORM = IG_CORE_PLATFORM_DEPRECATED;
     pub const IG_CORE_PLATFORM_DEPRECATED_3: IG_CORE_PLATFORM = IG_CORE_PLATFORM_DEPRECATED;
     pub const IG_CORE_PLATFORM_DEPRECATED_4: IG_CORE_PLATFORM = IG_CORE_PLATFORM_DEPRECATED;
+
+    pub fn get_pointer_size(&self) -> usize {
+        if self.is_64bit() {
+            8
+        } else {
+            4
+        }
+    }
+
+    pub fn is_64bit(&self) -> bool {
+        match &self {
+            IG_CORE_PLATFORM_DEFAULT
+            | IG_CORE_PLATFORM_DEPRECATED
+            | IG_CORE_PLATFORM_WIN32
+            | IG_CORE_PLATFORM_WII
+            | IG_CORE_PLATFORM_ASPEN
+            | IG_CORE_PLATFORM_XENON
+            | IG_CORE_PLATFORM_PS3
+            | IG_CORE_PLATFORM_OSX
+            | IG_CORE_PLATFORM_CAFE
+            | IG_CORE_PLATFORM_NGP
+            | IG_CORE_PLATFORM_MARMALADE
+            | IG_CORE_PLATFORM_RASPI
+            | IG_CORE_PLATFORM_ANDROID
+            | IG_CORE_PLATFORM_LGTV
+            | IG_CORE_PLATFORM_MAX => false,
+
+            IG_CORE_PLATFORM_DURANGO
+            | IG_CORE_PLATFORM_WIN64
+            | IG_CORE_PLATFORM_ASPEN64
+            | IG_CORE_PLATFORM_PS4
+            | IG_CORE_PLATFORM_WP8
+            | IG_CORE_PLATFORM_NX
+            | IG_CORE_PLATFORM_LINUX => true,
+        }
+    }
 }
 
 impl Display for IG_CORE_PLATFORM {

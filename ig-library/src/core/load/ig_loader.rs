@@ -24,8 +24,8 @@ pub trait igObjectLoader: Send + Sync {
         &self,
         ig_file_context: &igFileContext,
         ig_registry: &igRegistry,
-        ig_metadata_manager: &igMetadataManager,
-        dir: &igObjectDirectory,
+        ig_metadata_manager: &mut igMetadataManager,
+        dir: &mut igObjectDirectory,
         file_path: &str,
     );
 }

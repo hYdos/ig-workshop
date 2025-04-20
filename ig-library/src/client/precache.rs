@@ -426,7 +426,7 @@ impl CPrecacheManager {
         ig_registry: &igRegistry,
         ig_file_context: &igFileContext,
         ig_object_stream_manager: &mut igObjectStreamManager,
-        ig_metadata_manager: &igMetadataManager,
+        ig_metadata_manager: &mut igMetadataManager,
         package_name: String,
         pool_id: EMemoryPoolID,
     ) {
