@@ -1,7 +1,5 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
-use crate::core::meta::ig_xml_metadata::{
-    load_xml_metadata, MetaEnum, MetaField, MetaObject, PlatformSizingInfo, RawMetaObjectField,
-};
+use crate::core::meta::ig_xml_metadata::{MetaEnum, MetaField, MetaObject, RawMetaObjectField};
 use log::{error, info};
 use std::collections::HashMap;
 use std::ops::Sub;
@@ -11,44 +9,59 @@ use std::time::Instant;
 
 /// Fast structure used to manage and create new instances of metaobjects, metafields, and metaenums
 pub struct igMetadataManager {
-    meta_fields: HashMap<String, MetaField>,
-    meta_enums: HashMap<String, MetaEnum>,
-    meta_objects: HashMap<String, MetaObject>,
-    object_meta_lookup: HashMap<String, Arc<igMetaObject>>,
+    meta_fields: HashMap<Arc<str>, MetaField>,
+    meta_enums: HashMap<Arc<str>, MetaEnum>,
+    meta_objects: HashMap<Arc<str>, MetaObject>,
+    object_meta_lookup: HashMap<Arc<str>, Arc<igMetaObject>>,
     platform: IG_CORE_PLATFORM,
 }
 
+/// Missing implementation. Plan is for this to exist for every metaobject to allow conversion to/from nice types (example: igFloatMetaField -> f32)
+trait igMetaFieldTranslator {
+    fn read_igz_field();
+    fn write_igz_field();
+    fn get_size();
+    fn get_alignment();
+}
+
 impl igMetadataManager {
-    pub fn stupid_idea(&mut self) {
+    pub fn load_all(&mut self) {
         let start_time = Instant::now();
-        let type_names: Vec<String> = self.meta_objects.keys()
+        let type_names: Vec<String> = self
+            .meta_objects
+            .keys()
             .map(|x1| x1.to_string()) // Become owners of the strings to stop borrowing from ourselves
             .collect();
 
         for _type in type_names {
             let _meta = self.get_or_create_meta(&_type).unwrap();
         }
-        
+
         let total_time = Instant::now().sub(start_time);
         info!("igMetaObject's loaded and cached in {:?}", total_time);
     }
 }
 
+/// Represents an object that can be converted from igz or other data into a igObject
+pub trait __internalObjectBase : Sync + Send {
+    fn name(&self) -> Arc<str>;
+}
+
 // igCauldron cares about the platform here, we don't. Metadata cannot be shared between platforms and expected to work anyway.
 #[derive(Debug)]
 struct StoredField {
-    name: Option<String>,
+    name: Option<Arc<str>>,
     size: u32,
     offset: u16,
 }
 
 /// Type designed for ergonomics and to keep speed up
 #[derive(Debug)]
-pub struct FieldStorage {
+struct FieldStorage {
     /// All fields will be present in this map. Use the offset of a field to look it up
     offset_lookup: HashMap<u16, Arc<StoredField>>,
     /// NOT all fields will be present in this map. Any field not using a name will not be present
-    name_lookup: HashMap<String, Arc<StoredField>>,
+    name_lookup: HashMap<Arc<str>, Arc<StoredField>>,
 }
 
 impl FieldStorage {
@@ -59,7 +72,7 @@ impl FieldStorage {
         for x in fields {
             offset_lookup.insert(x.offset, x.clone());
             if let Some(name) = &x.name {
-                name_lookup.insert(name.to_string(), x.clone());
+                name_lookup.insert(name.clone(), x.clone());
             }
         }
 
@@ -73,7 +86,7 @@ impl FieldStorage {
 /// Represents the data needed to instantiate an instance of the meta object stored.
 #[derive(Debug)]
 pub struct igMetaObject {
-    pub name: String,
+    pub name: Arc<str>,
     parent: Option<Arc<igMetaObject>>,
     field_storage: FieldStorage,
 }
@@ -87,7 +100,7 @@ impl igMetadataManager {
 
         let ig_object_meta = Arc::new(self.create_object_meta(type_name));
         self.object_meta_lookup
-            .insert(type_name.to_string(), ig_object_meta.clone());
+            .insert(Arc::from(type_name), ig_object_meta.clone());
         Ok(ig_object_meta)
     }
 
@@ -102,15 +115,10 @@ impl igMetadataManager {
         let field_storage = self.get_current_fields(&self.platform, &parent_meta, object);
 
         igMetaObject {
-            name: type_name.to_string(),
+            name: Arc::from(type_name),
             parent: parent_meta,
             field_storage,
         }
-    }
-    
-    fn calculate_offset(&self, object_field: &RawMetaObjectField, platform: &IG_CORE_PLATFORM) -> u16 {
-        todo!()
-       
     }
 
     fn calculate_size(&self, object: &RawMetaObjectField, platform: &IG_CORE_PLATFORM) -> u32 {
@@ -137,7 +145,11 @@ impl igMetadataManager {
                     if *parent_field.0 == override_field.offset {
                         new_fields.push(Arc::new(StoredField {
                             name: override_field.clone().name,
-                            size: igMetadataManager::calculate_size(&self, &override_field, platform),
+                            size: igMetadataManager::calculate_size(
+                                &self,
+                                &override_field,
+                                platform,
+                            ),
                             offset: override_field.offset,
                         }));
                         overriden = true;
@@ -149,7 +161,7 @@ impl igMetadataManager {
                     new_fields.push(parent_field.1.clone())
                 }
             }
-            
+
             for field in &current_object.new_fields {
                 let field = field.read().unwrap();
 
@@ -159,12 +171,11 @@ impl igMetadataManager {
                     offset: field.offset,
                 }));
             }
-            
 
             FieldStorage::new(new_fields)
         } else {
             let mut offset_lookup: HashMap<u16, Arc<StoredField>> = HashMap::new();
-            let mut name_lookup: HashMap<String, Arc<StoredField>> = HashMap::new();
+            let mut name_lookup: HashMap<Arc<str>, Arc<StoredField>> = HashMap::new();
 
             for field in &current_object.new_fields {
                 let lock = field.read().unwrap();

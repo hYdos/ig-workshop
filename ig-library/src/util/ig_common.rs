@@ -1,4 +1,5 @@
 use crate::client::client::CClient;
+use crate::core::external_ref::igExternalReferenceSystem;
 use crate::core::ig_ark_core::igArkCore;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM::*;
@@ -12,6 +13,7 @@ pub struct igAlchemy {
     pub file_context: igFileContext,
     pub registry: igRegistry,
     pub object_stream_manager: igObjectStreamManager,
+    pub ig_ext_ref_system: igExternalReferenceSystem,
     pub client: CClient,
 }
 
@@ -21,6 +23,7 @@ impl igAlchemy {
             ark_core: ig_ark_core,
             file_context: ig_file_context,
             object_stream_manager: igObjectStreamManager::new(),
+            ig_ext_ref_system: igExternalReferenceSystem::new(),
             client: CClient::init(&ig_registry),
             registry: ig_registry,
         }

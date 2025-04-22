@@ -19,7 +19,7 @@ pub struct PlatformSizingInfo {
 
 #[derive(Debug, Clone)]
 pub struct MetaField {
-    pub name: String,
+    pub name: Arc<str>,
     pub platform_info: HashMap<IG_CORE_PLATFORM, PlatformSizingInfo>,
 }
 
@@ -27,13 +27,13 @@ type igMetaEnumXml = Vec<MetaEnum>;
 
 #[derive(Debug, Clone)]
 pub struct MetaEnumValue {
-    pub name: String,
+    pub name: Arc<str>,
     pub value: i32,
 }
 
 #[derive(Debug, Clone)]
 pub struct MetaEnum {
-    pub ref_name: String,
+    pub ref_name: Arc<str>,
     pub values: Vec<MetaEnumValue>,
 }
 
@@ -72,13 +72,13 @@ pub struct VectorInfo {
 #[derive(Debug, Clone)]
 pub struct RawMetaObjectField {
     /// meta field type to use when serializing, deserializing, and constructing new instances
-    pub _type: String,
+    pub _type: Arc<str>,
     /// offset in the object where the field resides
     pub offset: u16,
     /// Will most times be present unless it is not the parent field
-    pub name: Option<String>,
+    pub name: Option<Arc<str>>,
     /// Present when _type is equal to "igObjectRefMetaField"
-    pub meta_object: Option<String>,
+    pub meta_object: Option<Arc<str>>,
     /// Some fields will require a specific alignment otherwise they won't work. These types will specify it. I am unsure specifically which ones do this.
     pub required_alignment: Option<u8>,
     /// Present when _type is equal to "igVectorMetaField"
@@ -90,7 +90,7 @@ pub struct RawMetaObjectField {
     /// Present when _type is equal to "igPropertyFieldMetaField"
     pub ig_property_info: Option<PropertyInfo>,
     /// Present when _type is equal to "igEnumMetaField". Stores the meta enum to use with the field
-    pub ig_meta_enum: Option<String>,
+    pub ig_meta_enum: Option<Arc<str>>,
     /// Present when _type is equal to "igStaticMetaField"
     pub ig_static_info: Option<MetaObjectField>,
 }
@@ -100,7 +100,7 @@ pub struct MetaObject {
     /// The type of meta object. for the most part, this will always be "igMetaObject" and I don't believe it has a real use.
     pub _type: String,
     /// Name associated
-    pub ref_name: String,
+    pub ref_name: Arc<str>,
     /// The parent of the current object's _type. As far as I know this is present on every object apart from __internalObjectBase
     pub base_type: Option<String>,
     /// Present when base_type is present and extends an object extending "igObjectList" (seen in tfb script) or "igObjectList" itself
@@ -142,7 +142,7 @@ fn load_meta_fields(path: &PathBuf) -> Result<Vec<MetaField>, String> {
     reader.config_mut().trim_text(true);
 
     let mut meta_fields: Vec<MetaField> = Vec::new();
-    let mut current_meta_field_name: Option<String> = None;
+    let mut current_meta_field_name: Option<Arc<str>> = None;
     let mut platform_info_buffer: HashMap<IG_CORE_PLATFORM, PlatformSizingInfo> = HashMap::new();
     loop {
         match reader.read_event_into(&mut buf) {
@@ -187,7 +187,7 @@ fn load_meta_fields(path: &PathBuf) -> Result<Vec<MetaField>, String> {
                     for result in e.attributes() {
                         let attrib = result.unwrap();
                         current_meta_field_name =
-                            Some(String::from(attrib.unescape_value().unwrap()));
+                            Some(Arc::from(attrib.unescape_value().unwrap()));
                     }
                 }
                 b"platforminfo" => {}
@@ -226,7 +226,7 @@ fn load_meta_enums(path: &PathBuf) -> Result<Vec<MetaEnum>, String> {
     reader.config_mut().trim_text(true);
 
     let mut meta_enums: Vec<MetaEnum> = Vec::new();
-    let mut current_meta_enum_name: Option<String> = None;
+    let mut current_meta_enum_name: Option<Arc<str>> = None;
     let mut value_buffer: Vec<MetaEnumValue> = Vec::new();
     loop {
         match reader.read_event_into(&mut buf) {
@@ -236,14 +236,14 @@ fn load_meta_enums(path: &PathBuf) -> Result<Vec<MetaEnum>, String> {
             Ok(Event::Eof) => break,
             Ok(Event::Empty(e)) => match e.name().as_ref() {
                 b"value" => {
-                    let mut name: Option<String> = None;
+                    let mut name: Option<Arc<str>> = None;
                     let mut value: Option<i32> = None;
 
                     for result in e.attributes() {
                         let attrib = result.unwrap();
                         match attrib.key.local_name().as_ref() {
                             b"name" => {
-                                name = Some(String::from(attrib.unescape_value().unwrap()));
+                                name = Some(Arc::from(attrib.unescape_value().unwrap()));
                             }
                             b"value" => {
                                 let raw = String::from(attrib.unescape_value().unwrap());
@@ -265,7 +265,7 @@ fn load_meta_enums(path: &PathBuf) -> Result<Vec<MetaEnum>, String> {
                     for result in e.attributes() {
                         let attrib = result.unwrap();
                         current_meta_enum_name =
-                            Some(String::from(attrib.unescape_value().unwrap()));
+                            Some(Arc::from(attrib.unescape_value().unwrap()));
                     }
                 }
                 _ => (),
@@ -364,7 +364,7 @@ fn on_metafield_tag(
     match e.local_name().as_ref() {
         b"metaobject" => {
             let mut _type: Option<String> = None;
-            let mut ref_name: Option<String> = None;
+            let mut ref_name: Option<Arc<str>> = None;
             let mut base_type: Option<String> = None;
 
             for result in e.attributes() {
@@ -375,7 +375,7 @@ fn on_metafield_tag(
                     }
 
                     b"refname" => {
-                        ref_name = Some(String::from(attrib.unescape_value().unwrap()));
+                        ref_name = Some(Arc::from(attrib.unescape_value().unwrap()));
                     }
 
                     b"basetype" => {
@@ -457,7 +457,7 @@ fn on_metafield_tag(
                 let current_meta_field_ref = current_meta_field.clone().unwrap();
                 let current_type = current_meta_field_ref.read().unwrap().clone()._type;
 
-                match current_type.as_str() {
+                match current_type.as_ref() {
                     "igPropertyFieldMetaField" => {
                         let child_metafield = process_new_metafield(&e);
                         current_meta_field_ref.write().unwrap().ig_property_info = Some(
@@ -645,10 +645,10 @@ fn on_metafield_tag(
 }
 
 fn process_new_metafield(e: &BytesStart) -> Option<MetaObjectField> {
-    let mut _type: Option<String> = None;
+    let mut _type: Option<Arc<str>> = None;
     let mut offset: Option<u16> = None;
-    let mut name: Option<String> = None;
-    let mut meta_object: Option<String> = None;
+    let mut name: Option<Arc<str>> = None;
+    let mut meta_object: Option<Arc<str>> = None;
     let mut required_alignment: Option<u8> = None;
     let mut ig_bit_shift_info = BitShiftInfo {
         shift: 0,
@@ -656,7 +656,7 @@ fn process_new_metafield(e: &BytesStart) -> Option<MetaObjectField> {
         storage_field: "".to_string(),
         _type: None,
     };
-    let mut ig_meta_enum: Option<String> = None;
+    let mut ig_meta_enum: Option<Arc<str>> = None;
     let mut ig_vector_info = VectorInfo {
         field: None,
         mem_type_alignment_multiple: u8::MAX,
@@ -665,13 +665,13 @@ fn process_new_metafield(e: &BytesStart) -> Option<MetaObjectField> {
     for result in e.attributes() {
         let attrib = result.unwrap();
         match attrib.key.local_name().as_ref() {
-            b"type" => _type = Some(String::from(attrib.unescape_value().unwrap())),
+            b"type" => _type = Some(Arc::from(attrib.unescape_value().unwrap())),
             b"offset" => {
                 let raw = String::from(attrib.unescape_value().unwrap());
                 let without_prefix = raw.trim_start_matches("0x");
                 offset = Some(u16::from_str_radix(&without_prefix, 16).unwrap());
             }
-            b"name" => name = Some(String::from(attrib.unescape_value().unwrap())),
+            b"name" => name = Some(Arc::from(attrib.unescape_value().unwrap())),
             b"requiredAlignment" => {
                 // Jasleen made it write the value in decimal not hex here?
                 let raw = String::from(attrib.unescape_value().unwrap());
@@ -692,9 +692,9 @@ fn process_new_metafield(e: &BytesStart) -> Option<MetaObjectField> {
                 ig_bit_shift_info.storage_field = String::from(attrib.unescape_value().unwrap())
             }
             // igEnumMetaField
-            b"metaenum" => ig_meta_enum = Some(String::from(attrib.unescape_value().unwrap())),
+            b"metaenum" => ig_meta_enum = Some(Arc::from(attrib.unescape_value().unwrap())),
             // igObjectRefMetaField
-            b"metaobject" => meta_object = Some(String::from(attrib.unescape_value().unwrap())),
+            b"metaobject" => meta_object = Some(Arc::from(attrib.unescape_value().unwrap())),
             // igVectorMetaField
             b"memTypeAlignmentMultiple" => {
                 let raw = String::from(attrib.unescape_value().unwrap());
@@ -720,7 +720,7 @@ fn process_new_metafield(e: &BytesStart) -> Option<MetaObjectField> {
 
     // Don't store vector info when it's not a igVectorMetaField to not confuse users of metadata
     let mut optional_ig_vector = None;
-    if _type.clone().unwrap().clone() == "igVectorMetaField" {
+    if _type.clone().unwrap().as_ref() == "igVectorMetaField" {
         optional_ig_vector = Some(ig_vector_info)
     }
 

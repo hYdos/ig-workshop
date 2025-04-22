@@ -11,4 +11,6 @@ pub mod ig_lists;
 pub mod meta;
 pub mod memory;
 pub mod ig_objects;
-mod load;
+pub mod load;
+pub mod ig_handle;
+pub mod external_ref;

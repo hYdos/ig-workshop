@@ -4,6 +4,7 @@ use std::io::{Cursor, ErrorKind, Read};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use crate::core::fs::Endian;
 use paste::paste;
+use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 
 // Endian is ignored here so it needs a custom implementation
 #[inline]
@@ -29,42 +30,13 @@ macro_rules! define_read {
     };
 }
 
-// Custom implementation separate to macro doubles the speed
-pub fn read_struct_array_u8<'a>(
-    cursor: &mut Cursor<Vec<u8>>,
-    _endian: &Endian,
-    count: usize,
-) -> std::io::Result<Vec<u8>> {
-    let mut buf = vec![0u8; count];
-    cursor.read_exact(&mut buf)?; // advance the position internally. Strange performance issue here
-    Ok(buf)
+pub fn read_ptr(cursor: &mut Cursor<Vec<u8>>, platform: &IG_CORE_PLATFORM, endian: &Endian) -> std::io::Result<u64> {
+    if platform.is_64bit() {
+        read_u32(cursor, endian).map(|t| t as u64)
+    } else {
+        read_u64(cursor, endian)
+    }
 }
-
-
-macro_rules! define_read_struct_array {
-    ($($typ:ident),*) => {
-        $(
-            paste::paste! {
-                pub fn [<read_struct_array_ $typ>](
-                    reader: &mut Cursor<Vec<u8>>,
-                    endian: &Endian,
-                    count: usize,
-                ) -> std::io::Result<Vec<$typ>> {
-                    let mut vec = Vec::with_capacity(count);
-                    for _ in 0..count {
-                        vec.push([<read_ $typ>](reader, endian)?);
-                    }
-                    Ok(vec)
-                }
-            }
-        )*
-    };
-}
-
-define_read!(u16);
-define_read!(u32);
-define_read!(u64);
-define_read_struct_array!(u16, u32, u64);
 
 pub fn read_string(cursor: &mut Cursor<Vec<u8>>) -> std::io::Result<String> {
     let mut buf = Vec::new();
@@ -86,3 +58,41 @@ pub fn read_string(cursor: &mut Cursor<Vec<u8>>) -> std::io::Result<String> {
     String::from_utf8(buf)
         .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))
 }
+
+macro_rules! define_read_struct_array {
+    ($($typ:ident),*) => {
+        $(
+            paste::paste! {
+                pub fn [<read_struct_array_ $typ>](
+                    reader: &mut Cursor<Vec<u8>>,
+                    endian: &Endian,
+                    count: usize,
+                ) -> std::io::Result<Vec<$typ>> {
+                    let mut vec = Vec::with_capacity(count);
+                    for _ in 0..count {
+                        vec.push([<read_ $typ>](reader, endian)?);
+                    }
+                    Ok(vec)
+                }
+            }
+        )*
+    };
+}
+
+
+// Custom implementation separate to macro doubles the speed
+pub fn read_struct_array_u8<'a>(
+    cursor: &mut Cursor<Vec<u8>>,
+    _endian: &Endian,
+    count: usize,
+) -> std::io::Result<Vec<u8>> {
+    let mut buf = vec![0u8; count];
+    cursor.read_exact(&mut buf)?; // advance the position internally. Strange performance issue here
+    Ok(buf)
+}
+
+
+define_read!(u16);
+define_read!(u32);
+define_read!(u64);
+define_read_struct_array!(u16, u32, u64);

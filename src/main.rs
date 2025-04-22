@@ -60,12 +60,12 @@ pub fn load_game_data(game_cfg: GameConfig, dock_state: Arc<Mutex<DockState<wind
                 ig_file_context.initialize_update(&ig_registry, game_cfg.clone()._update_path);
             }
             
-            // Early init is complete after these last few objects, finish init & build the igAlchemy object
             let platform = ig_registry.platform.clone();
             let mut ig_alchemy = igAlchemy::new(ig_file_context, ig_registry, igArkCore::new(game_cfg.clone()._game, platform));
 
-            // Try out caching all metadata at the start
-            ig_alchemy.ark_core.metadata_manager.stupid_idea();
+            // Try out caching all metadata at the start only in debug to catch issues
+            #[cfg(debug_assertions)]
+            ig_alchemy.ark_core.metadata_manager.load_all();
             
             load_init_script(game_cfg.clone()._game, false, &mut ig_alchemy);
             

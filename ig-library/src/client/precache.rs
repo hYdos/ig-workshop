@@ -1,6 +1,7 @@
 use crate::client::archive::CArchive;
 use crate::client::cdn::CContentDeployment;
 use crate::client::client::CClient;
+use crate::core::external_ref::igExternalReferenceSystem;
 use crate::core::ig_ark_core::EGame;
 use crate::core::ig_file_context::{get_file_name, igFileContext};
 use crate::core::ig_objects::igObjectStreamManager;
@@ -426,6 +427,7 @@ impl CPrecacheManager {
         ig_registry: &igRegistry,
         ig_file_context: &igFileContext,
         ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
         package_name: String,
         pool_id: EMemoryPoolID,
@@ -460,6 +462,7 @@ impl CPrecacheManager {
                 ig_file_context,
                 ig_registry,
                 ig_metadata_manager,
+                ig_ext_ref_system,
                 package_path,
             )
             .unwrap();
@@ -539,6 +542,7 @@ pub fn load_init_script(game: EGame, is_weakly_loaded: bool, ig_alchemy: &mut ig
                 &mut ig_alchemy.file_context,
                 &mut ig_alchemy.registry,
                 &mut ig_alchemy.object_stream_manager,
+                &mut ig_alchemy.ig_ext_ref_system,
                 &mut ig_alchemy.ark_core.metadata_manager,
                 task.clone(),
                 path.unwrap(),
@@ -609,6 +613,7 @@ fn process_task(
     ig_file_context: &mut igFileContext,
     ig_registry: &mut igRegistry,
     ig_object_stream_manager: &mut igObjectStreamManager,
+    ig_ext_ref_system: &mut igExternalReferenceSystem,
     ig_metadata_manager: &mut igMetadataManager,
     task: LoaderTask,
     line: String,
@@ -627,6 +632,7 @@ fn process_task(
                 ig_registry,
                 ig_file_context,
                 ig_object_stream_manager,
+                ig_ext_ref_system,
                 ig_metadata_manager,
                 line,
                 EMemoryPoolID::MP_DEFAULT,

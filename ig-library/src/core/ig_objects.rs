@@ -4,19 +4,24 @@ use crate::core::ig_registry::igRegistry;
 use crate::core::load::ig_igz_loader::igIGZObjectLoader;
 use crate::core::load::ig_loader;
 use crate::core::load::ig_loader::igObjectLoader;
-use crate::core::meta::ig_metadata_manager::igMetadataManager;
+use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetadataManager};
 use crate::util::ig_hash::hash_lower;
 use crate::util::ig_name::igName;
 use log::warn;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use crate::core::external_ref::igExternalReferenceSystem;
+
+pub type igObject = Arc<RwLock<dyn __internalObjectBase>>;
 
 pub struct igObjectDirectory {
     pub path: String,
     pub name: igName,
-    pub dependencies: Vec<RwLock<igObjectDirectory>>,
+    pub dependencies: Vec<Arc<RwLock<igObjectDirectory>>>,
     pub use_name_list: bool,
-    /// Only filled when use_name_list is equal to true
+    /// List of all igObject instances present in the directory
+    pub object_list: Vec<igObject>,
+    /// Only filled when use_name_list is equal to true and length should match the object list
     pub name_list: igNameList,
     pub loader: Arc<RwLock<dyn igObjectLoader>>,
 }
@@ -28,6 +33,7 @@ impl igObjectDirectory {
             name,
             dependencies: vec![],
             use_name_list: false,
+            object_list: vec![],
             name_list: vec![],
             loader: Arc::new(RwLock::new(igIGZObjectLoader)), // FIXME: un-hardcode this at some point. I want to support saves(igb's) and igx's
         }
@@ -52,22 +58,25 @@ impl igObjectStreamManager {
         ig_file_context: &igFileContext,
         ig_registry: &igRegistry,
         ig_metadata_manager: &mut igMetadataManager,
-        _path: String,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        path: String,
     ) -> Result<Arc<RwLock<igObjectDirectory>>, String> {
-        self.load_inner(
+        self.load_with_namespace(
             ig_file_context,
             ig_registry,
             ig_metadata_manager,
-            _path.clone(),
-            igName::new(_path),
+            ig_ext_ref_system,
+            path.clone(),
+            igName::new(path),
         )
     }
 
-    pub fn load_inner(
+    pub fn load_with_namespace(
         &mut self,
         ig_file_context: &igFileContext,
         ig_registry: &igRegistry,
         ig_metadata_manager: &mut igMetadataManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
         path: String,
         namespace: igName,
     ) -> Result<Arc<RwLock<igObjectDirectory>>, String> {
@@ -83,13 +92,7 @@ impl igObjectStreamManager {
             if let Some(loader) = loader_result {
                 let loader_guard = loader.read().unwrap();
                 let mut dir_guard = dir.write().unwrap();
-                loader_guard.read_file(
-                    ig_file_context,
-                    ig_registry,
-                    ig_metadata_manager,
-                    &mut dir_guard,
-                    &file_path,
-                );
+                loader_guard.read_file(ig_file_context, ig_registry, self, ig_ext_ref_system, ig_metadata_manager, &mut dir_guard, &file_path);
                 //todo!("igObjectHandleManager.Singleton.AddDirectory(objDir);");
             } else {
                 warn!("No loader found for file {}", file_path);
