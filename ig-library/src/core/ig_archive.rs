@@ -1,4 +1,4 @@
-use crate::core::fs::{igFileWorkItemProcessor, igStorageDevice, Endian};
+use crate::core::ig_fs::{igFileWorkItemProcessor, igStorageDevice, Endian};
 use crate::core::ig_file_context::WorkStatus::{
     kStatusComplete, kStatusGeneralError, kStatusInvalidPath, kStatusUnsupported,
 };

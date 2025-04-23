@@ -1,4 +1,4 @@
-use crate::core::fs::{igFileDescriptor, igFileWorkItemProcessor, Endian};
+use crate::core::ig_fs::{igFileDescriptor, igFileWorkItemProcessor, Endian};
 use crate::core::ig_archive::igArchive;
 use crate::core::ig_archive_manager::igArchiveManager;
 use crate::core::ig_archive_mount_manager::igArchiveMountManager;
@@ -180,7 +180,7 @@ impl igFileContext {
     pub fn initialize_update(&self, ig_registry: &igRegistry, update_path: String) {
         let load_update_result = igArchive::open(self, ig_registry, &update_path);
         if let Ok(update_pak) = load_update_result {
-            if let Ok(mut archive_manager) = self.archive_manager.write() {
+            if let Ok(archive_manager) = self.archive_manager.write() {
                 archive_manager._patch_archives.push(Arc::new(update_pak));
             }
         } else {

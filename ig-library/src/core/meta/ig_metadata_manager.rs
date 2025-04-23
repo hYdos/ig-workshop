@@ -1,10 +1,13 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
+use crate::core::meta::ig_metafield::MetaFieldImpl;
 use crate::core::meta::ig_xml_metadata::{MetaEnum, MetaField, MetaObject, RawMetaObjectField};
 use log::{error, info};
+use std::any::{type_name_of_val, Any};
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::ops::Sub;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
 /// Fast structure used to manage and create new instances of metaobjects, metafields, and metaenums
@@ -43,8 +46,69 @@ impl igMetadataManager {
 }
 
 /// Represents an object that can be converted from igz or other data into a igObject
-pub trait __internalObjectBase : Sync + Send {
-    fn name(&self) -> Arc<str>;
+pub trait __internalObjectBase: Sync + Send {
+    /// Returns the type of the object instantiated
+    fn meta_type(&self) -> Arc<str>;
+
+    fn as_any(&self) -> &dyn Any;
+    fn as_mut_any(&mut self) -> &mut dyn Any;
+}
+
+impl __internalObjectBase for igGenericObject {
+    fn meta_type(&self) -> Arc<str> {
+        self.name.clone()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+/// Represents an object with no programmer made translation. However, programmer translated (structs implementing __internalObjectBase) may use this struct in order to build their representation of an igObject.
+pub struct igGenericObject {
+    pub name: Arc<str>,
+    pub meta: Arc<igMetaObject>,
+    pub constructed_field_storage: Vec<RwLock<igConstructedField>>,
+}
+
+/// Value represents a return result of a [igConstructedField's](igConstructedField) value. (and gets around rust multiple manual trait issues)
+pub trait MetaFieldValue: Any + Display + Sync + Send {
+    /// Allows you to downcast via `as_any().downcast_ref::<T>()`
+    fn as_any(&self) -> &dyn Any;
+
+    /// Allows you to downcast via `as_any().downcast_ref::<T>()`
+    fn as_mut_any(&self) -> &mut dyn Any;
+}
+
+/// I don't have much to say on this one. Please check impl functions for usages you may like. Any igObject you want to use should probably not let you get this deep. This is getting deep into the metadata system. Please implement types you use!
+pub struct igConstructedField {
+    pub name: Arc<str>,
+    /// Internal to ig-library. Stores the metafield's type as a string for serialization/deserialization later
+    pub(crate) metafield: Box<dyn MetaFieldImpl>,
+}
+
+impl Display for igConstructedField {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let current_value = self.meta_field_value();
+        write!(
+            f,
+            "{} (type: {}, value: {})",
+            self.name.as_ref(),
+            type_name_of_val(&current_value),
+            current_value
+        )
+    }
+}
+
+impl igConstructedField {
+    /// Queries the metafield for its current value at the moment. Up to the user to cast this into the correct value
+    fn meta_field_value(&self) -> &dyn MetaFieldValue {
+        self.metafield.value()
+    }
 }
 
 // igCauldron cares about the platform here, we don't. Metadata cannot be shared between platforms and expected to work anyway.

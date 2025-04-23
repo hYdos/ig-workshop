@@ -1,12 +1,12 @@
 use crate::client::archive::CArchive;
 use crate::client::cdn::CContentDeployment;
 use crate::client::client::CClient;
-use crate::core::external_ref::igExternalReferenceSystem;
+use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_ark_core::EGame;
 use crate::core::ig_file_context::{get_file_name, igFileContext};
 use crate::core::ig_objects::igObjectStreamManager;
 use crate::core::ig_registry::{igRegistry, BuildTool};
-use crate::core::memory::EMemoryPoolID;
+use crate::core::ig_memory::EMemoryPoolID;
 use crate::core::meta::ig_metadata_manager::igMetadataManager;
 use crate::util::ig_common::{get_platform_string, igAlchemy};
 use log::{error, info};

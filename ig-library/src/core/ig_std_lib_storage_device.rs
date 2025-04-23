@@ -1,4 +1,4 @@
-use crate::core::fs::{igFileWorkItemProcessor, igStorageDevice};
+use crate::core::ig_fs::{igFileWorkItemProcessor, igStorageDevice};
 use crate::core::ig_file_context::WorkStatus::*;
 use crate::core::ig_file_context::{igFileWorkItem, WorkItemBuffer};
 use std::fs;

@@ -5,7 +5,7 @@ use crate::core::load::ig_igz_loader::igIGZObjectLoader;
 use crate::core::meta::ig_metadata_manager::igMetadataManager;
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock};
-use crate::core::external_ref::igExternalReferenceSystem;
+use crate::core::ig_external_ref::igExternalReferenceSystem;
 
 static LOADERS: Lazy<[Arc<RwLock<dyn igObjectLoader>>; 1]> =
     Lazy::new(|| [Arc::new(RwLock::new(igIGZObjectLoader))]);

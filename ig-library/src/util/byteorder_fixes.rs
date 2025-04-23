@@ -2,7 +2,7 @@
 
 use std::io::{Cursor, ErrorKind, Read};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use crate::core::fs::Endian;
+use crate::core::ig_fs::Endian;
 use paste::paste;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 

@@ -1,14 +1,14 @@
 use std::collections::HashMap;
-use crate::core::external_ref::igExternalReferenceSystem;
-use crate::core::fs::Endian;
-use crate::core::fs::Endian::{Big, Little};
+use crate::core::ig_external_ref::igExternalReferenceSystem;
+use crate::core::ig_fs::Endian;
+use crate::core::ig_fs::Endian::{Big, Little};
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_handle::{igHandle, igHandleName};
 use crate::core::ig_objects::{igObject, igObjectDirectory, igObjectStreamManager};
 use crate::core::ig_registry::igRegistry;
 use crate::core::load::ig_loader::igObjectLoader;
-use crate::core::memory::igMemoryPool;
+use crate::core::ig_memory::igMemoryPool;
 use crate::core::meta::ig_metadata_manager::{igMetaObject, igMetadataManager};
 use crate::util::byteorder_fixes::{
     read_ptr, read_string, read_struct_array_u8, read_u32, read_u64,
@@ -18,6 +18,7 @@ use log::{debug, error, warn};
 use std::io::{Cursor, Seek, SeekFrom};
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
+use crate::core::ig_lists::igObjectList;
 
 const IGZ_LITTLE_ENDIAN_MAGIC: u32 = u32::from_be_bytes([b'I', b'G', b'Z', 0x01]);
 const IGZ_BIG_ENDIAN_MAGIC: u32 = u32::from_le_bytes([b'I', b'G', b'Z', 0x01]);
@@ -134,13 +135,13 @@ impl Fixup {
                         .name_to_directory_lookup
                         .get(&dependency_name.namespace.hash)
                     {
-                        for dependant_dir in list {
+                        for dependant_dir in list.iter() {
                             if let Ok(dependent_dir) = dependant_dir.try_read() {
                                 if dependent_dir.use_name_list {
                                     for i in 0..dependent_dir.name_list.len() {
-                                        let name = &dependent_dir.name_list[i];
+                                        let name = &dependent_dir.name_list.query()[i];
                                         if name.hash == dependency_name.namespace.hash {
-                                            obj = Some(dependent_dir.object_list[i].clone());
+                                            obj = Some(dependent_dir.object_list.query()[i].clone());
                                             break;
                                         }
                                     }
@@ -177,9 +178,9 @@ impl Fixup {
                         if let Ok(dependent_dir) = dependant_dir.try_read() {
                             if dependent_dir.use_name_list {
                                 for i in 0..dependent_dir.name_list.len() {
-                                    let name = &dependent_dir.name_list[i];
+                                    let name = &dependent_dir.name_list.query()[i];
                                     if name.hash == dependency_handle_name.namespace.hash {
-                                        obj = Some(dependent_dir.object_list[i].clone());
+                                        obj = Some(dependent_dir.object_list.query()[i].clone());
                                         break;
                                     }
                                 }
@@ -218,7 +219,7 @@ impl Fixup {
             Fixup::RUNTIME_V_TABLES => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
                 ctx.runtime_fields.vtables = unpack_compressed_ints(ctx, &vec, count, false);
-                instantiate_and_append_objects(ctx, handle);
+                instantiate_and_append_objects(ctx, handle, endian);
             }
             Fixup::RUNTIME_OBJECT_LISTS => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
@@ -265,16 +266,26 @@ impl Fixup {
     }
 }
 
-fn instantiate_and_append_objects(ctx: &mut LoaderContext, handle: &mut Cursor<Vec<u8>>) {
+fn instantiate_and_append_objects(ctx: &mut LoaderContext, handle: &mut Cursor<Vec<u8>>, endian: &Endian) {
     for vtable in &ctx.runtime_fields.vtables {
-        ctx.offset_object_list.insert(*vtable, instantiate_object(ctx, handle, vtable));
+        // TODO: cast to a igObjectList (Vec<igObject>, a implemented serialization of __internalObjectBase
+        ctx.offset_object_list.insert(*vtable, instantiate_object(ctx, handle, endian, vtable).read().unwrap().as_any().downcast_ref::<igObjectList>().unwrap().to_owned());
     }
 }
 
-fn instantiate_object(ctx: &LoaderContext, handle: &mut Cursor<Vec<u8>>, offset: &u64) -> Vec<igObject> {
+fn instantiate_object(ctx: &LoaderContext, handle: &mut Cursor<Vec<u8>>, endian: &Endian, offset: &u64) -> igObject {
     handle.seek(SeekFrom::Start(deserialize_offset(ctx, *offset))).unwrap();
+    let offset = read_ptr(handle, &ctx.platform, endian).unwrap();
     todo!()
+    // return ctx.vtbl_list[offset as usize].construct_instance(get_mem_pool_from_serialized_offset(ctx, offset), false);
+}
 
+fn get_mem_pool_from_serialized_offset(ctx: &LoaderContext, offset: u64) -> igMemoryPool {
+    if ctx.version <= 0x06 {
+        ctx.loaded_pools[(offset >> 0x18) as usize]
+    } else { 
+        ctx.loaded_pools[(offset >> 0x1B) as usize]
+    }
 }
 
 fn unpack_compressed_ints(
@@ -335,7 +346,7 @@ fn unpack_compressed_ints(
     output
 }
 
-pub fn deserialize_offset(ctx: &LoaderContext, offset: u64) -> u64 {
+fn deserialize_offset(ctx: &LoaderContext, offset: u64) -> u64 {
     if ctx.version <= 6 {
         ctx.loaded_pointers[((offset >> 0x18) + (offset & 0x00FFFFFF)) as usize] as u64
     } else {
@@ -482,7 +493,7 @@ struct LoaderContext {
     /// All runtime lists stored from fixups. Used for various parts of the runtime
     runtime_fields: RuntimeFields,
     /// TODO: comment
-    offset_object_list: HashMap<u64, Vec<igObject>>
+    offset_object_list: HashMap<u64, igObjectList>
 }
 
 impl igIGZLoader {

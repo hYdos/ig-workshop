@@ -1,5 +1,5 @@
 use crate::core::ig_file_context::{get_native_path, igFileContext};
-use crate::core::ig_lists::{igNameList, igObjectDirectoryList};
+use crate::core::ig_lists::{igNameList, igObjectDirectoryList, igObjectList};
 use crate::core::ig_registry::igRegistry;
 use crate::core::load::ig_igz_loader::igIGZObjectLoader;
 use crate::core::load::ig_loader;
@@ -10,17 +10,17 @@ use crate::util::ig_name::igName;
 use log::warn;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use crate::core::external_ref::igExternalReferenceSystem;
+use crate::core::ig_external_ref::igExternalReferenceSystem;
 
 pub type igObject = Arc<RwLock<dyn __internalObjectBase>>;
 
 pub struct igObjectDirectory {
     pub path: String,
     pub name: igName,
-    pub dependencies: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub dependencies: igObjectDirectoryList,
     pub use_name_list: bool,
     /// List of all igObject instances present in the directory
-    pub object_list: Vec<igObject>,
+    pub object_list: igObjectList,
     /// Only filled when use_name_list is equal to true and length should match the object list
     pub name_list: igNameList,
     pub loader: Arc<RwLock<dyn igObjectLoader>>,
@@ -31,10 +31,10 @@ impl igObjectDirectory {
         igObjectDirectory {
             path: path.to_string(),
             name,
-            dependencies: vec![],
+            dependencies: igObjectDirectoryList::new(),
             use_name_list: false,
-            object_list: vec![],
-            name_list: vec![],
+            object_list: igObjectList::new(),
+            name_list: igNameList::new(),
             loader: Arc::new(RwLock::new(igIGZObjectLoader)), // FIXME: un-hardcode this at some point. I want to support saves(igb's) and igx's
         }
     }
@@ -107,7 +107,7 @@ impl igObjectStreamManager {
         let file_path = dir.read().unwrap().path.clone();
 
         if !self.name_to_directory_lookup.contains_key(&hash) {
-            self.name_to_directory_lookup.insert(hash, Vec::new());
+            self.name_to_directory_lookup.insert(hash, igObjectDirectoryList::new());
         }
         let list = self.name_to_directory_lookup.get_mut(&hash).unwrap();
         list.push(dir.clone());

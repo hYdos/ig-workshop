@@ -66,7 +66,7 @@ pub fn load_game_data(game_cfg: GameConfig, dock_state: Arc<Mutex<DockState<wind
             // Try out caching all metadata at the start only in debug to catch issues
             #[cfg(debug_assertions)]
             ig_alchemy.ark_core.metadata_manager.load_all();
-            
+
             load_init_script(game_cfg.clone()._game, false, &mut ig_alchemy);
             
             let new_leaf = Some(Arc::new(Mutex::new(LoadedGame {

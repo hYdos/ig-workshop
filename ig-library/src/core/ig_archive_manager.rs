@@ -1,4 +1,4 @@
-use crate::core::fs::{igFileWorkItemProcessor, igStorageDevice};
+use crate::core::ig_fs::{igFileWorkItemProcessor, igStorageDevice};
 use crate::core::ig_archive::igArchive;
 use crate::core::ig_file_context::WorkStatus::kStatusComplete;
 use crate::core::ig_file_context::{igFileContext, igFileWorkItem, WorkType};
@@ -67,13 +67,13 @@ impl igFileWorkItemProcessor for igArchiveManager {
                 let hash = ig_hash::hash(&work_item._path);
                 for patch_archive in &self._patch_archives {
                     if ig_hash::hash(&patch_archive._path) == hash {
-                        igStorageDevice::process(patch_archive, this.clone(), work_item);
+                        igStorageDevice::process(&patch_archive, this.clone(), work_item);
                         return;
                     }
                 }
                 for archive in &self._archive_list {
                     if ig_hash::hash(&archive._path) == hash {
-                        igStorageDevice::process(archive, this.clone(), work_item);
+                        igStorageDevice::process(&archive, this.clone(), work_item);
                         return;
                     }
                 }
@@ -84,13 +84,13 @@ impl igFileWorkItemProcessor for igArchiveManager {
             }
             _ => {
                 for patch_archive in &self._patch_archives {
-                    igStorageDevice::process(patch_archive, this.clone(), work_item);
+                    igStorageDevice::process(&patch_archive, this.clone(), work_item);
                     if work_item._status == kStatusComplete {
                         return;
                     }
                 }
                 for archive in &self._archive_list {
-                    igStorageDevice::process(archive, this.clone(), work_item);
+                    igStorageDevice::process(&archive, this.clone(), work_item);
                     if work_item._status == kStatusComplete {
                         return;
                     }
