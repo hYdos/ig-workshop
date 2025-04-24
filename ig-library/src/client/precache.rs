@@ -1,12 +1,12 @@
 use crate::client::archive::CArchive;
 use crate::client::cdn::CContentDeployment;
 use crate::client::client::CClient;
-use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_ark_core::EGame;
+use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_file_context::{get_file_name, igFileContext};
+use crate::core::ig_memory::EMemoryPoolID;
 use crate::core::ig_objects::igObjectStreamManager;
 use crate::core::ig_registry::{igRegistry, BuildTool};
-use crate::core::ig_memory::EMemoryPoolID;
 use crate::core::meta::ig_metadata_manager::igMetadataManager;
 use crate::util::ig_common::{get_platform_string, igAlchemy};
 use log::{error, info};
@@ -496,6 +496,7 @@ pub static ENV_LOOKUP: Lazy<
     m
 });
 
+/// Loads the game's initscript. An initscript contains information on what files need to be loaded on a global level in order to work with the files. These are typically the files loaded before or during the legal screen
 pub fn load_init_script(game: EGame, is_weakly_loaded: bool, ig_alchemy: &mut igAlchemy) {
     let script_path = PathBuf::from(format!("ArkCore/{:?}/initscript", game));
     let init_script = File::open(script_path).expect("initscript not found");

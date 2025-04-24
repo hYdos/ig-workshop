@@ -1,17 +1,20 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_lists::igObjectList;
-use crate::core::meta::ig_metadata_manager::MetaFieldValue;
+use paste::paste;
+
 use byteorder::ReadBytesExt;
 use std::any::Any;
 use std::io::Cursor;
 use std::str::FromStr;
+use std::sync::{Arc, LazyLock, RwLock};
 
+/// I'm the least proud of how this works honestly. The idea of the logic here was taken from igCauldron, but the usage of Option<arc<RwLock<dyn Any>>>> I personally find disgusting and I will do anything in my power to make sure the user doesn't get here
 pub trait MetaFieldImpl: Send + Sync {
     fn is_array(&self) -> bool;
     fn attributes(&self) -> &igObjectList;
     fn deserialize_default_value(&mut self, value: &str);
-    fn value(&self) -> &dyn MetaFieldValue;
-    fn default_value(&self) -> &dyn MetaFieldValue;
+    fn value(&self) -> Option<Arc<RwLock<dyn Any + Send + Sync>>>;
+    fn default_value(&self) -> Arc<RwLock<dyn Any + Send + Sync>>;
     fn supports_platform(&self) -> bool;
     fn deserialize_igz_field(&mut self, handle: &mut Cursor<Vec<u8>>) -> Result<(), String>;
     // TODO: fn serialize_igz_field(&self, saver: igIGZSaver, section: igIGZSaverSection) -> Result<(), String>;
@@ -20,66 +23,87 @@ pub trait MetaFieldImpl: Send + Sync {
     fn is_null(&self) -> bool;
 }
 
+/// Most metafields can get away with using this type to make this file not balloon into a million lines
+macro_rules! define_simple_meta_field {
+    (
+      $Name:ident, $size:expr, $alignment:expr, $Inner:ty, $default_expr:expr,
+      parse_default = |$val:ident : &str| $parse_default:expr,
+      read_igz     = |$h:ident : &mut Cursor<Vec<u8>>| $read_igz:expr
+    ) => {
+        paste! {
+            pub struct $Name {
+                value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
+                attribs: crate::core::ig_lists::igObjectList,
+            }
+
+            static [<DEFAULT_ $Name:upper>]: LazyLock<Arc<RwLock<$Inner>>> =
+                LazyLock::new(|| Arc::new(RwLock::new($default_expr)));
+
+            impl $Name {
+                pub fn new() -> Self {
+                    $Name {
+                        value: None,
+                        attribs: crate::core::ig_lists::igObjectList::new(),
+                    }
+                }
+            }
+
+            impl MetaFieldImpl for $Name {
+                fn deserialize_default_value(&mut self, s: &str) {
+                    let $val = s;
+                    let parsed: $Inner = $parse_default;
+                    self.value = Some(Arc::new(RwLock::new(parsed)));
+                }
+
+                fn default_value(&self) -> Arc<RwLock<dyn Any + Send + Sync>> {
+                    [<DEFAULT_ $Name:upper>].clone() as _
+                }
+
+                fn deserialize_igz_field(
+                    &mut self,
+                    $h: &mut Cursor<Vec<u8>>
+                ) -> Result<(), String> {
+                    let v: $Inner = $read_igz;
+                    self.value = Some(Arc::new(RwLock::new(v)));
+                    Ok(())
+                }
+
+                fn value(&self) -> Option<Arc<RwLock<dyn Any + Send + Sync>>> {
+                    self.value.clone()
+                }
+
+                fn attributes(&self) -> &crate::core::ig_lists::igObjectList {
+                    &self.attribs
+                }
+
+                fn is_array(&self) -> bool { false }
+                fn supports_platform(&self) -> bool { true }
+
+                fn size(&self, _platform: IG_CORE_PLATFORM) -> u32 {
+                    $size
+                }
+
+                fn alignment(&self, _platform: IG_CORE_PLATFORM) -> u32 {
+                    $alignment
+                }
+
+                fn is_null(&self) -> bool { self.value.is_none() }
+            }
+        }
+    };
+}
+
+define_simple_meta_field!(
+    igBoolMetaField,
+    1,
+    1,
+    bool,
+    false,
+    parse_default = |val: &str| bool::from_str(val).unwrap(),
+    read_igz = |h: &mut Cursor<Vec<u8>>| { h.read_u8().unwrap() != 0 }
+);
+
 pub(crate) struct igObjectRefMetaField;
-pub(crate) struct igBoolMetaField {
-    value: Option<Box<dyn MetaFieldValue>>,
-    default: Box<dyn MetaFieldValue>,
-    attribs: igObjectList,
-}
-
-impl MetaFieldImpl for igBoolMetaField {
-    fn is_array(&self) -> bool {
-        false
-    }
-
-    fn attributes(&self) -> &igObjectList {
-        &self.attribs
-    }
-
-    fn deserialize_default_value(&mut self, value: &str) {
-        bool::from_str(value).unwrap();
-    }
-
-    fn value(&self) -> &dyn MetaFieldValue {
-        self.value.as_ref().map(|v| v.as_ref()).unwrap_or_else(|| {
-            panic!("meta field's value is \"null\" but we still tried to access it!")
-        })
-    }
-
-    fn default_value(&self) -> &dyn MetaFieldValue {
-        self.default.as_ref()
-    }
-
-    fn supports_platform(&self) -> bool {
-        true
-    }
-
-    fn deserialize_igz_field(&mut self, handle: &mut Cursor<Vec<u8>>) -> Result<(), String> {
-        Ok(self.value = Some(Box::new(handle.read_u8().unwrap() != 0)))
-    }
-
-    fn size(&self, platform: IG_CORE_PLATFORM) -> u32 {
-        1
-    }
-
-    fn alignment(&self, platform: IG_CORE_PLATFORM) -> u32 {
-        1
-    }
-
-    fn is_null(&self) -> bool {
-        self.value.is_none()
-    }
-}
-
-impl MetaFieldValue for bool {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_mut_any(&self) -> &mut dyn Any {
-        panic!("bool is immutable")
-    }
-}
 
 pub(crate) struct igIntMetaField;
 pub(crate) struct igRawRefMetaField;

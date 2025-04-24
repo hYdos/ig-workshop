@@ -9,8 +9,8 @@ use crate::core::ig_memory::igMemoryPool;
 use crate::core::ig_objects::{igObject, igObjectDirectory, igObjectStreamManager};
 use crate::core::ig_registry::igRegistry;
 use crate::core::load::ig_loader::igObjectLoader;
-use crate::core::meta::ig_metadata_manager::igMetaObject;
 use crate::core::meta::ig_metadata_manager::igMetadataManager;
+use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetaObject};
 use crate::util::byteorder_fixes::{
     read_ptr, read_string, read_struct_array_u8, read_u32, read_u64,
 };
@@ -279,7 +279,7 @@ fn instantiate_and_append_objects(
         // TODO: cast to a igObjectList (Vec<igObject>, a implemented serialization of __internalObjectBase
         ctx.offset_object_list.insert(
             *vtable,
-            instantiate_object(ctx, handle, endian, vtable)
+            instantiate_object::<igObjectList>(ctx, handle, endian, vtable)
                 .read()
                 .unwrap()
                 .as_any()
@@ -290,18 +290,18 @@ fn instantiate_and_append_objects(
     }
 }
 
-fn instantiate_object(
+fn instantiate_object<T: __internalObjectBase + 'static>(
     ctx: &LoaderContext,
     handle: &mut Cursor<Vec<u8>>,
     endian: &Endian,
     offset: &u64,
-) -> igObject {
+) -> Arc<RwLock<T>> {
     handle
         .seek(SeekFrom::Start(deserialize_offset(ctx, *offset)))
         .unwrap();
     let offset = read_ptr(handle, &ctx.platform, endian).unwrap();
     ctx.vtbl_list[offset as usize]
-        .instantiate(get_mem_pool_from_serialized_offset(ctx, offset), false)
+        .instantiate::<T>(get_mem_pool_from_serialized_offset(ctx, offset), false)
         .unwrap()
 }
 

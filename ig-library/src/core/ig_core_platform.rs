@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 ///
-/// Used to associate other objects with platform.
+/// Represents a platform igAlchemy can support. Contains most platforms ranging from devices such as the wii to the xbox one
 ///
 #[derive(Debug, Hash, PartialEq, Eq, Clone, MetaEnum)]
 pub enum IG_CORE_PLATFORM {

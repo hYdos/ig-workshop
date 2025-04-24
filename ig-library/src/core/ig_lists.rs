@@ -1,8 +1,11 @@
+use std::any::Any;
 use crate::core::ig_archive::igArchive;
 use crate::core::ig_objects::{igObject, igObjectDirectory};
 use crate::util::ig_name::igName;
 use log::error;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
+use crate::core::ig_memory::igMemoryPool;
+use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetaObject, FieldDoesntExist, SetObjectFieldError};
 
 #[derive(Clone)]
 pub struct igTObjectList<T>(pub Arc<RwLock<Vec<T>>>);
@@ -14,6 +17,36 @@ pub type igNameList = igTObjectList<Arc<igName>>;
 
 pub struct QueryGuard<'a, T>(RwLockReadGuard<'a, Vec<T>>);
 pub struct MutableQueryGuard<'a, T>(RwLockWriteGuard<'a, Vec<T>>);
+
+impl<T: Send + Sync> __internalObjectBase for igTObjectList<T> {
+    fn meta_type(&self) -> Arc<igMetaObject> {
+        todo!()
+    }
+
+    fn internal_pool(&self) -> &igMemoryPool {
+        todo!()
+    }
+
+    fn set_pool(&mut self, pool: igMemoryPool) {
+        todo!()
+    }
+
+    fn set_field(&mut self, name: &str, value: &dyn Any) -> Result<(), SetObjectFieldError> {
+        todo!()
+    }
+
+    fn get_field(&self, name: &str) -> Result<&dyn Any, FieldDoesntExist> {
+        todo!()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        todo!()
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        todo!()
+    }
+}
 
 impl<T: Clone> igTObjectList<T> {
     pub fn new() -> Self {

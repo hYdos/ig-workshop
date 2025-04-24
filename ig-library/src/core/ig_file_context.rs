@@ -38,6 +38,7 @@ static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
     "vfx"               => "vfx",
 };
 
+/// File context stores information related to the currently loaded game instance. It cannot be shared between instances like most other types. It stores all file processors and the [igArchiveManager]
 pub struct igFileContext {
     pub _root: String,
     pub archive_manager: Arc<RwLock<igArchiveManager>>,
