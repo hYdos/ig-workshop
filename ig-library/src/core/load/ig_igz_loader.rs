@@ -283,7 +283,7 @@ fn instantiate_object(ctx: &LoaderContext, handle: &mut Cursor<Vec<u8>>, endian:
 fn get_mem_pool_from_serialized_offset(ctx: &LoaderContext, offset: u64) -> igMemoryPool {
     if ctx.version <= 0x06 {
         ctx.loaded_pools[(offset >> 0x18) as usize]
-    } else { 
+    } else {
         ctx.loaded_pools[(offset >> 0x1B) as usize]
     }
 }

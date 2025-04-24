@@ -50,7 +50,7 @@ impl CArchive {
                     &ig_registry,
                     &archive_path,
                 )?);
-                if let Ok(mut archive_manager) = ig_file_context.archive_manager.write() {
+                if let Ok(archive_manager) = ig_file_context.archive_manager.write() {
                     archive_manager._archive_list.push(arc.clone());
                 }
 

@@ -1,12 +1,12 @@
-use crate::core::ig_fs::{igFileWorkItemProcessor, igStorageDevice, Endian};
 use crate::core::ig_file_context::WorkStatus::{
     kStatusComplete, kStatusGeneralError, kStatusInvalidPath, kStatusUnsupported,
 };
 use crate::core::ig_file_context::{igFileContext, igFileWorkItem, WorkItemBuffer};
+use crate::core::ig_fs::{igFileWorkItemProcessor, igStorageDevice, Endian};
 use crate::core::ig_registry::{igRegistry, BuildTool};
 use crate::util::byteorder_fixes::{
-    read_string, read_struct_array_u16, read_struct_array_u32, read_struct_array_u8, read_u32,
-    read_u64,
+    read_string, read_struct_array_u16, read_struct_array_u32, read_struct_array_u8,
+    read_struct_array_u8_ref, read_u32, read_u64,
 };
 use crate::util::ig_hash;
 use byteorder::{LittleEndian, ReadBytesExt};
@@ -326,7 +326,7 @@ impl igArchive {
                 header._num_medium_file_blocks as usize,
             )
             .unwrap();
-            let small_block_tbl = read_struct_array_u8(
+            let small_block_tbl = read_struct_array_u8_ref(
                 &mut cursor,
                 &header.endian,
                 header._num_small_file_blocks as usize,
@@ -336,10 +336,9 @@ impl igArchive {
             for file in &mut _files {
                 cursor.seek(SeekFrom::Start(file._offset as u64)).unwrap();
                 if file._block_index == 0xFFFFFFFF {
-                    file._compressed_data = Vec::from(
+                    file._compressed_data =
                         read_struct_array_u8(&mut cursor, &header.endian, file._length as usize)
-                            .unwrap(),
-                    );
+                            .unwrap();
                     continue;
                 }
 
@@ -379,14 +378,12 @@ impl igArchive {
                 }
 
                 file._blocks = Some(fixed_blocks);
-                file._compressed_data = Vec::from(
-                    read_struct_array_u8(
-                        &mut cursor,
-                        &header.endian,
-                        (sector_count * header._sector_size) as usize,
-                    )
-                    .unwrap(),
+                file._compressed_data = read_struct_array_u8(
+                    &mut cursor,
+                    &header.endian,
+                    (sector_count * header._sector_size) as usize,
                 )
+                .unwrap()
             }
 
             // Hint to the compiler to drop this as soon as possible

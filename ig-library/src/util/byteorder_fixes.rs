@@ -1,10 +1,11 @@
 // Fixes a few issues with the "byteorder" crate that stem from poor design
 
-use std::io::{Cursor, ErrorKind, Read};
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use crate::core::ig_fs::Endian;
-use paste::paste;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
+use crate::core::ig_fs::Endian;
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use paste::paste;
+use std::io::{Cursor, ErrorKind, Read};
+use std::slice::from_raw_parts;
 
 // Endian is ignored here so it needs a custom implementation
 #[inline]
@@ -30,7 +31,11 @@ macro_rules! define_read {
     };
 }
 
-pub fn read_ptr(cursor: &mut Cursor<Vec<u8>>, platform: &IG_CORE_PLATFORM, endian: &Endian) -> std::io::Result<u64> {
+pub fn read_ptr(
+    cursor: &mut Cursor<Vec<u8>>,
+    platform: &IG_CORE_PLATFORM,
+    endian: &Endian,
+) -> std::io::Result<u64> {
     if platform.is_64bit() {
         read_u32(cursor, endian).map(|t| t as u64)
     } else {
@@ -44,7 +49,10 @@ pub fn read_string(cursor: &mut Cursor<Vec<u8>>) -> std::io::Result<String> {
     loop {
         let mut byte = [0u8];
         if cursor.read_exact(&mut byte).is_err() {
-            return Err(std::io::Error::new(ErrorKind::UnexpectedEof, "EOF before null terminator"));
+            return Err(std::io::Error::new(
+                ErrorKind::UnexpectedEof,
+                "EOF before null terminator",
+            ));
         }
 
         if byte[0] == 0 {
@@ -55,8 +63,7 @@ pub fn read_string(cursor: &mut Cursor<Vec<u8>>) -> std::io::Result<String> {
     }
 
     // Convert to UTF-8 string
-    String::from_utf8(buf)
-        .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))
+    String::from_utf8(buf).map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))
 }
 
 macro_rules! define_read_struct_array {
@@ -79,7 +86,6 @@ macro_rules! define_read_struct_array {
     };
 }
 
-
 // Custom implementation separate to macro doubles the speed
 pub fn read_struct_array_u8<'a>(
     cursor: &mut Cursor<Vec<u8>>,
@@ -91,6 +97,24 @@ pub fn read_struct_array_u8<'a>(
     Ok(buf)
 }
 
+/// Returns a slice from a [Cursor<Vec<u8>>] while also advancing the position.
+/// When not modifying the data, this is a safe way of referencing data as needed,
+/// and is faster than [read_struct_array_u8] due to the copy-less nature of a reference over an owned [Vec<u8>]
+pub fn read_struct_array_u8_ref<'a>(
+    cursor: &mut Cursor<Vec<u8>>,
+    _endian: &Endian,
+    count: usize,
+) -> std::io::Result<&'a [u8]> {
+    let start = cursor.position() as usize;
+    let ptr = cursor.get_ref().as_ptr();
+    cursor.set_position((start + count) as u64);
+
+    // SAFETY: ptr was from a Vec<u8> with at least `start+count` bytes,
+    // the Vec isn’t reallocated by set_position(),
+    // and we honor the lifetime 'a tied to &mut Cursor.
+    let slice = unsafe { from_raw_parts(ptr.add(start), count) };
+    Ok(slice)
+}
 
 define_read!(u16);
 define_read!(u32);

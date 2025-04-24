@@ -38,7 +38,7 @@ impl igArchiveManager {
 
         let arc = Arc::new(igArchive::open(ig_file_context, ig_registry, &path).unwrap());
 
-        if let Ok(mut archive_manager) = archive_manager.write() {
+        if let Ok(archive_manager) = archive_manager.write() {
             archive_manager._archive_list.push(arc.clone());
         }
 
