@@ -9,6 +9,8 @@ use std::ops::Sub;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
+use crate::core::ig_memory::igMemoryPool;
+use crate::core::ig_objects::igObject;
 
 /// Fast structure used to manage and create new instances of metaobjects, metafields, and metaenums
 pub struct igMetadataManager {
@@ -153,6 +155,17 @@ pub struct igMetaObject {
     pub name: Arc<str>,
     parent: Option<Arc<igMetaObject>>,
     field_storage: FieldStorage,
+}
+
+/// TODO: each type of possible error has its own type somehow?
+#[derive(Debug)]
+pub struct igMetaInstantiationError;
+
+impl igMetaObject {
+    
+    pub fn instantiate(&self, _source_pool: igMemoryPool, set_fields: bool) -> Result<igObject, igMetaInstantiationError> {
+        todo!()
+    }
 }
 
 impl igMetadataManager {
