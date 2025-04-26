@@ -79,7 +79,7 @@ pub struct RawMetaObjectField {
     pub name: Option<Arc<str>>,
     /// Present when _type is equal to "igObjectRefMetaField"
     pub meta_object: Option<Arc<str>>,
-    /// Some fields will require a specific alignment otherwise they won't work. These types will specify it. I am unsure specifically which ones do this.
+    /// Some field will require a specific alignment otherwise they won't work. These types will specify it. I am unsure specifically which ones do this.
     pub required_alignment: Option<u8>,
     /// Present when _type is equal to "igVectorMetaField"
     pub ig_vector_info: Option<VectorInfo>,
@@ -107,7 +107,7 @@ pub struct MetaObject {
     pub object_list_type: Option<String>,
     /// Present when base_type is present and extends an object extending "igHashTable" or "igHashTable" itself
     pub hash_table_info: Option<HashTableInfo>,
-    /// New fields added by the current meta object
+    /// New field added by the current meta object
     pub new_fields: Vec<MetaObjectField>,
     /// Fields from the parent that are replaced by new ones.
     pub overriden_fields: Vec<MetaObjectField>,

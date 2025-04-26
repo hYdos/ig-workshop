@@ -7,3 +7,6 @@ pub mod gfx;
 /// Intended for code/the user of alchemy to add their code under the client (c prefix) for cleanliness
 pub mod client;
 pub mod util;
+
+#[cfg(test)]
+mod tests;

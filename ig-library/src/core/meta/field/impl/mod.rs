@@ -1,0 +1,1 @@
+pub(crate) mod ig_placeholder_metafield;

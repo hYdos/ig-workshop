@@ -61,7 +61,7 @@ impl Fixup {
         ig_registry: &igRegistry,
         ig_object_stream_manager: &mut igObjectStreamManager,
         ig_ext_ref_system: &mut igExternalReferenceSystem,
-        ctx: &mut LoaderContext,
+        ctx: &mut IgzLoaderContext,
     ) {
         match self {
             Fixup::T_DEPENDENCIES => {
@@ -271,7 +271,7 @@ impl Fixup {
 }
 
 fn instantiate_and_append_objects(
-    ctx: &mut LoaderContext,
+    ctx: &mut IgzLoaderContext,
     handle: &mut Cursor<Vec<u8>>,
     endian: &Endian,
 ) {
@@ -291,7 +291,7 @@ fn instantiate_and_append_objects(
 }
 
 fn instantiate_object<T: __internalObjectBase + 'static>(
-    ctx: &LoaderContext,
+    ctx: &IgzLoaderContext,
     handle: &mut Cursor<Vec<u8>>,
     endian: &Endian,
     offset: &u64,
@@ -305,7 +305,7 @@ fn instantiate_object<T: __internalObjectBase + 'static>(
         .unwrap()
 }
 
-fn get_mem_pool_from_serialized_offset(ctx: &LoaderContext, offset: u64) -> igMemoryPool {
+fn get_mem_pool_from_serialized_offset(ctx: &IgzLoaderContext, offset: u64) -> igMemoryPool {
     if ctx.version <= 0x06 {
         ctx.loaded_pools[(offset >> 0x18) as usize]
     } else {
@@ -314,7 +314,7 @@ fn get_mem_pool_from_serialized_offset(ctx: &LoaderContext, offset: u64) -> igMe
 }
 
 fn unpack_compressed_ints(
-    ctx: &mut LoaderContext,
+    ctx: &mut IgzLoaderContext,
     bytes: &[u8],
     count: u32,
     deserialize: bool,
@@ -371,7 +371,7 @@ fn unpack_compressed_ints(
     output
 }
 
-fn deserialize_offset(ctx: &LoaderContext, offset: u64) -> u64 {
+fn deserialize_offset(ctx: &IgzLoaderContext, offset: u64) -> u64 {
     if ctx.version <= 6 {
         ctx.loaded_pointers[((offset >> 0x18) + (offset & 0x00FFFFFF)) as usize] as u64
     } else {
@@ -454,8 +454,8 @@ impl igObjectLoader for igIGZObjectLoader {
 
 pub struct igIGZLoader {}
 
-/// See comment in [LoaderContext]
-struct RuntimeFields {
+/// See comment in [IgzLoaderContext]
+pub struct RuntimeFields {
     vtables: Vec<u64>,
     object_lists: Vec<u64>,
     _offsets: Vec<u64>,
@@ -485,8 +485,8 @@ impl RuntimeFields {
     }
 }
 
-/// Internal type to store while jumping around to other methods
-struct LoaderContext {
+/// Internal type to store while jumping around to other methods. Also shared with loading metafields
+pub struct IgzLoaderContext {
     /// igz version
     version: u32,
     /// unsure on what this is for
@@ -554,7 +554,7 @@ impl igIGZLoader {
             );
             let fixup_count = read_u32(&mut handle, &fd.endianness).unwrap();
 
-            let mut shared_state = LoaderContext {
+            let mut shared_state = IgzLoaderContext {
                 version,
                 meta_object_version,
                 platform,
@@ -595,7 +595,7 @@ impl igIGZLoader {
     fn parse_sections(
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
-        shared_state: &mut LoaderContext,
+        shared_state: &mut IgzLoaderContext,
     ) {
         for i in 0..0x20 {
             handle.seek(SeekFrom::Start(0x14 + 0x10 * i)).unwrap();
@@ -626,7 +626,7 @@ impl igIGZLoader {
     fn process_fixup_sections(
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
-        shared_state: &mut LoaderContext,
+        shared_state: &mut IgzLoaderContext,
         ig_file_context: &igFileContext,
         ig_registry: &igRegistry,
         ig_object_stream_manager: &mut igObjectStreamManager,
@@ -683,5 +683,5 @@ impl igIGZLoader {
         }
     }
 
-    fn read_objects(_handle: &mut Cursor<Vec<u8>>, _shared_state: &mut LoaderContext) {}
+    fn read_objects(_handle: &mut Cursor<Vec<u8>>, _shared_state: &mut IgzLoaderContext) {}
 }

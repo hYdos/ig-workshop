@@ -6,9 +6,9 @@ use crate::core::ig_file_context::WorkItemBuffer::Invalid;
 use crate::core::ig_registry::igRegistry;
 use crate::core::ig_std_lib_storage_device::igStdLibStorageDevice;
 use log::{debug, error};
-use phf::phf_map;
 use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
+use phf::phf_map;
 
 static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
     "actors"            => "actors",

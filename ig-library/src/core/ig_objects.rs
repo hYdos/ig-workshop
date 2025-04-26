@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_file_context::{get_native_path, igFileContext};
 use crate::core::ig_lists::{igNameList, igObjectDirectoryList, igObjectList};
@@ -10,9 +11,41 @@ use crate::util::ig_hash::hash_lower;
 use crate::util::ig_name::igName;
 use log::warn;
 use std::collections::HashMap;
+use std::mem;
 use std::sync::{Arc, RwLock};
 
 pub type igObject = Arc<RwLock<dyn __internalObjectBase>>;
+
+pub trait ObjectExt {
+    /// Try to convert [Arc<RwLock<dyn __internalObjectBase>>] into [Arc<RwLock<T>>] if the inner type matches.
+    fn downcast<T: 'static>(self) -> Option<Arc<RwLock<T>>>;
+}
+
+impl ObjectExt for Arc<RwLock<dyn __internalObjectBase>> {
+    fn downcast<T: 'static>(self) -> Option<Arc<RwLock<T>>> {
+        // First do a runtime check that the inner object really is T. This is our own safety check to make sure we don't actually do anything that is unsafe
+        {
+            let guard = self.read().unwrap();
+            if guard.as_any().type_id() != TypeId::of::<T>() {
+                return None;
+            }
+        }
+
+        // Now do the pointer re-interpretation.
+        // 1. Get a raw pointer to the RwLock<dyn …>
+        let raw: *const RwLock<dyn __internalObjectBase> = Arc::as_ptr(&self);
+        // 2. Cast it to the target RwLock<T> pointer
+        let raw = raw as *const RwLock<T>;
+        // 3. Reconstruct an Arc from that raw pointer
+        //    (this creates a second Arc strong-count; we’ll drop one immediately)
+        let arc_t: Arc<RwLock<T>> = unsafe { Arc::from_raw(raw) };
+        // 4. Clone it so we have two strong counts…
+        let arc_clone = arc_t.clone();
+        // 5. Forget the original Arc so its drop doesn’t decrement the count
+        mem::forget(arc_t);
+        Some(arc_clone)
+    }
+}
 
 pub struct igObjectDirectory {
     pub path: String,

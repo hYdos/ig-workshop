@@ -44,7 +44,7 @@ impl CArchive {
             }
 
             if res == 0 && ((flags & 4) != 0 || self.do_packages) {
-                // igCauldron sets some fields in the archive before it is opened. However, these are not used and I really don't feel like messing with that atm
+                // igCauldron sets some field in the archive before it is opened. However, these are not used and I really don't feel like messing with that atm
                 let arc = Arc::new(igArchive::open(
                     &ig_file_context,
                     &ig_registry,

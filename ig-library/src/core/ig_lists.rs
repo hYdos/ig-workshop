@@ -31,19 +31,19 @@ impl<T: Send + Sync> __internalObjectBase for igTObjectList<T> {
         todo!()
     }
 
-    fn set_field(&mut self, name: &str, value: &dyn Any) -> Result<(), SetObjectFieldError> {
+    fn set_field(&mut self, name: &str, value: Arc<RwLock<dyn Any + Send + Sync>>) -> Result<(), SetObjectFieldError> {
         todo!()
     }
 
-    fn get_field(&self, name: &str) -> Result<&dyn Any, FieldDoesntExist> {
+    fn get_field(&self, name: &str) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
         todo!()
     }
 
-    fn as_any(&self) -> &dyn Any {
+    fn as_any(&self) -> &(dyn Any + Send + Sync) {
         todo!()
     }
 
-    fn as_mut_any(&mut self) -> &mut dyn Any {
+    fn as_mut_any(&mut self) -> &mut (dyn Any + Send + Sync) {
         todo!()
     }
 }

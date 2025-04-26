@@ -117,6 +117,9 @@ pub fn read_struct_array_u8_ref<'a>(
 }
 
 define_read!(u16);
+define_read!(i16);
 define_read!(u32);
+define_read!(i32);
 define_read!(u64);
+define_read!(i64);
 define_read_struct_array!(u16, u32, u64);
