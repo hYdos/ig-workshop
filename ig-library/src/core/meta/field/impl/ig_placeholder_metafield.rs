@@ -77,11 +77,11 @@ impl igMetaField for igPlaceholderMetafield {
         panic!("Alchemy Error! Check the logs.")
     }
 
-    fn platform_size(&self, platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_size(&self, _platform: IG_CORE_PLATFORM) -> u32 {
         todo!()
     }
 
-    fn platform_alignment(&self, platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_alignment(&self, _platform: IG_CORE_PLATFORM) -> u32 {
         todo!()
     }
 }

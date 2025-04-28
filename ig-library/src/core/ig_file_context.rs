@@ -148,6 +148,7 @@ impl igFileContext {
         processor_stack.process(self.processor_stack.clone(), &mut work_item);
 
         debug!("Work Item completed with status {:?}", work_item._status);
+        debug!("Work Item path was {}", work_item._file._path);
         work_item._file
     }
 

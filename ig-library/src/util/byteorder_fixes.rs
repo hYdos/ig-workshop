@@ -37,9 +37,9 @@ pub fn read_ptr(
     endian: &Endian,
 ) -> std::io::Result<u64> {
     if platform.is_64bit() {
-        read_u32(cursor, endian).map(|t| t as u64)
-    } else {
         read_u64(cursor, endian)
+    } else {
+        read_u32(cursor, endian).map(|t| t as u64)
     }
 }
 

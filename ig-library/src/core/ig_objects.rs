@@ -1,7 +1,7 @@
 use std::any::TypeId;
 use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_file_context::{get_native_path, igFileContext};
-use crate::core::ig_lists::{igNameList, igObjectDirectoryList, igObjectList};
+use crate::core::ig_custom::{igNameList, igObjectDirectoryList, igObjectList};
 use crate::core::ig_registry::igRegistry;
 use crate::core::load::ig_igz_loader::igIGZObjectLoader;
 use crate::core::load::ig_loader;
@@ -53,7 +53,7 @@ pub struct igObjectDirectory {
     pub dependencies: igObjectDirectoryList,
     pub use_name_list: bool,
     /// List of all igObject instances present in the directory
-    pub object_list: igObjectList,
+    pub object_list: Arc<RwLock<igObjectList>>,
     /// Only filled when use_name_list is equal to true and length should match the object list
     pub name_list: igNameList,
     pub loader: Arc<RwLock<dyn igObjectLoader>>,
@@ -66,7 +66,7 @@ impl igObjectDirectory {
             name,
             dependencies: igObjectDirectoryList::new(),
             use_name_list: false,
-            object_list: igObjectList::new(),
+            object_list: Arc::new(RwLock::new(igObjectList::new())),
             name_list: igNameList::new(),
             loader: Arc::new(RwLock::new(igIGZObjectLoader)),
         }
@@ -79,7 +79,7 @@ impl igObjectDirectory {
             name,
             dependencies: igObjectDirectoryList::new(),
             use_name_list: false,
-            object_list: igObjectList::new(),
+            object_list: Arc::new(RwLock::new(igObjectList::new())),
             name_list: igNameList::new(),
             loader,
         }

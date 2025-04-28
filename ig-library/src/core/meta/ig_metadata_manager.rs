@@ -1,5 +1,8 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
+use crate::core::ig_custom::igObjectList;
 use crate::core::ig_memory::igMemoryPool;
+use crate::core::ig_objects::ObjectExt;
+use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 use crate::core::meta::ig_xml_metadata::{MetaEnum, MetaField, MetaObject, RawMetaObjectField};
 use log::{error, info};
 use phf::phf_map;
@@ -11,15 +14,16 @@ use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use std::todo;
 use strum_macros::Display;
-use crate::core::ig_objects::ObjectExt;
-use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 
 /// Stores every registered meta object implementation that can be constructed.
 pub static TYPE_TO_METAOBJECT_LOOKUP: phf::Map<
     &str,
-    fn(ig_meta_object: &igMetaObject, pool: igMemoryPool) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError>,
+    fn(
+        ig_meta_object: Arc<igMetaObject>,
+        pool: igMemoryPool,
+    ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError>,
 > = phf_map! {
-    // ""            => |meta, pool| {Box::new(igGenericObject {meta,constructed_field_storage: vec![],internal_pool: pool,})}
+    "igObjectList"            => igObjectList::construct
 };
 
 /// Fast structure used to manage and create new instances of metaobjects, metafields, and metaenums
@@ -30,7 +34,7 @@ pub struct igMetadataManager {
     object_meta_lookup: HashMap<Arc<str>, Arc<igMetaObject>>,
     /// The platform the metadata system is targeting. Can be stored here because we know this is not used between different loaded games.
     platform: IG_CORE_PLATFORM,
-    meta_field_registry: igMetafieldRegistry
+    meta_field_registry: igMetafieldRegistry,
 }
 
 impl igMetadataManager {
@@ -79,9 +83,16 @@ pub trait __internalObjectBase: Sync + Send {
     fn set_field(
         &mut self,
         name: &str,
-        value: Arc<RwLock<dyn Any + Send + Sync>>,
+        value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
     ) -> Result<(), SetObjectFieldError>;
-    fn get_field(&self, name: &str) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist>;
+    fn get_non_null_field(
+        &self,
+        name: &str,
+    ) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist>;
+    fn get_field(
+        &self,
+        name: &str,
+    ) -> Result<Option<Arc<RwLock<dyn Any + Send + Sync>>>, FieldDoesntExist>;
     fn as_any(&self) -> &(dyn Any + Send + Sync);
     fn as_mut_any(&mut self) -> &mut (dyn Any + Send + Sync);
 }
@@ -94,8 +105,23 @@ pub struct igGenericObject {
 }
 
 impl igGenericObject {
-    fn new(_meta: &igMetaObject, _pool: igMemoryPool) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError> {
-        todo!("Initialize default igGenericObject")
+    fn new(
+        meta: Arc<igMetaObject>,
+        _pool: igMemoryPool,
+    ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError> {
+        let mut constructed_field_storage = Vec::new();
+        for (name, _field) in &meta.field_storage.name_lookup {
+            constructed_field_storage.push(RwLock::new(igConstructedField {
+                name: name.clone(),
+                value: None,
+            }))
+        }
+
+        Ok(Arc::new(RwLock::new(igGenericObject {
+            meta: meta.clone(),
+            constructed_field_storage,
+            internal_pool: _pool,
+        })))
     }
 }
 
@@ -115,7 +141,7 @@ impl __internalObjectBase for igGenericObject {
     fn set_field(
         &mut self,
         name: &str,
-        value: Arc<RwLock<dyn Any + Send + Sync>>,
+        value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
     ) -> Result<(), SetObjectFieldError> {
         for field in &self.constructed_field_storage {
             if field.read().unwrap().name.as_ref() == name {
@@ -127,13 +153,25 @@ impl __internalObjectBase for igGenericObject {
         Err(SetObjectFieldError::FieldDoesntExist)
     }
 
-    fn get_field(&self, name: &str) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
+    fn get_non_null_field(
+        &self,
+        name: &str,
+    ) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
+        Ok(self
+            .get_field(name)?
+            .expect("called get_non_null_field on a null value"))
+    }
+
+    fn get_field(
+        &self,
+        name: &str,
+    ) -> Result<Option<Arc<RwLock<(dyn Any + Send + Sync + 'static)>>>, FieldDoesntExist> {
         for field in &self.constructed_field_storage {
             if field.read().unwrap().name.as_ref() == name {
                 return Ok(field.read().unwrap().value.clone());
             }
         }
-        
+
         Err(FieldDoesntExist)
     }
 
@@ -151,11 +189,10 @@ pub struct igConstructedField {
     /// The name of the constructed field
     pub name: Arc<str>,
     /// Represents the currently stored value. Wrapped in [Arc] to work with how Alchemy is designed to work and [RwLock] for mutability and thread safety
-    pub value: Arc<RwLock<dyn Any + Send + Sync>>,
+    pub value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
 }
 
 // igCauldron cares about the platform here, we don't. Metadata cannot be shared between platforms and expected to work anyway.
-#[derive(Debug)]
 struct StoredField {
     _type: Arc<str>,
     name: Option<Arc<str>>,
@@ -164,7 +201,6 @@ struct StoredField {
 }
 
 /// Type designed for ergonomics and to keep speed up
-#[derive(Debug)]
 struct FieldStorage {
     /// All field will be present in this map. Use the offset of a field to look it up
     offset_lookup: HashMap<u16, Arc<StoredField>>,
@@ -192,10 +228,12 @@ impl FieldStorage {
 }
 
 /// Represents the data needed to instantiate an instance of the meta object stored.
-#[derive(Debug)]
 pub struct igMetaObject {
     pub name: Arc<str>,
-    constructor: fn(&igMetaObject, igMemoryPool) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError>,
+    constructor: fn(
+        Arc<igMetaObject>,
+        igMemoryPool,
+    ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError>,
     parent: Option<Arc<igMetaObject>>,
     field_storage: FieldStorage,
 }
@@ -206,13 +244,13 @@ pub enum igMetaInstantiationError {
     /// Returned when the construction succeeded but the default field failed to be set.
     SetupDefaultFieldsError,
     /// Returned when the construction succeeded but the type constructed does not match the expected return type.
-    TypeMismatchError,
+    TypeMismatchError(Arc<str>),
 }
 
 impl igMetaObject {
     /// Creates a new instance of [Arc<RwLock<T>>] on success. On failure [igMetaInstantiationError] will be returned. [T] is expected ot match the type associated with the [igMetaObject] provided. If there is no registered type for the metadata, [igGenericObject] will be constructed
     pub fn instantiate<T>(
-        &self,
+        self: Arc<igMetaObject>,
         _source_pool: igMemoryPool,
         _set_fields: bool,
     ) -> Result<Arc<RwLock<T>>, igMetaInstantiationError>
@@ -223,14 +261,13 @@ impl igMetaObject {
         let arc = fun(self, _source_pool.clone())?;
         let _type = match arc.clone().downcast::<T>() {
             Some(t) => Ok(t),
-            None => Err(igMetaInstantiationError::TypeMismatchError),
+            None => Err(igMetaInstantiationError::TypeMismatchError(arc.read().unwrap().meta_type().name.clone())),
         }?;
 
         // This will always succeed. We just created the type
         let guard = _type.write().unwrap();
         if _set_fields {
             todo!()
-            //guard.set_defaults();
         }
         drop(guard);
 
@@ -260,7 +297,7 @@ impl igMetadataManager {
         }
 
         let field_storage = self.get_current_fields(&self.platform, parent_meta.clone(), object);
-        
+
         if let Some(constructor) = TYPE_TO_METAOBJECT_LOOKUP.get(&type_name) {
             igMetaObject {
                 name: Arc::from(type_name),

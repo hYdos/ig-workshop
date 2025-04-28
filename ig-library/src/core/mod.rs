@@ -7,7 +7,7 @@ pub mod ig_fs;
 pub mod ig_archive_mount_manager;
 pub mod ig_archive_manager;
 pub mod ig_std_lib_storage_device;
-pub mod ig_lists;
+pub mod ig_custom;
 pub mod meta;
 pub mod ig_memory;
 pub mod ig_objects;

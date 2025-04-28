@@ -4,18 +4,18 @@ use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_fs::Endian;
 use crate::core::ig_fs::Endian::{Big, Little};
 use crate::core::ig_handle::{igHandle, igHandleName};
-use crate::core::ig_lists::igObjectList;
+use crate::core::ig_custom::igObjectList;
 use crate::core::ig_memory::igMemoryPool;
 use crate::core::ig_objects::{igObject, igObjectDirectory, igObjectStreamManager};
 use crate::core::ig_registry::igRegistry;
 use crate::core::load::ig_loader::igObjectLoader;
-use crate::core::meta::ig_metadata_manager::igMetadataManager;
+use crate::core::meta::ig_metadata_manager::{igMetaInstantiationError, igMetadataManager};
 use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetaObject};
 use crate::util::byteorder_fixes::{
     read_ptr, read_string, read_struct_array_u8, read_u32, read_u64,
 };
 use crate::util::ig_name::igName;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::io::{Cursor, Seek, SeekFrom};
 use std::str::FromStr;
@@ -143,7 +143,7 @@ impl Fixup {
                                         let name = &dependent_dir.name_list.query()[i];
                                         if name.hash == dependency_name.namespace.hash {
                                             obj =
-                                                Some(dependent_dir.object_list.query()[i].clone());
+                                                Some(dependent_dir.object_list.read().unwrap().query()[i].clone());
                                             break;
                                         }
                                     }
@@ -182,7 +182,7 @@ impl Fixup {
                                 for i in 0..dependent_dir.name_list.len() {
                                     let name = &dependent_dir.name_list.query()[i];
                                     if name.hash == dependency_handle_name.namespace.hash {
-                                        obj = Some(dependent_dir.object_list.query()[i].clone());
+                                        obj = Some(dependent_dir.object_list.read().unwrap().query()[i].clone());
                                         break;
                                     }
                                 }
@@ -279,13 +279,7 @@ fn instantiate_and_append_objects(
         // TODO: cast to a igObjectList (Vec<igObject>, a implemented serialization of __internalObjectBase
         ctx.offset_object_list.insert(
             *vtable,
-            instantiate_object::<igObjectList>(ctx, handle, endian, vtable)
-                .read()
-                .unwrap()
-                .as_any()
-                .downcast_ref::<igObjectList>()
-                .unwrap()
-                .to_owned(),
+            instantiate_object::<igObjectList>(ctx, handle, endian, vtable),
         );
     }
 }
@@ -296,17 +290,33 @@ fn instantiate_object<T: __internalObjectBase + 'static>(
     endian: &Endian,
     offset: &u64,
 ) -> Arc<RwLock<T>> {
+    let deserialize_offset = deserialize_offset(ctx, *offset);
+    
     handle
-        .seek(SeekFrom::Start(deserialize_offset(ctx, *offset)))
+        .seek(SeekFrom::Start(deserialize_offset))
         .unwrap();
-    let offset = read_ptr(handle, &ctx.platform, endian).unwrap();
-    ctx.vtbl_list[offset as usize]
-        .instantiate::<T>(get_mem_pool_from_serialized_offset(ctx, offset), false)
-        .unwrap()
+    let index = read_ptr(handle, &ctx.platform, endian).unwrap();
+    let return_value = ctx.vtbl_list[index as usize]
+        .clone()
+        .instantiate::<T>(get_mem_pool_from_serialized_offset(ctx, *offset), false);
+    
+    match return_value {
+        Ok(value) => {
+            info!("{}", value.read().unwrap().meta_type().name);
+            value
+        }
+        Err(igMetaInstantiationError::TypeMismatchError(expected_type)) => {
+            error!("Instantiation when loading IGZ failed the real type returned was {}", expected_type);
+            panic!("Alchemy Error! Check the logs.")
+        },
+        Err(igMetaInstantiationError::SetupDefaultFieldsError) => todo!()
+    }
+    
+
 }
 
 fn get_mem_pool_from_serialized_offset(ctx: &IgzLoaderContext, offset: u64) -> igMemoryPool {
-    if ctx.version <= 0x06 {
+    if ctx.version <= 6 {
         ctx.loaded_pools[(offset >> 0x18) as usize]
     } else {
         ctx.loaded_pools[(offset >> 0x1B) as usize]
@@ -373,9 +383,9 @@ fn unpack_compressed_ints(
 
 fn deserialize_offset(ctx: &IgzLoaderContext, offset: u64) -> u64 {
     if ctx.version <= 6 {
-        ctx.loaded_pointers[((offset >> 0x18) + (offset & 0x00FFFFFF)) as usize] as u64
+        ctx.loaded_pointers[(offset >> 0x18) as usize] as u64 + (offset & 0x00FFFFFF)
     } else {
-        ctx.loaded_pointers[((offset >> 0x1B) + (offset & 0x00FFFFFF)) as usize] as u64
+        ctx.loaded_pointers[(offset >> 0x1B) as usize] as u64 + (offset & 0x00FFFFFF)
     }
 }
 
@@ -497,10 +507,10 @@ pub struct IgzLoaderContext {
     section_count: u32,
     /// amount of fixups present
     fixup_count: u32,
-    /// Set containing all loaded memory pools. Its size is hardcoded to be 0x1F
-    loaded_pools: [igMemoryPool; 0x1F],
-    /// List of pointers pointing to ???, Its size is hardcoded to be 0x1F
-    loaded_pointers: [u32; 0x1F],
+    /// Set containing all loaded memory pools. Its size is hardcoded to be 0x20
+    loaded_pools: [igMemoryPool; 0x20],
+    /// List of pointers pointing to ???, Its size is hardcoded to be 0x20 (32 pointers can be stored)
+    loaded_pointers: [u32; 0x20],
     /// Offset where fixup's are present
     fixup_offset: u32,
     /// A list of all igObject instances present inside the igz
@@ -518,7 +528,7 @@ pub struct IgzLoaderContext {
     /// All runtime lists stored from fixups. Used for various parts of the runtime
     runtime_fields: RuntimeFields,
     /// TODO: comment
-    offset_object_list: HashMap<u64, igObjectList>,
+    offset_object_list: HashMap<u64, Arc<RwLock<igObjectList>>>,
 }
 
 impl igIGZLoader {

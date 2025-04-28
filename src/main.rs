@@ -28,7 +28,11 @@ use ig_library::client::precache::load_init_script;
 use ig_library::util::ig_common::igAlchemy;
 
 fn main() {
+    #[cfg(debug_assertions)]
+    init_logger(LevelFilter::Debug);
+    #[cfg(not(debug_assertions))]
     init_logger(LevelFilter::Info);
+
     let configs = init_config();
 
     let options = eframe::NativeOptions {

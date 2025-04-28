@@ -4,17 +4,16 @@ use crate::core::ig_ark_core::{igArkCore, EGame};
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_memory::igMemoryPool;
+use crate::core::ig_objects::ObjectExt;
 use crate::core::ig_registry::igRegistry;
 use crate::core::meta::ig_metadata_manager::{
     __internalObjectBase, igMetaObject, FieldDoesntExist, SetObjectFieldError,
 };
 use crate::util::ig_common::igAlchemy;
-use std::any::{Any, TypeId};
-use std::mem;
+use std::any::Any;
 use std::ops::Sub;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use crate::core::ig_objects::ObjectExt;
 
 fn load_alchemy() -> igAlchemy {
     let start_time = Instant::now();
@@ -70,15 +69,19 @@ impl __internalObjectBase for igModelData {
     fn set_field(
         &mut self,
         name: &str,
-        value: Arc<RwLock<dyn Any + Send + Sync>>,
+        value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
     ) -> Result<(), SetObjectFieldError> {
+        todo!()
+    }
+
+    fn get_non_null_field(&self, name: &str) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
         todo!()
     }
 
     fn get_field(
         &self,
         name: &str,
-    ) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
+    ) -> Result<Option<Arc<RwLock<(dyn Any + Send + Sync + 'static)>>>, FieldDoesntExist> {
         todo!()
     }
 
@@ -111,15 +114,19 @@ impl __internalObjectBase for igModelInfo {
     fn set_field(
         &mut self,
         name: &str,
-        value: Arc<RwLock<dyn Any + Send + Sync>>,
+        value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
     ) -> Result<(), SetObjectFieldError> {
+        todo!()
+    }
+
+    fn get_non_null_field(&self, name: &str) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
         todo!()
     }
 
     fn get_field(
         &self,
         name: &str,
-    ) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
+    ) -> Result<Option<Arc<RwLock<(dyn Any + Send + Sync + 'static)>>>, FieldDoesntExist> {
         todo!()
     }
 
