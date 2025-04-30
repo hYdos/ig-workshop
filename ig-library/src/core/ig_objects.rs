@@ -1,7 +1,6 @@
-use std::any::TypeId;
+use crate::core::ig_custom::{igNameList, igObjectDirectoryList, igObjectList};
 use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_file_context::{get_native_path, igFileContext};
-use crate::core::ig_custom::{igNameList, igObjectDirectoryList, igObjectList};
 use crate::core::ig_registry::igRegistry;
 use crate::core::load::ig_igz_loader::igIGZObjectLoader;
 use crate::core::load::ig_loader;
@@ -10,6 +9,7 @@ use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetadataMan
 use crate::util::ig_hash::hash_lower;
 use crate::util::ig_name::igName;
 use log::warn;
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::{Arc, RwLock};
@@ -55,7 +55,7 @@ pub struct igObjectDirectory {
     /// List of all igObject instances present in the directory
     pub object_list: Arc<RwLock<igObjectList>>,
     /// Only filled when use_name_list is equal to true and length should match the object list
-    pub name_list: igNameList,
+    pub name_list: Arc<RwLock<igNameList>>,
     pub loader: Arc<RwLock<dyn igObjectLoader>>,
 }
 
@@ -67,11 +67,11 @@ impl igObjectDirectory {
             dependencies: igObjectDirectoryList::new(),
             use_name_list: false,
             object_list: Arc::new(RwLock::new(igObjectList::new())),
-            name_list: igNameList::new(),
+            name_list: Arc::new(RwLock::new(igNameList::new())),
             loader: Arc::new(RwLock::new(igIGZObjectLoader)),
         }
     }
-    
+
     /// Allows specifying a custom file loader. Handy for custom formats or formats that are not igz such as igXml, igBinary, and igAscii
     fn with_loader(path: &str, name: igName, loader: Arc<RwLock<dyn igObjectLoader>>) -> Self {
         igObjectDirectory {
@@ -80,7 +80,7 @@ impl igObjectDirectory {
             dependencies: igObjectDirectoryList::new(),
             use_name_list: false,
             object_list: Arc::new(RwLock::new(igObjectList::new())),
-            name_list: igNameList::new(),
+            name_list: Arc::new(RwLock::new(igNameList::new())),
             loader,
         }
     }

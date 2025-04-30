@@ -1,21 +1,22 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
+use crate::core::ig_custom::{igDataList, CastTo};
 use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_fs::Endian;
 use crate::core::ig_fs::Endian::{Big, Little};
 use crate::core::ig_handle::{igHandle, igHandleName};
-use crate::core::ig_custom::igObjectList;
 use crate::core::ig_memory::igMemoryPool;
-use crate::core::ig_objects::{igObject, igObjectDirectory, igObjectStreamManager};
+use crate::core::ig_objects::{igObject, igObjectDirectory, igObjectStreamManager, ObjectExt};
 use crate::core::ig_registry::igRegistry;
 use crate::core::load::ig_loader::igObjectLoader;
-use crate::core::meta::ig_metadata_manager::{igMetaInstantiationError, igMetadataManager};
 use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetaObject};
+use crate::core::meta::ig_metadata_manager::{igMetaInstantiationError, igMetadataManager};
 use crate::util::byteorder_fixes::{
     read_ptr, read_string, read_struct_array_u8, read_u32, read_u64,
 };
 use crate::util::ig_name::igName;
 use log::{debug, error, info, warn};
+use std::any::Any;
 use std::collections::HashMap;
 use std::io::{Cursor, Seek, SeekFrom};
 use std::str::FromStr;
@@ -139,11 +140,15 @@ impl Fixup {
                         for dependant_dir in list.iter() {
                             if let Ok(dependent_dir) = dependant_dir.try_read() {
                                 if dependent_dir.use_name_list {
-                                    for i in 0..dependent_dir.name_list.len() {
-                                        let name = &dependent_dir.name_list.query()[i];
+                                    let name_list = dependent_dir.name_list.read().unwrap();
+                                    for i in 0..name_list.len() {
+                                        let name = &name_list.query()[i];
                                         if name.hash == dependency_name.namespace.hash {
-                                            obj =
-                                                Some(dependent_dir.object_list.read().unwrap().query()[i].clone());
+                                            obj = Some(
+                                                dependent_dir.object_list.read().unwrap().query()
+                                                    [i]
+                                                    .clone(),
+                                            );
                                             break;
                                         }
                                     }
@@ -179,10 +184,14 @@ impl Fixup {
                     }) {
                         if let Ok(dependent_dir) = dependant_dir.try_read() {
                             if dependent_dir.use_name_list {
-                                for i in 0..dependent_dir.name_list.len() {
-                                    let name = &dependent_dir.name_list.query()[i];
+                                let name_list = dependent_dir.name_list.read().unwrap();
+                                for i in 0..name_list.len() {
+                                    let name = &name_list.query()[i];
                                     if name.hash == dependency_handle_name.namespace.hash {
-                                        obj = Some(dependent_dir.object_list.read().unwrap().query()[i].clone());
+                                        obj = Some(
+                                            dependent_dir.object_list.read().unwrap().query()[i]
+                                                .clone(),
+                                        );
                                         break;
                                     }
                                 }
@@ -225,9 +234,9 @@ impl Fixup {
             }
             Fixup::RUNTIME_OBJECT_LISTS => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
-                ctx.runtime_fields.vtables = unpack_compressed_ints(ctx, &vec, count, false);
-                dir.object_list =
-                    ctx.offset_object_list[&ctx.runtime_fields.object_lists[0]].clone()
+                ctx.runtime_fields.object_lists = unpack_compressed_ints(ctx, &vec, count, false);
+                let ig_object_list_idx = ctx.runtime_fields.object_lists[0];
+                dir.object_list = ctx.offset_object_list[&ig_object_list_idx].clone().cast_to().unwrap()
             }
             Fixup::RUNTIME_OFFSETS => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
@@ -264,7 +273,13 @@ impl Fixup {
             }
             Fixup::OPTION_NAMED_LIST => {
                 dir.use_name_list = true;
-                dir.name_list = todo!("");
+                let name_list_idx = read_u32(handle, endian).unwrap() as u64;
+                // pull out the generic object (trait-object)
+                let generic_obj: Arc<RwLock<dyn __internalObjectBase>> =
+                    ctx.offset_object_list[&name_list_idx].clone();
+
+                // assign into your field
+                dir.name_list = generic_obj.cast_to().unwrap();
             }
         }
     }
@@ -276,43 +291,38 @@ fn instantiate_and_append_objects(
     endian: &Endian,
 ) {
     for vtable in &ctx.runtime_fields.vtables {
-        // TODO: cast to a igObjectList (Vec<igObject>, a implemented serialization of __internalObjectBase
-        ctx.offset_object_list.insert(
-            *vtable,
-            instantiate_object::<igObjectList>(ctx, handle, endian, vtable),
-        );
+        ctx.offset_object_list.insert(*vtable, instantiate_object(ctx, handle, endian, vtable));
     }
 }
 
-fn instantiate_object<T: __internalObjectBase + 'static>(
+fn instantiate_object(
     ctx: &IgzLoaderContext,
     handle: &mut Cursor<Vec<u8>>,
     endian: &Endian,
     offset: &u64,
-) -> Arc<RwLock<T>> {
+) -> Arc<RwLock<dyn __internalObjectBase>> {
     let deserialize_offset = ctx.deserialize_offset(*offset);
-    
-    handle
-        .seek(SeekFrom::Start(deserialize_offset))
-        .unwrap();
+
+    handle.seek(SeekFrom::Start(deserialize_offset)).unwrap();
     let index = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
     let return_value = ctx.vtbl_list[index as usize]
         .clone()
-        .instantiate::<T>(get_mem_pool_from_serialized_offset(ctx, *offset), false);
-    
+        .raw_instantiate(get_mem_pool_from_serialized_offset(ctx, *offset), false);
+
     match return_value {
         Ok(value) => {
             info!("{}", value.read().unwrap().meta_type().name);
             value
         }
         Err(igMetaInstantiationError::TypeMismatchError(expected_type)) => {
-            error!("Instantiation when loading IGZ failed the real type returned was {}", expected_type);
+            error!(
+                "Instantiation when loading IGZ failed the real type returned was {}",
+                expected_type
+            );
             panic!("Alchemy Error! Check the logs.")
-        },
-        Err(igMetaInstantiationError::SetupDefaultFieldsError) => todo!()
+        }
+        Err(igMetaInstantiationError::SetupDefaultFieldsError) => todo!(),
     }
-    
-
 }
 
 fn get_mem_pool_from_serialized_offset(ctx: &IgzLoaderContext, offset: u64) -> igMemoryPool {
@@ -520,7 +530,8 @@ pub struct IgzLoaderContext {
     /// All runtime lists stored from fixups. Used for various parts of the runtime
     pub runtime_fields: RuntimeFields,
     /// TODO: comment
-    pub offset_object_list: HashMap<u64, Arc<RwLock<igObjectList>>>,
+    pub offset_object_list:
+        HashMap<u64, Arc<RwLock<dyn __internalObjectBase>>>,
 }
 
 impl IgzLoaderContext {

@@ -1,9 +1,10 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
-use crate::core::ig_custom::igObjectList;
+use crate::core::ig_custom::{igDataList, igNameList, igObjectList};
 use crate::core::ig_memory::igMemoryPool;
 use crate::core::ig_objects::ObjectExt;
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 use crate::core::meta::ig_xml_metadata::{MetaEnum, MetaField, MetaObject, RawMetaObjectField};
+use crate::util::ig_name::igName;
 use log::{error, info};
 use phf::phf_map;
 use std::any::Any;
@@ -24,8 +25,8 @@ pub static TYPE_TO_METAOBJECT_LOOKUP: phf::Map<
     ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError>,
 > = phf_map! {
     "igObjectList"            => igObjectList::construct,
-    "igStringRefList"            => igObjectList::construct,
-    "igNameList"            => igObjectList::construct,
+    "igStringRefList"            => igDataList::<Arc<RwLock<Arc<str>>>>::construct,
+    "igNameList"            => igNameList::construct,
 };
 
 /// Fast structure used to manage and create new instances of metaobjects, metafields, and metaenums
@@ -263,7 +264,9 @@ impl igMetaObject {
         let arc = fun(self, _source_pool.clone())?;
         let _type = match arc.clone().downcast::<T>() {
             Some(t) => Ok(t),
-            None => Err(igMetaInstantiationError::TypeMismatchError(arc.read().unwrap().meta_type().name.clone())),
+            None => Err(igMetaInstantiationError::TypeMismatchError(
+                arc.read().unwrap().meta_type().name.clone(),
+            )),
         }?;
 
         // This will always succeed. We just created the type
@@ -274,6 +277,16 @@ impl igMetaObject {
         drop(guard);
 
         Ok(_type)
+    }
+
+    pub fn raw_instantiate(
+        self: Arc<igMetaObject>,
+        _source_pool: igMemoryPool,
+        _set_fields: bool,
+    ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError> {
+        let fun = self.constructor;
+        let arc = fun(self, _source_pool.clone())?;
+        Ok(arc)
     }
 }
 

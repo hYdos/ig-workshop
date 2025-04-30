@@ -1,7 +1,7 @@
 /// Custom implementations of objects to make usage more ergonomic. Currently just focused around objects using igDataList
 use crate::core::ig_archive::igArchive;
 use crate::core::ig_memory::igMemoryPool;
-use crate::core::ig_objects::{igObject, igObjectDirectory};
+use crate::core::ig_objects::{igObject, igObjectDirectory, ObjectExt};
 use crate::core::meta::ig_metadata_manager::{
     __internalObjectBase, igMetaInstantiationError, igMetaObject, FieldDoesntExist,
     SetObjectFieldError,
@@ -25,6 +25,110 @@ pub type igNameList = igDataList<Arc<igName>>;
 
 pub struct QueryGuard<'a, T>(RwLockReadGuard<'a, Vec<T>>);
 pub struct MutableQueryGuard<'a, T>(RwLockWriteGuard<'a, Vec<T>>);
+
+// Empty impl to play nice with the rest of the code in here. A bit hacky, but what can you do...
+impl __internalObjectBase for Arc<str> {
+    fn meta_type(&self) -> Arc<igMetaObject> {
+        todo!()
+    }
+
+    fn internal_pool(&self) -> &igMemoryPool {
+        todo!()
+    }
+
+    fn set_pool(&mut self, pool: igMemoryPool) {
+        todo!()
+    }
+
+    fn set_field(
+        &mut self,
+        name: &str,
+        value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
+    ) -> Result<(), SetObjectFieldError> {
+        todo!()
+    }
+
+    fn get_non_null_field(
+        &self,
+        name: &str,
+    ) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
+        todo!()
+    }
+
+    fn get_field(
+        &self,
+        name: &str,
+    ) -> Result<Option<Arc<RwLock<dyn Any + Send + Sync>>>, FieldDoesntExist> {
+        todo!()
+    }
+
+    fn as_any(&self) -> &(dyn Any + Send + Sync) {
+        todo!()
+    }
+
+    fn as_mut_any(&mut self) -> &mut (dyn Any + Send + Sync) {
+        todo!()
+    }
+}
+
+pub trait CastTo<T> {
+    type Error;
+    fn cast_to(self) -> Result<Arc<RwLock<T>>, Self::Error>;
+}
+
+impl<T> CastTo<T> for Arc<RwLock<dyn __internalObjectBase>>
+where
+    T: __internalObjectBase + 'static,
+{
+    type Error = igMetaInstantiationError;
+
+    fn cast_to(self) -> Result<Arc<RwLock<T>>, Self::Error> {
+        if let Some(t) = self.clone().downcast::<T>() {
+            Ok(t)
+        } else {
+            // grab actual type name for error
+            let actual = self.read().unwrap().meta_type().name.clone();
+            Err(igMetaInstantiationError::TypeMismatchError(actual))
+        }
+    }
+}
+
+pub trait DataListExt<T> {
+    /// Rebuild this `Arc<RwLock<igDataList<T>>>` into an
+    /// `Arc<RwLock<igDataList<U>>>` by mapping each `&T` to a `U`.
+    fn cast<U, F>(self, f: F) -> Arc<RwLock<igDataList<U>>>
+    where
+        U: Send + Sync + 'static,
+        F: Fn(&T) -> U + Send + Sync + 'static;
+}
+
+impl<T> DataListExt<T> for Arc<RwLock<igDataList<T>>>
+where
+    T: Send + Sync + 'static,
+{
+    fn cast<U, F>(self, f: F) -> Arc<RwLock<igDataList<U>>>
+    where
+        U: Send + Sync + 'static,
+        F: Fn(&T) -> U + Send + Sync + 'static,
+    {
+        // 1) grab the old list
+        let old = self.read().unwrap();
+        let items = old.list.read().unwrap();
+
+        // 2) map each element
+        let new_vec: Vec<U> = items.iter().map(|t| f(t)).collect();
+
+        // 3) build a brand-new igDataList<U> with the same meta+pool
+        let new_list = igDataList {
+            list: Arc::new(RwLock::new(new_vec)),
+            meta: old.meta.clone(),
+            pool: old.pool,
+        };
+
+        // 4) wrap back in Arc<RwLock<…>>
+        Arc::new(RwLock::new(new_list))
+    }
+}
 
 impl<T: Send + Sync + 'static> __internalObjectBase for igDataList<T> {
     fn meta_type(&self) -> Arc<igMetaObject> {
@@ -79,9 +183,7 @@ impl<T: Send + Sync + 'static> igDataList<T> {
         pool: igMemoryPool,
     ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError> {
         Ok(Arc::new(RwLock::new(igDataList {
-            list: Arc::new(RwLock::new(
-                Vec::<T>::new(),
-            )),
+            list: Arc::new(RwLock::new(Vec::<T>::new())),
             meta: Some(meta),
             pool,
         })))
