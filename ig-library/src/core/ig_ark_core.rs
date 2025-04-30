@@ -3,7 +3,9 @@ use crate::core::meta::ig_metadata_manager::igMetadataManager;
 use crate::core::meta::ig_xml_metadata::load_xml_metadata;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
+use std::sync::Arc;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
+use crate::core::meta::field::r#impl::ig_string_meta_field::igStringMetaField;
 
 /// Contains reflection metadata information. Stands for Application Runtime Kernel.
 pub struct igArkCore {
@@ -13,9 +15,15 @@ pub struct igArkCore {
 impl igArkCore {
     pub fn new(game: EGame, platform: IG_CORE_PLATFORM) -> Self {
         let metadata_path = PathBuf::from(format!("ArkCore/{:?}/", game));
-        let _result = load_xml_metadata(metadata_path).unwrap();
-        igArkCore { metadata_manager: igMetadataManager::new(_result.0, _result.1, _result.2, platform) }
+        let xml_metadata = load_xml_metadata(metadata_path).unwrap();
+        let mut metadata_manager = igMetadataManager::new(xml_metadata.0, xml_metadata.1, xml_metadata.2, platform);
+        register_metafields(&mut metadata_manager);
+        igArkCore { metadata_manager }
     }
+}
+
+fn register_metafields(imm: &mut igMetadataManager) {
+    imm.meta_field_registry.register::<igStringMetaField>(Arc::from("igStringMetaField"), Box::new(igStringMetaField));
 }
 
 #[derive(Debug, PartialEq, Clone)]

@@ -213,8 +213,8 @@ impl Fixup {
             }
             Fixup::THUMBNAIL => {
                 for _i in 0..count {
-                    let size = read_ptr(handle, &ctx.platform, &endian).unwrap();
-                    let raw = read_ptr(handle, &ctx.platform, &endian).unwrap();
+                    let size = read_ptr(handle, ctx.platform.clone(), &endian).unwrap();
+                    let raw = read_ptr(handle, ctx.platform.clone(), &endian).unwrap();
                     ctx.thumbnails.push((size, raw))
                 }
             }
@@ -231,11 +231,11 @@ impl Fixup {
             }
             Fixup::RUNTIME_OFFSETS => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
-                ctx.runtime_fields._offsets = unpack_compressed_ints(ctx, &vec, count, true);
+                ctx.runtime_fields.offsets = unpack_compressed_ints(ctx, &vec, count, true);
             }
             Fixup::RUNTIME_POOL_IDS => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
-                ctx.runtime_fields._pool_ids = unpack_compressed_ints(ctx, &vec, count, true);
+                ctx.runtime_fields.pool_ids = unpack_compressed_ints(ctx, &vec, count, true);
             }
             Fixup::RUNTIME_STRING_TABLES => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
@@ -290,12 +290,12 @@ fn instantiate_object<T: __internalObjectBase + 'static>(
     endian: &Endian,
     offset: &u64,
 ) -> Arc<RwLock<T>> {
-    let deserialize_offset = deserialize_offset(ctx, *offset);
+    let deserialize_offset = ctx.deserialize_offset(*offset);
     
     handle
         .seek(SeekFrom::Start(deserialize_offset))
         .unwrap();
-    let index = read_ptr(handle, &ctx.platform, endian).unwrap();
+    let index = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
     let return_value = ctx.vtbl_list[index as usize]
         .clone()
         .instantiate::<T>(get_mem_pool_from_serialized_offset(ctx, *offset), false);
@@ -370,7 +370,7 @@ fn unpack_compressed_ints(
             .wrapping_add(if ctx.version < 9 { 4 } else { 0 });
 
         let final_val = if deserialize {
-            deserialize_offset(ctx, prev_int as u64)
+            ctx.deserialize_offset(prev_int as u64)
         } else {
             prev_int as u64
         };
@@ -379,14 +379,6 @@ fn unpack_compressed_ints(
     }
 
     output
-}
-
-fn deserialize_offset(ctx: &IgzLoaderContext, offset: u64) -> u64 {
-    if ctx.version <= 6 {
-        ctx.loaded_pointers[(offset >> 0x18) as usize] as u64 + (offset & 0x00FFFFFF)
-    } else {
-        ctx.loaded_pointers[(offset >> 0x1B) as usize] as u64 + (offset & 0x00FFFFFF)
-    }
 }
 
 /// TryFrom<u32>'s implementation here has a conversion table for names of fixups from any igz versioned 7 or above.
@@ -466,16 +458,16 @@ pub struct igIGZLoader {}
 
 /// See comment in [IgzLoaderContext]
 pub struct RuntimeFields {
-    vtables: Vec<u64>,
-    object_lists: Vec<u64>,
-    _offsets: Vec<u64>,
-    _pool_ids: Vec<u64>,
-    string_tables: Vec<u64>,
-    string_references: Vec<u64>,
-    memory_handles: Vec<u64>,
-    externals: Vec<u64>,
-    named_externals: Vec<u64>,
-    handles: Vec<u64>,
+    pub vtables: Vec<u64>,
+    pub object_lists: Vec<u64>,
+    pub offsets: Vec<u64>,
+    pub pool_ids: Vec<u64>,
+    pub string_tables: Vec<u64>,
+    pub string_references: Vec<u64>,
+    pub memory_handles: Vec<u64>,
+    pub externals: Vec<u64>,
+    pub named_externals: Vec<u64>,
+    pub handles: Vec<u64>,
 }
 
 impl RuntimeFields {
@@ -483,8 +475,8 @@ impl RuntimeFields {
         RuntimeFields {
             vtables: vec![],
             object_lists: vec![],
-            _offsets: vec![],
-            _pool_ids: vec![],
+            offsets: vec![],
+            pool_ids: vec![],
             string_tables: vec![],
             string_references: vec![],
             memory_handles: vec![],
@@ -498,37 +490,47 @@ impl RuntimeFields {
 /// Internal type to store while jumping around to other methods. Also shared with loading metafields
 pub struct IgzLoaderContext {
     /// igz version
-    version: u32,
+    pub version: u32,
     /// unsure on what this is for
-    meta_object_version: u32,
+    pub meta_object_version: u32,
     /// platform the igz targets
-    platform: IG_CORE_PLATFORM,
+    pub platform: IG_CORE_PLATFORM,
     /// The amount of sections present in an igz
-    section_count: u32,
+    pub section_count: u32,
     /// amount of fixups present
-    fixup_count: u32,
+    pub fixup_count: u32,
     /// Set containing all loaded memory pools. Its size is hardcoded to be 0x20
-    loaded_pools: [igMemoryPool; 0x20],
+    pub loaded_pools: [igMemoryPool; 0x20],
     /// List of pointers pointing to ???, Its size is hardcoded to be 0x20 (32 pointers can be stored)
-    loaded_pointers: [u32; 0x20],
+    pub loaded_pointers: [u32; 0x20],
     /// Offset where fixup's are present
-    fixup_offset: u32,
+    pub fixup_offset: u32,
     /// A list of all igObject instances present inside the igz
-    vtbl_list: Vec<Arc<igMetaObject>>,
+    pub vtbl_list: Vec<Arc<igMetaObject>>,
     /// A list of all strings present inside the igz
-    string_list: Vec<String>,
+    pub string_list: Vec<String>,
     /// A list of all external ig object dependencies needed
-    named_external_list: Vec<igObject>,
+    pub named_external_list: Vec<igObject>,
     /// A list of all handles used from dependencies
-    named_handle_list: Vec<Arc<RwLock<igHandle>>>,
+    pub named_handle_list: Vec<Arc<RwLock<igHandle>>>,
     /// Setting decides if the dependency fixup will try load dependencies
-    read_dependencies: bool,
+    pub read_dependencies: bool,
     /// A list of all thumbnails present in the igz.
-    thumbnails: Vec<(u64, u64)>,
+    pub thumbnails: Vec<(u64, u64)>,
     /// All runtime lists stored from fixups. Used for various parts of the runtime
-    runtime_fields: RuntimeFields,
+    pub runtime_fields: RuntimeFields,
     /// TODO: comment
-    offset_object_list: HashMap<u64, Arc<RwLock<igObjectList>>>,
+    pub offset_object_list: HashMap<u64, Arc<RwLock<igObjectList>>>,
+}
+
+impl IgzLoaderContext {
+    pub fn deserialize_offset(&self, offset: u64) -> u64 {
+        if self.version <= 6 {
+            self.loaded_pointers[(offset >> 0x18) as usize] as u64 + (offset & 0x00FFFFFF)
+        } else {
+            self.loaded_pointers[(offset >> 0x1B) as usize] as u64 + (offset & 0x00FFFFFF)
+        }
+    }
 }
 
 impl igIGZLoader {

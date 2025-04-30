@@ -7,6 +7,9 @@ use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_objects::igObjectStreamManager;
 use crate::core::ig_registry::igRegistry;
 
+/// Used as a placeholder where no value is used but one is needed
+pub struct igNoValue;
+
 /// After early initialization, this type becomes available to make getting state a less painful task
 pub struct igAlchemy {
     pub ark_core: igArkCore,

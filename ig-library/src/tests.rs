@@ -157,6 +157,8 @@ fn test_type_usability() {
     if let Ok(driver_moneybone) = file_driver_moneybone.read() {
         let models: Vec<Arc<RwLock<igModelInfo>>> = driver_moneybone
             .object_list
+            .read()
+            .unwrap()
             .iter()
             .filter_map(|x| x.clone().downcast::<igModelInfo>())
             .collect();

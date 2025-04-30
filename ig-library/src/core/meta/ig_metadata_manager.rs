@@ -23,7 +23,9 @@ pub static TYPE_TO_METAOBJECT_LOOKUP: phf::Map<
         pool: igMemoryPool,
     ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError>,
 > = phf_map! {
-    "igObjectList"            => igObjectList::construct
+    "igObjectList"            => igObjectList::construct,
+    "igStringRefList"            => igObjectList::construct,
+    "igNameList"            => igObjectList::construct,
 };
 
 /// Fast structure used to manage and create new instances of metaobjects, metafields, and metaenums
@@ -34,7 +36,7 @@ pub struct igMetadataManager {
     object_meta_lookup: HashMap<Arc<str>, Arc<igMetaObject>>,
     /// The platform the metadata system is targeting. Can be stored here because we know this is not used between different loaded games.
     platform: IG_CORE_PLATFORM,
-    meta_field_registry: igMetafieldRegistry,
+    pub meta_field_registry: igMetafieldRegistry,
 }
 
 impl igMetadataManager {

@@ -33,7 +33,7 @@ macro_rules! define_read {
 
 pub fn read_ptr(
     cursor: &mut Cursor<Vec<u8>>,
-    platform: &IG_CORE_PLATFORM,
+    platform: IG_CORE_PLATFORM,
     endian: &Endian,
 ) -> std::io::Result<u64> {
     if platform.is_64bit() {

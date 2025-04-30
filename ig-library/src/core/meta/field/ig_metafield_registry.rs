@@ -2,7 +2,7 @@ use crate::core::meta::field::ig_metafields::igMetaField;
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
-use crate::core::meta::field::r#impl::ig_placeholder_metafield::igPlaceholderMetafield;
+use crate::core::meta::field::r#impl::ig_placeholder_meta_field::igPlaceholderMetafield;
 
 static DEFAULT_METAFIELD_IMPL: LazyLock<Box<dyn igMetaField>> =
     LazyLock::new(|| Box::new(igPlaceholderMetafield));
@@ -21,7 +21,7 @@ impl igMetafieldRegistry {
 }
 
 impl igMetafieldRegistry {
-    fn register<T: Any + Send + Sync + 'static>(
+    pub fn register<T: Any + Send + Sync + 'static>(
         &mut self,
         name: Arc<str>,
         _impl: Box<dyn igMetaField>,
