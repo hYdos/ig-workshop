@@ -17,6 +17,7 @@ pub struct igFileDescriptor {
     pub endianness: Endian,
 }
 
+#[derive(Clone)]
 pub enum Endian {
     Big,
     Little,

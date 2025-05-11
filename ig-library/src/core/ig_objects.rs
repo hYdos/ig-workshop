@@ -9,11 +9,14 @@ use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetadataMan
 use crate::util::ig_hash::hash_lower;
 use crate::util::ig_name::igName;
 use log::warn;
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::mem;
 use std::sync::{Arc, RwLock};
 
+/// Has no relation to anything in VV Alchemy and is solely an ig-library idea only. Can represent a igObject or a more primitive type such as [u8], [u16], [u32], [i8], [i16], [i32], [Arc<str>], etc
+pub type igAny = Arc<RwLock<dyn Any + Send + Sync>>;
+/// Loosely related to igObject in alchemy. Represents any __internalObjectBase implementation stored.
 pub type igObject = Arc<RwLock<dyn __internalObjectBase>>;
 
 pub trait ObjectExt {
@@ -61,15 +64,7 @@ pub struct igObjectDirectory {
 
 impl igObjectDirectory {
     fn new(path: &str, name: igName) -> Self {
-        igObjectDirectory {
-            path: path.to_string(),
-            name,
-            dependencies: igObjectDirectoryList::new(),
-            use_name_list: false,
-            object_list: Arc::new(RwLock::new(igObjectList::new())),
-            name_list: Arc::new(RwLock::new(igNameList::new())),
-            loader: Arc::new(RwLock::new(igIGZObjectLoader)),
-        }
+        Self::with_loader(path, name, Arc::new(RwLock::new(igIGZObjectLoader)))
     }
 
     /// Allows specifying a custom file loader. Handy for custom formats or formats that are not igz such as igXml, igBinary, and igAscii
@@ -147,7 +142,7 @@ impl igObjectStreamManager {
                     &mut dir_guard,
                     &file_path,
                 );
-                //todo!("igObjectHandleManager.Singleton.AddDirectory(objDir);");
+                // todo!("igObjectHandleManager.Singleton.AddDirectory(objDir);");
             } else {
                 warn!("No loader found for file {}", file_path);
             }

@@ -5,7 +5,7 @@ use crate::core::ig_archive_mount_manager::igArchiveMountManager;
 use crate::core::ig_file_context::WorkItemBuffer::Invalid;
 use crate::core::ig_registry::igRegistry;
 use crate::core::ig_std_lib_storage_device::igStdLibStorageDevice;
-use log::{debug, error};
+use log::{debug, error, warn};
 use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
 use phf::phf_map;
@@ -146,13 +146,15 @@ impl igFileContext {
         };
         let processor_stack = self.processor_stack.lock().unwrap();
         processor_stack.process(self.processor_stack.clone(), &mut work_item);
-
-        debug!("Work Item completed with status {:?}", work_item._status);
-        debug!("Work Item path was {}", work_item._file._path);
+        
+        match work_item._status {
+            WorkStatus::kStatusComplete => {},
+            _ => warn!("Work Item completed with status {:?}. Path is {}", work_item._status, work_item._file._path),
+        }
         work_item._file
     }
 
-    pub fn load_archive(&self, ig_registry: &igRegistry, path: String) -> Arc<igArchive> {
+    pub fn load_archive(&self, ig_registry: &igRegistry, path: &str) -> Arc<igArchive> {
         igArchiveManager::load_archive(self.archive_manager.clone(), self, ig_registry, path)
     }
 

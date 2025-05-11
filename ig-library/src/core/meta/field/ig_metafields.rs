@@ -1,14 +1,14 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_fs::Endian;
+use crate::core::ig_objects::igAny;
 use crate::core::load::ig_igb_loader::IgbLoaderContext;
 use crate::core::load::ig_igx_loader::IgxLoaderContext;
 use crate::core::load::ig_igz_loader::IgzLoaderContext;
 use crate::core::save::ig_igb_saver::{IgbSaverContext, IgbSaverError};
 use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
-use std::any::Any;
 use std::io::Cursor;
-use std::sync::{Arc, RwLock};
+use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 
 /// Implementation of a meta field that allows for serialization/deserialization of the type.
 pub trait igMetaField: Send + Sync {
@@ -19,8 +19,9 @@ pub trait igMetaField: Send + Sync {
         &self,
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
-        ctx: &mut IgzLoaderContext,
-    ) -> Option<Arc<RwLock<dyn Any + Send + Sync>>>;
+        ctx: &IgzLoaderContext,
+        registry: &igMetafieldRegistry
+    ) -> Option<igAny>;
     /// Accepts a value of type <T> and will return [Ok] if successful. If an error occurred, the type [IgzSaverError] will be returned hopefully containing useful information for debugging
     fn value_into_igz(
         &self,
@@ -35,7 +36,7 @@ pub trait igMetaField: Send + Sync {
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
         ctx: &mut IgxLoaderContext,
-    ) -> Option<Arc<RwLock<dyn Any + Send + Sync>>>;
+    ) -> Option<igAny>;
     /// Accepts a value of type <T> and will return [Ok] if successful. If an error occurred, the type [IgxSaverError] will be returned hopefully containing useful information for debugging
     fn value_into_igx(
         &self,
@@ -50,7 +51,7 @@ pub trait igMetaField: Send + Sync {
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
         ctx: &mut IgbLoaderContext,
-    ) -> Option<Arc<RwLock<dyn Any + Send + Sync>>>;
+    ) -> Option<igAny>;
     /// Accepts a value of type <T> and will return [Ok] if successful. If an error occurred, the type [IgbSaverError] will be returned hopefully containing useful information for debugging
     fn value_into_igb(
         &self,

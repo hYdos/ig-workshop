@@ -1,7 +1,7 @@
 use crate::client::cdn::CContentDeployment;
 use crate::core::ig_archive::igArchive;
 use crate::core::ig_file_context::igFileContext;
-use crate::core::ig_registry::igRegistry;
+use crate::core::ig_registry::{igRegistry, BuildTool};
 use std::sync::Arc;
 
 pub struct CArchive {
@@ -34,7 +34,7 @@ impl CArchive {
             //res = 0;
         } else {
             if (flags & 8) == 0 {
-                archive_path = get_archive_path(archive_path)
+                archive_path = get_archive_path(archive_path, ig_registry)
             }
 
             if self.do_packages && !cdn.enabled {
@@ -46,8 +46,8 @@ impl CArchive {
             if res == 0 && ((flags & 4) != 0 || self.do_packages) {
                 // igCauldron sets some field in the archive before it is opened. However, these are not used and I really don't feel like messing with that atm
                 let arc = Arc::new(igArchive::open(
-                    &ig_file_context,
-                    &ig_registry,
+                    ig_file_context,
+                    ig_registry,
                     &archive_path,
                 )?);
                 if let Ok(archive_manager) = ig_file_context.archive_manager.write() {
@@ -62,6 +62,10 @@ impl CArchive {
     }
 }
 
-fn get_archive_path(file_path: String) -> String {
-    format!("app:/archives/{}.pak", file_path)
+fn get_archive_path(file_path: String, ig_registry: &igRegistry) -> String {
+    match ig_registry.build_tool {
+        BuildTool::AlchemyLaboratory => format!("app:/archives/{}.pak", file_path),
+        BuildTool::TfbTool => file_path.to_string(), // Tfb Precache calls this, it already handles all of this
+        BuildTool::None => panic!("Build tool 'None' was defined"),
+    }
 }

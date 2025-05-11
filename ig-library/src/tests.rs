@@ -69,12 +69,12 @@ impl __internalObjectBase for igModelData {
     fn set_field(
         &mut self,
         name: &str,
-        value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
+        value: Option<igAny>,
     ) -> Result<(), SetObjectFieldError> {
         todo!()
     }
 
-    fn get_non_null_field(&self, name: &str) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
+    fn get_non_null_field(&self, name: &str) -> Result<igAny, FieldDoesntExist> {
         todo!()
     }
 
@@ -114,12 +114,12 @@ impl __internalObjectBase for igModelInfo {
     fn set_field(
         &mut self,
         name: &str,
-        value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
+        value: Option<igAny>,
     ) -> Result<(), SetObjectFieldError> {
         todo!()
     }
 
-    fn get_non_null_field(&self, name: &str) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
+    fn get_non_null_field(&self, name: &str) -> Result<igAny, FieldDoesntExist> {
         todo!()
     }
 

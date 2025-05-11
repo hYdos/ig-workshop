@@ -432,40 +432,61 @@ impl CPrecacheManager {
         package_name: String,
         pool_id: EMemoryPoolID,
     ) {
-        let mut package_path = package_name.to_lowercase();
+        match ig_registry.build_tool {
+            BuildTool::AlchemyLaboratory => {
+                let mut package_path = package_name.to_lowercase();
 
-        if !package_path.starts_with("packages") {
-            package_path = format!("packages/{}", package_path);
+                if !package_path.starts_with("packages") {
+                    package_path = format!("packages/{}", package_path);
+                }
+
+                if !package_path.ends_with("_pkg.igz") {
+                    package_path = format!("{}_pkg.igz", package_path);
+                }
+
+                if self.package_cached(&package_path, pool_id) {
+                    return;
+                }
+
+                // igCauldron removed the extension here however it never has one so ???
+                archive_loader
+                    .open(
+                        cdn,
+                        ig_file_context,
+                        ig_registry,
+                        get_file_name(&package_path.trim_end_matches("_pkg.igz")).unwrap(),
+                        0,
+                    )
+                    .unwrap();
+
+                let _pkg_dir = ig_object_stream_manager
+                    .load(
+                        ig_file_context,
+                        ig_registry,
+                        ig_metadata_manager,
+                        ig_ext_ref_system,
+                        package_path,
+                    )
+                    .unwrap();
+            }
+            BuildTool::TfbTool => {
+                ig_file_context.load_archive(ig_registry, &package_name);
+
+                let _pkg_dir = ig_object_stream_manager
+                    .load(
+                        ig_file_context,
+                        ig_registry,
+                        ig_metadata_manager,
+                        ig_ext_ref_system,
+                        format!("{}/level.bld", package_name),
+                    )
+                    .unwrap();
+            }
+
+            BuildTool::None => {
+                error!("No build tool selected. Cannot precache package")
+            }
         }
-
-        if !package_path.ends_with("_pkg.igz") {
-            package_path = format!("{}_pkg.igz", package_path);
-        }
-
-        if self.package_cached(&package_path, pool_id) {
-            return;
-        }
-
-        // igCauldron removed the extension here however it never has one so ???
-        archive_loader
-            .open(
-                cdn,
-                ig_file_context,
-                ig_registry,
-                get_file_name(&package_path.trim_end_matches("_pkg.igz")).unwrap(),
-                0,
-            )
-            .unwrap();
-
-        let _pkg_dir = ig_object_stream_manager
-            .load(
-                ig_file_context,
-                ig_registry,
-                ig_metadata_manager,
-                ig_ext_ref_system,
-                package_path,
-            )
-            .unwrap();
     }
 
     pub fn package_cached(&self, package_name: &str, pool_id: EMemoryPoolID) -> bool {
@@ -556,9 +577,9 @@ pub fn load_init_script(game: EGame, is_weakly_loaded: bool, ig_alchemy: &mut ig
 fn parse_task(line: String, is_weakly_loaded: bool) -> LoaderTask {
     let task_name = &line[1..line.len() - 1];
     match task_name {
-        "loose_pak" => LoaderTask::LoosePackage,
-        "loose_pak_lab" => LoaderTask::LooseIga,
-        "full_package_lab" => {
+        "loose_package" => LoaderTask::LoosePackage,
+        "loose_pak" => LoaderTask::LooseIga,
+        "full_package" => {
             if is_weakly_loaded {
                 LoaderTask::NoOp
             } else {
@@ -624,7 +645,7 @@ fn process_task(
 
     match task {
         LoaderTask::LooseIga => {
-            ig_file_context.load_archive(ig_registry, line);
+            ig_file_context.load_archive(ig_registry, &line);
         }
         LoaderTask::FullPackage => {
             precache_manager.precache_package(
@@ -640,7 +661,8 @@ fn process_task(
             );
         }
         LoaderTask::LoosePackage => {
-            ig_file_context.load_archive(ig_registry, format!("app:/archives/{}.pak", line));
+            let full_path = format!("app:/archives/{}.pak", line);
+            ig_file_context.load_archive(ig_registry, &full_path);
         }
         LoaderTask::EngineType => match line.as_str() {
             "None" => ig_registry.build_tool = BuildTool::None,

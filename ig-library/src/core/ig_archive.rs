@@ -12,6 +12,7 @@ use crate::util::ig_hash;
 use byteorder::{LittleEndian, ReadBytesExt};
 use flate2::read::DeflateDecoder;
 use log::debug;
+use lzma_rust2::LZMAReader;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
@@ -60,9 +61,7 @@ impl igArchive {
                 .to_string();
         }
 
-        path_copy = path_copy
-            .trim_start_matches(|c| c == '/' || c == '\\')
-            .to_string();
+        path_copy = path_copy.trim_start_matches(['/', '\\']).to_string();
         ig_hash::hash(&path_copy)
     }
 
@@ -168,13 +167,37 @@ impl igArchive {
                     let slice = &file_info._compressed_data
                         [offset + 5..(5 + offset + compressed_size as usize)];
 
-                    let mut header = Vec::with_capacity(13);
-                    header.extend_from_slice(lzma_properties);
-                    header.extend_from_slice(&(decompressed_size as u64).to_le_bytes());
+                    let first = lzma_properties[0] as usize;
+                    let lc = first % 9;
+                    let num = first / 9;
+                    let lp = num % 5;
+                    let pb = num / 5;
 
-                    let mut compressed_reader = Cursor::new(slice);
+                    // reconstruct little‑endian dictionary size from bytes 1..5
+                    let mut dictionary_size: u32 = 0;
+                    for i in 0..4 {
+                        dictionary_size = dictionary_size
+                            .wrapping_add((lzma_properties[1 + i] as u32) << (i * 8));
+                    }
 
-                    lzma_rs::lzma_decompress(&mut compressed_reader, &mut dst).unwrap();
+                    let mut buf = [0; 1024];
+                    let mut reader = LZMAReader::new(
+                        Cursor::new(slice),
+                        decompressed_size as u64,
+                        lc as u32,
+                        lp as u32,
+                        pb as u32,
+                        dictionary_size,
+                        None
+                    ).unwrap();
+
+                    loop {
+                        let n = reader.read(&mut buf).unwrap();
+                        if n == 0 {
+                            break;
+                        }
+                        dst.extend_from_slice(&buf[..n]);
+                    }
                 }
                 CompressionType::kLz4 => {
                     let slice =
@@ -277,7 +300,7 @@ impl igArchive {
                 file._block_index = read_u32(&mut cursor, &header.endian).unwrap();
             }
 
-            let name_tbl_offset = header._name_table_offset as u64;
+            let name_tbl_offset = header._name_table_offset;
 
             for i in 0..header._num_files {
                 let file = &mut _files[i as usize];
@@ -356,19 +379,19 @@ impl igArchive {
                     if 0x7F * header._sector_size < file._length {
                         if 0x7FFF * header._sector_size < file._length {
                             block = large_block_tbl[block_idx];
-                            is_compressed = if (block >> 0x1F) == 1 { true } else { false };
+                            is_compressed = (block >> 0x1F) == 1;
                             block &= 0x7FFFFFFF;
                             sector_count += (large_block_tbl[block_idx + 1] & 0x7FFFFFFF) - block;
                         } else {
                             block = medium_block_tbl[block_idx] as u32;
-                            is_compressed = if (block >> 0x0F) == 1 { true } else { false };
+                            is_compressed = (block >> 0x0F) == 1;
                             block &= 0x7FFF;
                             sector_count +=
                                 (medium_block_tbl[block_idx + 1] & 0x7FFF) as u32 - block;
                         }
                     } else {
                         block = small_block_tbl[block_idx] as u32;
-                        is_compressed = if (block >> 0x07) == 1 { true } else { false };
+                        is_compressed = (block >> 0x07) == 1;
                         block &= 0x7F;
                         sector_count += (small_block_tbl[block_idx + 1] & 0x7F) as u32 - block;
                     }
@@ -536,18 +559,25 @@ impl igStorageDevice for igArchive {
                     work_item._status = kStatusInvalidPath
                 }
             }
-            _ => {
-                for file in &self._files {
-                    if file._name.eq(&work_item._path) {
-                        work_item._file._path = work_item._path.clone();
-                        work_item._file._size = file._length as u64;
-                        work_item._file._position = 0;
-                        work_item._file._device = Some(this.clone());
-                        work_item._file._handle = Some(self.decompress_as_handle(file));
-                        work_item._status = kStatusComplete;
+            BuildTool::TfbTool => {
+                let file_name = &work_item._path[(work_item._path.rfind('/').unwrap() + 1)..];
+                let archive_path = &work_item._path[..work_item._path.rfind('/').unwrap()];
+
+                if archive_path == self._path {
+                    for file in &self._files {
+                        if file._name == file_name {
+                            work_item._file._path = work_item._path.clone();
+                            work_item._file._size = file._length as u64;
+                            work_item._file._position = 0;
+                            work_item._file._device = Some(this.clone());
+                            work_item._file._handle = Some(self.decompress_as_handle(file));
+                            work_item._status = kStatusComplete;
+                        }
                     }
                 }
             }
+
+            _ => panic!("Unsupported Game Tooling"),
         }
     }
 
@@ -608,7 +638,6 @@ impl igStorageDevice for igArchive {
             }
             _ => {
                 work_item._status = kStatusGeneralError;
-                return;
             }
         }
     }
@@ -733,18 +762,24 @@ impl igStorageDevice for Arc<igArchive> {
                     work_item._status = kStatusInvalidPath
                 }
             }
-            _ => {
-                for file in &self._files {
-                    if file._name.eq(&work_item._path) {
-                        work_item._file._path = work_item._path.clone();
-                        work_item._file._size = file._length as u64;
-                        work_item._file._position = 0;
-                        work_item._file._device = Some(this.clone());
-                        work_item._file._handle = Some(self.decompress_as_handle(file));
-                        work_item._status = kStatusComplete;
+            BuildTool::TfbTool => {
+                let file_name = &work_item._path[(work_item._path.rfind('/').unwrap() + 1)..];
+                let archive_path = &work_item._path[..work_item._path.rfind('/').unwrap()];
+
+                if archive_path == self._path {
+                    for file in &self._files {
+                        if file._name == file_name {
+                            work_item._file._path = work_item._path.clone();
+                            work_item._file._size = file._length as u64;
+                            work_item._file._position = 0;
+                            work_item._file._device = Some(this.clone());
+                            work_item._file._handle = Some(self.decompress_as_handle(file));
+                            work_item._status = kStatusComplete;
+                        }
                     }
                 }
             }
+            _ => panic!("Unsupported Game Tooling"),
         }
     }
 
@@ -805,7 +840,6 @@ impl igStorageDevice for Arc<igArchive> {
             }
             _ => {
                 work_item._status = kStatusGeneralError;
-                return;
             }
         }
     }
@@ -885,6 +919,7 @@ pub struct Header {
 /// Different compression formats
 /// </summary>
 #[derive(Debug)]
+#[repr(usize)]
 pub enum CompressionType {
     kUncompressed = 0,
     kZlib = 1,

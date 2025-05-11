@@ -1,12 +1,12 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
-use crate::core::ig_custom::{igDataList, CastTo};
+use crate::core::ig_custom::CastTo;
 use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_fs::Endian;
 use crate::core::ig_fs::Endian::{Big, Little};
 use crate::core::ig_handle::{igHandle, igHandleName};
 use crate::core::ig_memory::igMemoryPool;
-use crate::core::ig_objects::{igObject, igObjectDirectory, igObjectStreamManager, ObjectExt};
+use crate::core::ig_objects::{igObject, igObjectDirectory, igObjectStreamManager};
 use crate::core::ig_registry::igRegistry;
 use crate::core::load::ig_loader::igObjectLoader;
 use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetaObject};
@@ -14,11 +14,13 @@ use crate::core::meta::ig_metadata_manager::{igMetaInstantiationError, igMetadat
 use crate::util::byteorder_fixes::{
     read_ptr, read_string, read_struct_array_u8, read_u32, read_u64,
 };
+use crate::util::ig_hash::{hash, hash_lower};
 use crate::util::ig_name::igName;
-use log::{debug, error, info, warn};
-use std::any::Any;
+use log::{debug, error, info};
 use std::collections::HashMap;
-use std::io::{Cursor, Seek, SeekFrom};
+use std::io::Cursor;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 
@@ -163,7 +165,41 @@ impl Fixup {
                             }
                         }
                     } else {
-                        warn!("EXIT Fixup load failed: Failed to find namespace {:#01}, referenced in {}", dependency_name.namespace.hash, dir.path);
+                        let trial = [
+                            "tfbScript",
+                            "other",
+                            "global",
+                            "tfb",
+                            "system",
+                            "game",
+                            "interface",
+                            "client",
+                            "custom",
+                            "app",
+                            "application",
+                            "internal",
+                        ];
+                        for x in trial {
+                            let normal = hash(x);
+                            let lower = hash_lower(x);
+
+                            if normal == dependency_name.namespace.hash {
+                                info!(
+                                    "We got a normal match {} == {}",
+                                    dependency_name.namespace.hash, x
+                                )
+                            }
+
+                            if lower == dependency_name.namespace.hash {
+                                info!(
+                                    "We got a lower match {} == {}",
+                                    dependency_name.namespace.hash,
+                                    x.to_lowercase()
+                                )
+                            }
+                        }
+
+                        error!("EXID Fixup load failed: Failed to find namespace {:#01}, referenced in {}. This WILL cause issues.", dependency_name.namespace.hash, dir.path);
                     }
                 }
             }
@@ -236,7 +272,10 @@ impl Fixup {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
                 ctx.runtime_fields.object_lists = unpack_compressed_ints(ctx, &vec, count, false);
                 let ig_object_list_idx = ctx.runtime_fields.object_lists[0];
-                dir.object_list = ctx.offset_object_list[&ig_object_list_idx].clone().cast_to().unwrap()
+                dir.object_list = ctx.offset_object_list[&ig_object_list_idx]
+                    .clone()
+                    .cast_to()
+                    .unwrap()
             }
             Fixup::RUNTIME_OFFSETS => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
@@ -291,7 +330,8 @@ fn instantiate_and_append_objects(
     endian: &Endian,
 ) {
     for vtable in &ctx.runtime_fields.vtables {
-        ctx.offset_object_list.insert(*vtable, instantiate_object(ctx, handle, endian, vtable));
+        ctx.offset_object_list
+            .insert(*vtable, instantiate_object(ctx, handle, endian, vtable));
     }
 }
 
@@ -430,7 +470,7 @@ impl TryFrom<u8> for Fixup {
 
 impl igObjectLoader for igIGZObjectLoader {
     fn can_read(&self, file_name: &str) -> bool {
-        file_name.ends_with(".igz")
+        file_name.ends_with(".igz") || file_name.ends_with(".bld")
     }
 
     fn get_name(&self) -> &'static str {
@@ -530,8 +570,7 @@ pub struct IgzLoaderContext {
     /// All runtime lists stored from fixups. Used for various parts of the runtime
     pub runtime_fields: RuntimeFields,
     /// TODO: comment
-    pub offset_object_list:
-        HashMap<u64, Arc<RwLock<dyn __internalObjectBase>>>,
+    pub offset_object_list: HashMap<u64, Arc<RwLock<dyn __internalObjectBase>>>,
 }
 
 impl IgzLoaderContext {
@@ -539,7 +578,15 @@ impl IgzLoaderContext {
         if self.version <= 6 {
             self.loaded_pointers[(offset >> 0x18) as usize] as u64 + (offset & 0x00FFFFFF)
         } else {
-            self.loaded_pointers[(offset >> 0x1B) as usize] as u64 + (offset & 0x00FFFFFF)
+            self.loaded_pointers[(offset >> 0x1B) as usize] as u64 + (offset & 0x07FFFFFF)
+        }
+    }
+
+    pub fn get_pool_from_serialized_offset(&self, offset: u64) -> igMemoryPool {
+        if self.version <= 6 {
+            self.loaded_pools[(offset >> 0x18) as usize]
+        } else {
+            self.loaded_pools[(offset >> 0x1B) as usize]
         }
     }
 }
@@ -557,6 +604,13 @@ impl igIGZLoader {
     ) {
         let mut fd = ig_file_context.open(ig_registry, file_path, 0);
         if let Some(mut handle) = fd._handle {
+            // let old_pos = handle.position();
+            // let mut file = File::create("level.igz").unwrap();
+            // for byte in handle.bytes() {
+            //     file.write_u8(byte.unwrap()).unwrap();
+            // }
+            // todo!("level.igz saved");
+
             let magic = read_u32(&mut handle, &Little).unwrap();
             match magic {
                 IGZ_BIG_ENDIAN_MAGIC => fd.endianness = Big,
@@ -608,7 +662,7 @@ impl igIGZLoader {
                 imm,
                 dir,
             );
-            igIGZLoader::read_objects(&mut handle, &mut shared_state);
+            igIGZLoader::read_objects(&mut handle, fd.endianness, imm, &mut shared_state);
         } else {
             error!("Failed to load igz {}. File could not be read.", file_path);
             panic!("Alchemy Error! Check the logs.")
@@ -638,7 +692,9 @@ impl igIGZLoader {
             let memory_pool_name = read_string(handle).unwrap();
             if i > 0 {
                 shared_state.loaded_pools[(i - 1) as usize] =
-                    igMemoryPool::from_str(&memory_pool_name).expect("Invalid memory pool name");
+                    igMemoryPool::from_str(&memory_pool_name).unwrap_or_else(|_| {
+                        panic!("Invalid memory pool name {}", memory_pool_name)
+                    });
                 shared_state.loaded_pointers[(i - 1) as usize] = offset;
             } else {
                 shared_state.fixup_offset = offset;
@@ -706,5 +762,15 @@ impl igIGZLoader {
         }
     }
 
-    fn read_objects(_handle: &mut Cursor<Vec<u8>>, _shared_state: &mut IgzLoaderContext) {}
+    fn read_objects(
+        handle: &mut Cursor<Vec<u8>>,
+        endian: Endian,
+        imm: &igMetadataManager,
+        ctx: &mut IgzLoaderContext,
+    ) {
+        for (offset, object) in &ctx.offset_object_list {
+            handle.set_position(ctx.deserialize_offset(*offset));
+            imm.read_igz_fields(handle, endian.clone(), ctx, object.clone())
+        }
+    }
 }

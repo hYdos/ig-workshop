@@ -1,13 +1,14 @@
 /// Custom implementations of objects to make usage more ergonomic. Currently just focused around objects using igDataList
 use crate::core::ig_archive::igArchive;
 use crate::core::ig_memory::igMemoryPool;
-use crate::core::ig_objects::{igObject, igObjectDirectory, ObjectExt};
+use crate::core::ig_objects::{igAny, igObject, igObjectDirectory, ObjectExt};
+use crate::core::memory::igMemory;
 use crate::core::meta::ig_metadata_manager::{
     __internalObjectBase, igMetaInstantiationError, igMetaObject, FieldDoesntExist,
     SetObjectFieldError,
 };
 use crate::util::ig_name::igName;
-use log::error;
+use log::{error, info, warn};
 use std::any::Any;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 
@@ -25,51 +26,6 @@ pub type igNameList = igDataList<Arc<igName>>;
 
 pub struct QueryGuard<'a, T>(RwLockReadGuard<'a, Vec<T>>);
 pub struct MutableQueryGuard<'a, T>(RwLockWriteGuard<'a, Vec<T>>);
-
-// Empty impl to play nice with the rest of the code in here. A bit hacky, but what can you do...
-impl __internalObjectBase for Arc<str> {
-    fn meta_type(&self) -> Arc<igMetaObject> {
-        todo!()
-    }
-
-    fn internal_pool(&self) -> &igMemoryPool {
-        todo!()
-    }
-
-    fn set_pool(&mut self, pool: igMemoryPool) {
-        todo!()
-    }
-
-    fn set_field(
-        &mut self,
-        name: &str,
-        value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
-    ) -> Result<(), SetObjectFieldError> {
-        todo!()
-    }
-
-    fn get_non_null_field(
-        &self,
-        name: &str,
-    ) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
-        todo!()
-    }
-
-    fn get_field(
-        &self,
-        name: &str,
-    ) -> Result<Option<Arc<RwLock<dyn Any + Send + Sync>>>, FieldDoesntExist> {
-        todo!()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync) {
-        todo!()
-    }
-
-    fn as_mut_any(&mut self) -> &mut (dyn Any + Send + Sync) {
-        todo!()
-    }
-}
 
 pub trait CastTo<T> {
     type Error;
@@ -146,24 +102,36 @@ impl<T: Send + Sync + 'static> __internalObjectBase for igDataList<T> {
         self.pool = pool;
     }
 
-    fn set_field(
-        &mut self,
-        name: &str,
-        value: Option<Arc<RwLock<dyn Any + Send + Sync>>>,
-    ) -> Result<(), SetObjectFieldError> {
-        todo!()
+    fn set_field(&mut self, name: &str, value: Option<igAny>) -> Result<(), SetObjectFieldError> {
+        if let Some(value) = value {
+            match name {
+                "_data" => {
+                    let mut guard = value.write().unwrap();
+                    let memory = guard.downcast_mut::<igMemory<_>>().unwrap();
+                    info!("input list size: {}", memory.data.len());
+                    info!("input list capacity: {}", memory.data.capacity());
+                    self.list.write().unwrap().append(&mut memory.data);
+                    return Ok(());
+                }
+                &_ => {
+                    warn!(
+                        "igDataList<T> attempted to set unknown field with name {} ",
+                        name
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 
-    fn get_non_null_field(
-        &self,
-        name: &str,
-    ) -> Result<Arc<RwLock<dyn Any + Send + Sync>>, FieldDoesntExist> {
+    fn get_non_null_field(&self, _name: &str) -> Result<igAny, FieldDoesntExist> {
         todo!()
     }
 
     fn get_field(
         &self,
-        name: &str,
+        _name: &str,
     ) -> Result<Option<Arc<RwLock<(dyn Any + Send + Sync + 'static)>>>, FieldDoesntExist> {
         todo!()
     }

@@ -5,7 +5,11 @@ use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
+use crate::core::meta::field::r#impl::ig_memory_ref_meta_field::igMemoryRefMetaField;
+use crate::core::meta::field::r#impl::ig_object_ref_meta_field::igObjectRefMetaField;
+use crate::core::meta::field::r#impl::ig_size_type_meta_field::igSizeTypeMetaField;
 use crate::core::meta::field::r#impl::ig_string_meta_field::igStringMetaField;
+use crate::util::ig_name::igNameMetaField;
 
 /// Contains reflection metadata information. Stands for Application Runtime Kernel.
 pub struct igArkCore {
@@ -22,8 +26,13 @@ impl igArkCore {
     }
 }
 
+/// Registers all built in meta fields to the [core::meta::field::ig_metafield_registry::igMetafieldRegistry]
 fn register_metafields(imm: &mut igMetadataManager) {
-    imm.meta_field_registry.register::<igStringMetaField>(Arc::from("igStringMetaField"), Box::new(igStringMetaField));
+    imm.meta_field_registry.register::<igStringMetaField>(Arc::from("igStringMetaField"), Arc::new(igStringMetaField));
+    imm.meta_field_registry.register::<igNameMetaField>(Arc::from("igNameMetaField"), Arc::new(igNameMetaField));
+    imm.meta_field_registry.register::<igSizeTypeMetaField>(Arc::from("igSizeTypeMetaField"), Arc::new(igSizeTypeMetaField));
+    imm.meta_field_registry.register::<igObjectRefMetaField>(Arc::from("igObjectRefMetaField"), Arc::new(igObjectRefMetaField));
+    imm.meta_field_registry.register_complex::<igMemoryRefMetaField>(Arc::from("igMemoryRefMetaField"), |ark_field| {Arc::new(igMemoryRefMetaField(ark_field.clone()))});
 }
 
 #[derive(Debug, PartialEq, Clone)]

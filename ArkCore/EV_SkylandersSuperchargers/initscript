@@ -1,12 +1,10 @@
 [engine_type]
 AlchemyLaboratory
 
-[loose_pak_lab]
-
+[loose_pak]
 app:/archives/loosefiles.pak
 
-[full_package_lab]
-
+[full_package]
 generated/shaders/shaders_${platform_string}
 generated/packageXmls/permanent_${platform_string}
 generated/packageXmls/essentialui

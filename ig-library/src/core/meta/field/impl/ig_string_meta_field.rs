@@ -1,5 +1,6 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_fs::Endian;
+use crate::core::ig_objects::igAny;
 use crate::core::load::ig_igb_loader::IgbLoaderContext;
 use crate::core::load::ig_igx_loader::IgxLoaderContext;
 use crate::core::load::ig_igz_loader::IgzLoaderContext;
@@ -8,9 +9,10 @@ use crate::core::save::ig_igb_saver::{IgbSaverContext, IgbSaverError};
 use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
 use crate::util::byteorder_fixes::{read_ptr, read_string};
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
+use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 
 pub(crate) struct igStringMetaField;
 
@@ -23,8 +25,9 @@ impl igMetaField for igStringMetaField {
         &self,
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
-        ctx: &mut IgzLoaderContext,
-    ) -> Option<Arc<RwLock<dyn Any + Send + Sync>>> {
+        ctx: &IgzLoaderContext,
+        _registry: &igMetafieldRegistry
+    ) -> Option<igAny> {
         let base_pos = handle.position();
         let is_ref = ctx
             .runtime_fields
@@ -51,53 +54,53 @@ impl igMetaField for igStringMetaField {
             let arc_str: Arc<str> = Arc::from(s.into_boxed_str());
             // 2) lock the Arc<str>, producing Arc<RwLock<Arc<str>>>
             let concrete: Arc<RwLock<Arc<str>>> = Arc::new(RwLock::new(arc_str));
-            // 3) coerce to Arc<RwLock<dyn Any + Send + Sync>>
-            let object: Arc<RwLock<dyn Any + Send + Sync>> = concrete;
+            // 3) coerce to igAny
+            let object: igAny = concrete;
             object
         })
     }
 
     fn value_into_igz(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
-        ctx: &mut IgzSaverContext,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: &Endian,
+        _ctx: &mut IgzSaverContext,
     ) -> Result<(), IgzSaverError> {
         todo!()
     }
 
     fn value_from_igx(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
-        ctx: &mut IgxLoaderContext,
-    ) -> Option<Arc<RwLock<dyn Any + Send + Sync>>> {
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: &Endian,
+        _ctx: &mut IgxLoaderContext,
+    ) -> Option<igAny> {
         todo!()
     }
 
     fn value_into_igx(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
-        ctx: &mut IgxSaverContext,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: &Endian,
+        _ctx: &mut IgxSaverContext,
     ) -> Result<(), IgxSaverError> {
         todo!()
     }
 
     fn value_from_igb(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
-        ctx: &mut IgbLoaderContext,
-    ) -> Option<Arc<RwLock<dyn Any + Send + Sync>>> {
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: &Endian,
+        _ctx: &mut IgbLoaderContext,
+    ) -> Option<igAny> {
         todo!()
     }
 
     fn value_into_igb(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
-        ctx: &mut IgbSaverContext,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: &Endian,
+        _ctx: &mut IgbSaverContext,
     ) -> Result<(), IgbSaverError> {
         todo!()
     }

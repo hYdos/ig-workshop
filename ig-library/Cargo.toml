@@ -17,7 +17,7 @@ walkdir = "2.5.0"
 
 # Compression Libs
 flate2 = "1.1.1" #zlib
-lzma-rs = "0.3.0"#annoying lzma library
+lzma-rust2 = "0.2.1"
 lz4 = "1.28.1" #lz4
 
 # For macros

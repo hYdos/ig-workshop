@@ -1,6 +1,9 @@
 [engine_type]
 TfbTool
 
-[loose_pak_lab]
-
-[full_package_lab]
+[full_package]
+app:/permanent/bootstrap.bld
+app:/misc/bootstrap_lang.bld
+app:/item/legal.bld
+app:/permanent/global.bld
+app:/character/init_setup.bld

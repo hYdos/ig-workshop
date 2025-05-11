@@ -9,7 +9,7 @@ use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-type igMetaFieldXml = Vec<MetaField>;
+type igMetaFieldXml = Vec<ArcMetaField>;
 
 #[derive(Debug, Clone)]
 pub struct PlatformSizingInfo {
@@ -18,12 +18,12 @@ pub struct PlatformSizingInfo {
 }
 
 #[derive(Debug, Clone)]
-pub struct MetaField {
+pub struct ArcMetaField {
     pub name: Arc<str>,
     pub platform_info: HashMap<IG_CORE_PLATFORM, PlatformSizingInfo>,
 }
 
-type igMetaEnumXml = Vec<MetaEnum>;
+type igMetaEnumXml = Vec<ArcMetaEnum>;
 
 #[derive(Debug, Clone)]
 pub struct MetaEnumValue {
@@ -32,7 +32,7 @@ pub struct MetaEnumValue {
 }
 
 #[derive(Debug, Clone)]
-pub struct MetaEnum {
+pub struct ArcMetaEnum {
     pub ref_name: Arc<str>,
     pub values: Vec<MetaEnumValue>,
 }
@@ -53,24 +53,32 @@ pub struct BitShiftInfo {
     /// The name of the field to store the result at
     pub storage_field: String,
     /// The type of the new data created with the bits. Once data is finalized this will always be present
-    pub _type: Option<MetaObjectField>,
+    pub _type: Option<ArkMetaObjectField>,
 }
 
 /// Stores the meta object inside a igPropertyFieldMetaField
-type PropertyInfo = MetaObjectField;
+type PropertyInfo = ArkMetaObjectField;
 
-type MetaObjectField = Arc<RwLock<RawMetaObjectField>>;
+pub type ArkMetaObjectField = Arc<RwLock<RawArkMetaObjectField>>;
 
 #[derive(Debug, Clone)]
 pub struct VectorInfo {
     /// Technically possible to store a very complex MetaObjectField. I personally recommend staying away from these areas for your own sake. Will always be Some after reading is finalized
-    pub field: Option<MetaObjectField>,
+    pub field: Option<ArkMetaObjectField>,
     /// Stores the multiple that all alignment should follow for the members of this type?
     pub mem_type_alignment_multiple: u8,
 }
 
 #[derive(Debug, Clone)]
-pub struct RawMetaObjectField {
+pub struct TfbXmlScriptBinding {
+    /// The name(alias)
+    pub name: Arc<str>,
+    /// The igObject type that interfaces with tfbScript
+    pub object_type: Arc<str>
+}
+
+#[derive(Debug, Clone)]
+pub struct RawArkMetaObjectField {
     /// meta field type to use when serializing, deserializing, and constructing new instances
     pub _type: Arc<str>,
     /// offset in the object where the field resides
@@ -84,7 +92,7 @@ pub struct RawMetaObjectField {
     /// Present when _type is equal to "igVectorMetaField"
     pub ig_vector_info: Option<VectorInfo>,
     /// Present when _type is equal to "igMemoryRefMetaField"
-    pub ig_memory_ref_info: Option<MetaObjectField>,
+    pub ig_memory_ref_info: Option<ArkMetaObjectField>,
     /// Present when _type is equal to "igBitFieldMetaField"
     pub ig_bit_shift_info: Option<Arc<RwLock<BitShiftInfo>>>,
     /// Present when _type is equal to "igPropertyFieldMetaField"
@@ -92,7 +100,7 @@ pub struct RawMetaObjectField {
     /// Present when _type is equal to "igEnumMetaField". Stores the meta enum to use with the field
     pub ig_meta_enum: Option<Arc<str>>,
     /// Present when _type is equal to "igStaticMetaField"
-    pub ig_static_info: Option<MetaObjectField>,
+    pub ig_static_info: Option<ArkMetaObjectField>,
 }
 
 #[derive(Debug, Clone)]
@@ -108,11 +116,13 @@ pub struct MetaObject {
     /// Present when base_type is present and extends an object extending "igHashTable" or "igHashTable" itself
     pub hash_table_info: Option<HashTableInfo>,
     /// New field added by the current meta object
-    pub new_fields: Vec<MetaObjectField>,
+    pub new_fields: Vec<ArkMetaObjectField>,
     /// Fields from the parent that are replaced by new ones.
-    pub overriden_fields: Vec<MetaObjectField>,
+    pub overriden_fields: Vec<ArkMetaObjectField>,
     /// Present when base_type is present and extends an object extending "igCompoundMetaField" or "igCompoundMetaField" itself
-    pub compound_fields: Vec<MetaObjectField>,
+    pub compound_fields: Vec<ArkMetaObjectField>,
+    /// Represents tfbScript bindings to the current object. tfbScript bindings describe how an igObject can be interfaced with from tfbScript and what igObject type's to associate with specific values
+    pub tfb_script_binding: Option<Vec<TfbXmlScriptBinding>>
 }
 
 pub fn load_xml_metadata(
@@ -135,13 +145,13 @@ pub enum FieldType {
     CompoundField,
 }
 
-fn load_meta_fields(path: &PathBuf) -> Result<Vec<MetaField>, String> {
+fn load_meta_fields(path: &PathBuf) -> Result<Vec<ArcMetaField>, String> {
     let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
     let mut buf = Vec::new();
     let mut reader = Reader::from_file(path).map_err(|e| e.to_string())?;
     reader.config_mut().trim_text(true);
 
-    let mut meta_fields: Vec<MetaField> = Vec::new();
+    let mut meta_fields: Vec<ArcMetaField> = Vec::new();
     let mut current_meta_field_name: Option<Arc<str>> = None;
     let mut platform_info_buffer: HashMap<IG_CORE_PLATFORM, PlatformSizingInfo> = HashMap::new();
     loop {
@@ -199,7 +209,7 @@ fn load_meta_fields(path: &PathBuf) -> Result<Vec<MetaField>, String> {
                         "Alchemy Error: Parsing metafields.xml failed. Is metafields.xml valid xml?",
                     );
 
-                    meta_fields.push(MetaField {
+                    meta_fields.push(ArcMetaField {
                         name: metafield_name,
                         platform_info: platform_info_buffer,
                     });
@@ -219,13 +229,13 @@ fn load_meta_fields(path: &PathBuf) -> Result<Vec<MetaField>, String> {
     Ok(meta_fields)
 }
 
-fn load_meta_enums(path: &PathBuf) -> Result<Vec<MetaEnum>, String> {
+fn load_meta_enums(path: &PathBuf) -> Result<Vec<ArcMetaEnum>, String> {
     let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
     let mut buf = Vec::new();
     let mut reader = Reader::from_file(path).map_err(|e| e.to_string())?;
     reader.config_mut().trim_text(true);
 
-    let mut meta_enums: Vec<MetaEnum> = Vec::new();
+    let mut meta_enums: Vec<ArcMetaEnum> = Vec::new();
     let mut current_meta_enum_name: Option<Arc<str>> = None;
     let mut value_buffer: Vec<MetaEnumValue> = Vec::new();
     loop {
@@ -276,7 +286,7 @@ fn load_meta_enums(path: &PathBuf) -> Result<Vec<MetaEnum>, String> {
                         "Alchemy Error: Parsing metaenums.xml failed. Is metaenums.xml valid xml?",
                     );
 
-                    meta_enums.push(MetaEnum {
+                    meta_enums.push(ArcMetaEnum {
                         ref_name: meta_enum_name,
                         values: value_buffer.to_vec(),
                     });
@@ -305,7 +315,7 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
 
     let mut meta_objects = Vec::new();
     let mut current_meta_object: Option<Arc<RefCell<MetaObject>>> = None;
-    let mut current_meta_field: Option<MetaObjectField> = None;
+    let mut current_meta_field: Option<ArkMetaObjectField> = None;
     // when reading "overriddenmetafields" this should be false but when reading "metafields" it should be true
     let mut field_type = FieldType::NewField;
     loop {
@@ -315,15 +325,12 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
             }
             Ok(Event::Eof) => break,
             Ok(Event::End(e)) => {
-                match e.local_name().as_ref() {
-                    b"metaobject" => {
-                        if let Some(old_meta_obj) = current_meta_object.clone() {
-                            meta_objects.push(old_meta_obj.borrow().to_owned());
-                        }
-                        
-                        current_meta_object = None;
-                    },
-                    _ => {}
+                if e.local_name().as_ref() == b"metaobject" {
+                    if let Some(old_meta_obj) = current_meta_object.clone() {
+                        meta_objects.push(old_meta_obj.borrow().to_owned());
+                    }
+                    
+                    current_meta_object = None;
                 }
             }
             Ok(Event::Empty(e)) => match e.local_name().as_ref() {
@@ -335,6 +342,10 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
                     &mut current_meta_field,
                     &mut field_type,
                     &e,
+                )?,
+                b"binding" => on_tfbscript_binding(
+                    &mut current_meta_object,
+                    &e
                 )?,
                 _ => {}
             },
@@ -355,9 +366,24 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
     Ok(meta_objects)
 }
 
+fn on_tfbscript_binding(
+    current_meta_object: &mut Option<Arc<RefCell<MetaObject>>>,
+    _e: &BytesStart,
+) -> Result<(), String> {
+    let cloned_obj = current_meta_object.clone().unwrap();
+    let mutable_obj = &mut cloned_obj.borrow_mut();
+    if mutable_obj.tfb_script_binding.is_none() {
+        mutable_obj.tfb_script_binding = Some(Vec::new());
+    }
+    
+    // e.attributes()
+    
+    Ok(())
+}
+
 fn on_metafield_tag(
     current_meta_object: &mut Option<Arc<RefCell<MetaObject>>>,
-    current_meta_field: &mut Option<MetaObjectField>,
+    current_meta_field: &mut Option<ArkMetaObjectField>,
     field_type: &mut FieldType,
     e: &BytesStart,
 ) -> Result<(), String> {
@@ -396,6 +422,7 @@ fn on_metafield_tag(
                 compound_fields: Vec::new(),
                 object_list_type: None,
                 hash_table_info: None,
+                tfb_script_binding: None,
             })))
         }
         b"objectlist" => {
@@ -644,7 +671,7 @@ fn on_metafield_tag(
     Ok(())
 }
 
-fn process_new_metafield(e: &BytesStart) -> Option<MetaObjectField> {
+fn process_new_metafield(e: &BytesStart) -> Option<ArkMetaObjectField> {
     let mut _type: Option<Arc<str>> = None;
     let mut offset: Option<u16> = None;
     let mut name: Option<Arc<str>> = None;
@@ -724,7 +751,7 @@ fn process_new_metafield(e: &BytesStart) -> Option<MetaObjectField> {
         optional_ig_vector = Some(ig_vector_info)
     }
 
-    Some(Arc::new(RwLock::new(RawMetaObjectField {
+    Some(Arc::new(RwLock::new(RawArkMetaObjectField {
         _type: _type.unwrap(),
         offset: offset.unwrap(),
         name,

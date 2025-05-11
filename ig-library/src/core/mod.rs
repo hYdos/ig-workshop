@@ -14,4 +14,5 @@ pub mod ig_objects;
 pub mod load;
 pub mod ig_handle;
 pub mod ig_external_ref;
-mod save;
+pub mod save;
+mod memory;
