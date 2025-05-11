@@ -3,6 +3,7 @@
 
 # Core Goals
 - User-friendliness. The UI should be intuitive and use simple easy to understand language wherever possible.
+- Support for every main line game. Though, I will not guarantee the order I work on these (SSF will definitely be near the end)
 - No Static State. This means multiple games can be open and edited at the exact same time
 - undo/redo tracking. Always copy on write to any igObject's in the game storing the changes in a Queue that can be popped off at any time
 - transfer igObject api. There will be a minimal version of this present in the core already, but having an api for others to work off allows any object to be transferred automatically with a one of cost of effort.
