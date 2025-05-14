@@ -1,6 +1,10 @@
 # igArchive Documentation (as implemented in ig-cauldron-rs)
 
-# Archive Version 0x0C (latest?)
+# Archive Version 0x0D
+## Known games using this format:
+- Crash Team Racing: Nitro Fuelled
+
+# Archive Version 0x0C 
 ## Known games using this format:
 - Crash N' sane trilogy.
 
