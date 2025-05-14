@@ -173,9 +173,24 @@ impl TabViewer for CauldronTabViewer {
                         });
 
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                            ui.label("update.pak Path");
-                            ui.text_edit_singleline(&mut game_cfg._update_path);
-                            let _ = ui.button("Browse"); // TODO:
+                            match game_cfg._game {
+                                EGame::EV_SkylandersSpyrosAdventure |
+                                EGame::EV_SkylandersSpyrosAdventure_3DS |
+                                EGame::EV_SkylandersGiants | 
+                                EGame::EV_SkylandersGiants_3DS |
+                                EGame::EV_SkylandersTrapTeam | 
+                                EGame::EV_SkylandersTrapTeam_3DS  => {
+                                    // tfb doesn't do update.pak
+                                    ui.label("update contents");
+                                    ui.text_edit_singleline(&mut game_cfg._update_path);
+                                    let _ = ui.button("Browse"); // TODO:
+                                }
+                                _ => {
+                                    ui.label("update.pak Path");
+                                    ui.text_edit_singleline(&mut game_cfg._update_path);
+                                    let _ = ui.button("Browse"); // TODO:
+                                },
+                            }
                         });
 
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
