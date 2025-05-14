@@ -19,7 +19,7 @@ pub struct igArkCore {
 impl igArkCore {
     pub fn new(game: EGame, platform: IG_CORE_PLATFORM) -> Self {
         let metadata_path = PathBuf::from(format!("ArkCore/{:?}/", game));
-        let xml_metadata = load_xml_metadata(metadata_path).unwrap();
+        let xml_metadata = load_xml_metadata(&metadata_path).unwrap_or_else(|_| panic!("Failed to find metadata at path {}", metadata_path.display()));
         let mut metadata_manager = igMetadataManager::new(xml_metadata.0, xml_metadata.1, xml_metadata.2, platform);
         register_metafields(&mut metadata_manager);
         igArkCore { metadata_manager }

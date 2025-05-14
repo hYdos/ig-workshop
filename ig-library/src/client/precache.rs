@@ -470,6 +470,7 @@ impl CPrecacheManager {
                     .unwrap();
             }
             BuildTool::TfbTool => {
+                // TODO: move to where tfb handles loading stuff
                 ig_file_context.load_archive(ig_registry, &package_name);
 
                 let _pkg_dir = ig_object_stream_manager
@@ -542,12 +543,13 @@ pub fn load_init_script(game: EGame, is_weakly_loaded: bool, ig_alchemy: &mut ig
                 break;
             }
 
-            task = parse_task(line, is_weakly_loaded);
+            task = parse_task(line.clone(), is_weakly_loaded);
 
             if task == LoaderTask::Unknown {
                 error!(
-                    "Invalid initscript. Unknown task type on line {}",
-                    line_number
+                    "Invalid initscript. Unknown task type on line {}. \n {} \n",
+                    line_number,
+                    line
                 );
             }
         } else {
@@ -649,7 +651,7 @@ fn process_task(
         }
         LoaderTask::FullPackage => {
             precache_manager.precache_package(
-                &mut client.archive_loader,
+                &client.archive_loader,
                 &client.content_deployment,
                 ig_registry,
                 ig_file_context,

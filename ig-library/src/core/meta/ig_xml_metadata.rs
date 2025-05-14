@@ -126,7 +126,7 @@ pub struct MetaObject {
 }
 
 pub fn load_xml_metadata(
-    meta_directory: PathBuf,
+    meta_directory: &PathBuf,
 ) -> Result<(igMetaFieldXml, igMetaEnumXml, igMetaObjectXml), String> {
     let _meta_enum_path = meta_directory.join("metaenums.xml");
     let _meta_field_path = meta_directory.join("metafields.xml");

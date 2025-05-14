@@ -1,6 +1,7 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::gfx::ig_gfx_platform::IG_GFX_PLATFORM;
 
+#[derive(PartialEq)]
 pub enum BuildTool {
     AlchemyLaboratory,
     TfbTool,
