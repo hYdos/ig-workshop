@@ -2,15 +2,16 @@
 
 use crate::load_game_data;
 use crate::logger::LAST_LOG_LINE;
-use egui::{menu, CollapsingHeader, Ui, WidgetText};
+use egui::{CollapsingHeader, Ui, WidgetText, menu};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use ig_library::core::ig_ark_core::EGame;
 use ig_library::core::ig_core_platform::IG_CORE_PLATFORM;
+use ig_library::util::ig_common::igAlchemy;
 use log::error;
+use rfd::FileDialog;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use ig_library::util::ig_common::igAlchemy;
 
 pub struct igCauldronWindow {
     dock_state: Arc<Mutex<DockState<Tab>>>,
@@ -27,7 +28,7 @@ pub struct GameConfig {
 
 pub struct LoadedGame {
     pub cfg: GameConfig,
-    pub ig_alchemy: igAlchemy
+    pub ig_alchemy: igAlchemy,
 }
 
 pub(crate) type Tab = Option<Arc<Mutex<LoadedGame>>>;
@@ -137,8 +138,7 @@ impl TabViewer for CauldronTabViewer {
                             egui::ComboBox::from_id_salt("Target Platform")
                                 .selected_text(format!("{}", game_cfg._platform))
                                 .show_ui(ui, |ui| {
-                                    if game_cfg._game != EGame::EV_SkylandersSuperchargersIos {
-                                    }
+                                    if game_cfg._game != EGame::EV_SkylandersSuperchargersIos {}
 
                                     if game_cfg._game != EGame::EV_SkylandersImaginatorsSwitch {
                                         ui.selectable_value(&mut game_cfg._platform, IG_CORE_PLATFORM::IG_CORE_PLATFORM_ASPEN64, format!("{}", IG_CORE_PLATFORM::IG_CORE_PLATFORM_ASPEN64));
@@ -169,27 +169,56 @@ impl TabViewer for CauldronTabViewer {
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                             ui.label("Game Path");
                             ui.text_edit_singleline(&mut game_cfg._path);
-                            let _ = ui.button("Browse"); // TODO:
+                            let browse = ui.button("Browse");
+
+                            if browse.clicked() {
+                                let folder = FileDialog::new()
+                                    .pick_folder();
+
+                                if let Some(folder) = folder {
+                                    game_cfg._path = folder.into_os_string().into_string().unwrap().replace('\\', "/");
+                                }
+                            }
                         });
 
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                             match game_cfg._game {
                                 EGame::EV_SkylandersSpyrosAdventure |
                                 EGame::EV_SkylandersSpyrosAdventure_3DS |
-                                EGame::EV_SkylandersGiants | 
+                                EGame::EV_SkylandersGiants |
                                 EGame::EV_SkylandersGiants_3DS |
-                                EGame::EV_SkylandersTrapTeam | 
-                                EGame::EV_SkylandersTrapTeam_3DS  => {
+                                EGame::EV_SkylandersTrapTeam |
+                                EGame::EV_SkylandersTrapTeam_3DS => {
                                     // tfb doesn't do update.pak
                                     ui.label("update contents");
                                     ui.text_edit_singleline(&mut game_cfg._update_path);
-                                    let _ = ui.button("Browse"); // TODO:
+                                    let browse = ui.button("Browse");
+
+                                    if browse.clicked() {
+                                        let folder = FileDialog::new()
+                                            .pick_folder();
+
+                                        if let Some(folder) = folder {
+                                            game_cfg._update_path = folder.into_os_string().into_string().unwrap().replace('\\', "/");
+                                        }
+                                    }
                                 }
                                 _ => {
                                     ui.label("update.pak Path");
                                     ui.text_edit_singleline(&mut game_cfg._update_path);
-                                    let _ = ui.button("Browse"); // TODO:
-                                },
+                                    let browse = ui.button("Browse");
+
+                                    if browse.clicked() {
+                                        let option = FileDialog::new()
+                                            .add_filter("Alchemy Laboratory Update File", &["pak"])
+                                            .add_filter("All Files", &["*"])
+                                            .pick_file();
+
+                                        if let Some(file) = option {
+                                            game_cfg._update_path = file.into_os_string().into_string().unwrap().replace('\\', "/");
+                                        }
+                                    }
+                                }
                             }
                         });
 

@@ -48,6 +48,7 @@ enum Fixup {
     RUNTIME_NAMED_EXTERNALS,
     RUNTIME_HANDLES,
     OPTION_NAMED_LIST,
+    METADATA_SIZES,
 }
 
 impl Fixup {
@@ -319,7 +320,8 @@ impl Fixup {
 
                 // assign into your field
                 dir.name_list = generic_obj.cast_to().unwrap();
-            }
+            },
+            Fixup::METADATA_SIZES => {}
         }
     }
 }
@@ -463,8 +465,29 @@ impl TryFrom<u32> for Fixup {
 impl TryFrom<u8> for Fixup {
     type Error = ();
 
-    fn try_from(_value: u8) -> Result<Self, Self::Error> {
-        todo!("SSA Wii (version 6?) fixup's are not implemented")
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x00 => Ok(Fixup::T_METADATA),
+            0x01 => Ok(Fixup::T_STRING_LIST),
+            0x02 => Ok(Fixup::EXTERNAL_DEPENDENCIES_BY_ID),
+            0x03 => Ok(Fixup::EXTERNAL_DEPENDENCIES_BY_NAME),
+            0x04 => todo!("Unknown Fixup 0x04"),
+            0x05 => Ok(Fixup::RUNTIME_V_TABLES),
+            0x06 => todo!("Unknown Fixup 0x06"),
+            0x07 => todo!("Unknown Fixup 0x07"),
+            0x08 => todo!("Unknown Fixup 0x08"),
+            0x09 => todo!("Unknown Fixup 0x09"),
+            0x0A => Ok(Fixup::THUMBNAIL),
+            0x0B => todo!("Unknown Fixup 0x0B"),
+            0x0C => Ok(Fixup::METADATA_SIZES),
+            0x0D => todo!("Unknown Fixup 0x0D"),
+            0x0E => Ok(Fixup::RUNTIME_STRING_REFERENCES),
+            0x0F => todo!("Unknown Fixup 0x0F"),
+            0x10 => todo!("Unknown Fixup 0x10"),
+            0x11 => todo!("Unknown Fixup 0x11"),
+            0x12 => todo!("Unknown Fixup 0x12"),
+            _ => Err(()),
+        }
     }
 }
 
@@ -604,8 +627,10 @@ impl igIGZLoader {
     ) {
         let mut fd = ig_file_context.open(ig_registry, file_path, 0);
         if let Some(mut handle) = fd._handle {
+            // use std::io::Read;
+            // use byteorder::WriteBytesExt;
             // let old_pos = handle.position();
-            // let mut file = File::create("level.igz").unwrap();
+            // let mut file = std::fs::File::create("level.igz").unwrap();
             // for byte in handle.bytes() {
             //     file.write_u8(byte.unwrap()).unwrap();
             // }
@@ -629,7 +654,13 @@ impl igIGZLoader {
             let platform = imm.get_enum::<IG_CORE_PLATFORM>(
                 read_u32(&mut handle, &fd.endianness).unwrap() as usize,
             );
-            let fixup_count = read_u32(&mut handle, &fd.endianness).unwrap();
+
+            let mut fixup_count = 0; // Older IGZ versions rely on you grabbing this information later on at the first section's offset (usually 2048 from what I've seen) + 0x10
+
+            if version >= 0x07 {
+                // TODO: verify 0x07 acts like this as well. I know 0x08 does
+                fixup_count = read_u32(&mut handle, &fd.endianness).unwrap();
+            }
 
             let mut shared_state = IgzLoaderContext {
                 version,
@@ -651,17 +682,32 @@ impl igIGZLoader {
             };
 
             igIGZLoader::parse_sections(&mut handle, &fd.endianness, &mut shared_state);
-            igIGZLoader::process_fixup_sections(
-                &mut handle,
-                &fd.endianness,
-                &mut shared_state,
-                ig_file_context,
-                ig_registry,
-                ig_object_stream_manager,
-                ig_ext_ref_system,
-                imm,
-                dir,
-            );
+            if shared_state.version > 0x06 {
+                igIGZLoader::process_modern_fixup_sections(
+                    &mut handle,
+                    &fd.endianness,
+                    &mut shared_state,
+                    ig_file_context,
+                    ig_registry,
+                    ig_object_stream_manager,
+                    ig_ext_ref_system,
+                    imm,
+                    dir,
+                );
+            } else {
+                igIGZLoader::process_legacy_fixup_sections(
+                    &mut handle,
+                    &fd.endianness,
+                    &mut shared_state,
+                    ig_file_context,
+                    ig_registry,
+                    ig_object_stream_manager,
+                    ig_ext_ref_system,
+                    imm,
+                    dir,
+                );
+            }
+
             igIGZLoader::read_objects(&mut handle, fd.endianness, imm, &mut shared_state);
         } else {
             error!("Failed to load igz {}. File could not be read.", file_path);
@@ -675,9 +721,11 @@ impl igIGZLoader {
         shared_state: &mut IgzLoaderContext,
     ) {
         for i in 0..0x20 {
-            handle.seek(SeekFrom::Start(0x14 + 0x10 * i)).unwrap();
+            handle.seek(SeekFrom::Start(get_chunk_descriptor_start(shared_state.version) + 0x10 * i)).unwrap();
             let mem_pool_name_ptr = read_u32(handle, endian).unwrap();
-            let offset = read_u32(handle, endian).unwrap();
+            let offset;
+
+            offset = read_u32(handle, endian).unwrap();
             let _length = read_u32(handle, endian).unwrap();
             let _alignment = read_u32(handle, endian).unwrap();
 
@@ -686,14 +734,20 @@ impl igIGZLoader {
                 break;
             }
 
+            if i == 0 && shared_state.version <= 0x06 {
+                // Giants and under don't store the fixup count in the header but in this weird second IGZ header area. TODO: find out if this applies to version 0x07(SSF)
+                handle.set_position((offset + 0x10) as u64); // We don't care about storing the old position because the next code will just seek again anyway
+                shared_state.fixup_count = read_u32(handle, endian).unwrap()
+            }
+
             handle
-                .seek(SeekFrom::Start((0x224 + mem_pool_name_ptr) as u64))
+                .seek(SeekFrom::Start((get_attribute_location(shared_state.version) + mem_pool_name_ptr) as u64))
                 .unwrap();
             let memory_pool_name = read_string(handle).unwrap();
             if i > 0 {
                 shared_state.loaded_pools[(i - 1) as usize] =
                     igMemoryPool::from_str(&memory_pool_name).unwrap_or_else(|_| {
-                        panic!("Invalid memory pool name {}", memory_pool_name)
+                        panic!("Invalid memory pool name '{}'", memory_pool_name)
                     });
                 shared_state.loaded_pointers[(i - 1) as usize] = offset;
             } else {
@@ -702,7 +756,60 @@ impl igIGZLoader {
         }
     }
 
-    fn process_fixup_sections(
+    /// This function handles the older style of fixup used in IGZ versions 0x06 (Giants/SSA Wii) and below. It is handled quite differently so in the end its just better do keep it separate.
+    fn process_legacy_fixup_sections(
+        handle: &mut Cursor<Vec<u8>>,
+        endian: &Endian,
+        shared_state: &mut IgzLoaderContext,
+        ig_file_context: &igFileContext,
+        ig_registry: &igRegistry,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        imm: &mut igMetadataManager,
+        dir: &mut igObjectDirectory,
+    ) {
+        // if you really care you might(not confirmed to be correct but seems to be) be able to find this value at fixup[0]'s offset + 0xC (u32)
+        let mut bytes_processed = 0x1C;
+
+        for _i in 0..shared_state.fixup_count {
+            handle.set_position((shared_state.fixup_offset + bytes_processed) as u64);
+            let magic = read_u32(handle, endian).unwrap() as u8;
+            let _padding = read_u32(handle, endian).unwrap();
+            let _padding = read_u32(handle, endian).unwrap();
+            let count = read_u32(handle, endian).unwrap();
+            let length = read_u32(handle, endian).unwrap();
+            let start = read_u32(handle, endian).unwrap();
+            let fixup = Fixup::try_from(magic);
+            handle.set_position((shared_state.fixup_offset + bytes_processed + start) as u64);
+
+            if let Ok(fixup) = fixup {
+                debug!("Processing {:?}",fixup);
+                fixup.fix(
+                    handle,
+                    endian,
+                    imm,
+                    length,
+                    start,
+                    count,
+                    dir,
+                    ig_file_context,
+                    ig_registry,
+                    ig_object_stream_manager,
+                    ig_ext_ref_system,
+                    shared_state,
+                );
+            } else {
+                debug!(
+                    "No fixup exists for the magic value {}",
+                    String::from_utf8_lossy(&magic.to_le_bytes())
+                )
+            }
+
+            bytes_processed += length;
+        }
+    }
+
+    fn process_modern_fixup_sections(
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
         shared_state: &mut IgzLoaderContext,
@@ -716,11 +823,7 @@ impl igIGZLoader {
         let mut bytes_processed = 0;
 
         for _i in 0..shared_state.fixup_count {
-            handle
-                .seek(SeekFrom::Start(
-                    (shared_state.fixup_offset + bytes_processed) as u64,
-                ))
-                .unwrap();
+            handle.set_position((shared_state.fixup_offset + bytes_processed) as u64);
             let magic = read_u32(handle, endian).unwrap();
             let count = read_u32(handle, endian).unwrap();
             let length = read_u32(handle, endian).unwrap();
@@ -772,5 +875,21 @@ impl igIGZLoader {
             handle.set_position(ctx.deserialize_offset(*offset));
             imm.read_igz_fields(handle, endian.clone(), ctx, object.clone())
         }
+    }
+}
+
+fn get_chunk_descriptor_start(version: u32) -> u64 {
+    match version {
+        0x06 => 0xC,
+        0x08 => 0x14,
+        _ => todo!("Unsupported igz version")
+    }
+}
+
+fn get_attribute_location(version: u32) -> u32 {
+    match version {
+        0x05 | 0x06 | 0x09 => 0x56C,
+        0x08 => 0x224,
+        _ => todo!("Unsupported igz version")
     }
 }

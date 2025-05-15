@@ -57,6 +57,7 @@ pub fn get_platform_string(platform: IG_CORE_PLATFORM) -> String {
         IG_CORE_PLATFORM_PS4 => "ps4".to_string(),
         IG_CORE_PLATFORM_WP8 => "wp8".to_string(),
         IG_CORE_PLATFORM_LINUX => "linux".to_string(),
+        IG_CORE_PLATFORM_NX => "nx".to_string(),
         _ => panic!("Missing platform string for {}", platform),
     }
 }

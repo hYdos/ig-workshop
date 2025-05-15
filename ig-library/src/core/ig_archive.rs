@@ -252,8 +252,8 @@ impl igArchive {
 
             header._version = read_u32(&mut cursor, &header.endian).unwrap();
             match header._version {
-                // Crash NST, Trap Team, Superchargers, Imaginators
-                0x0C | 0x0B => {
+                // Crash Team Racing: Nitro Fueled, Crash NST, Trap Team, Superchargers, Imaginators
+                0x0A..=0x0D => {
                     header._toc_size = read_u32(&mut cursor, &header.endian).unwrap();
                     header._num_files = read_u32(&mut cursor, &header.endian).unwrap();
                     header._sector_size = read_u32(&mut cursor, &header.endian).unwrap();
@@ -328,6 +328,14 @@ impl igArchive {
                 let file = &mut _files[i as usize];
 
                 match header._version {
+                    0x0D => {
+                        // technically the offset is 5 bytes and the ordinal is 3
+                        let tmp = read_u64(&mut cursor, &header.endian).unwrap(); // Read all 8 bytes together at once
+                        file._ordinal = (tmp >> 40) as u32;
+                        file._offset = (tmp & 0xFFFFFFFF) as u32; // FIXME: this looks like its reading 4 bytes, not 5...
+                        file._length = read_u32(&mut cursor, &header.endian).unwrap();
+                        file._block_index = read_u32(&mut cursor, &header.endian).unwrap();
+                    },
                     0x0B => {
                         // technically the offset is 5 bytes and the ordinal is 3
                         let tmp = read_u64(&mut cursor, &header.endian).unwrap(); // Read all 8 bytes together at once
@@ -521,7 +529,7 @@ impl igArchive {
 
 fn get_header_size(version: u32) -> u8 {
     match version {
-        0x0A..=0x0C => 0x38,
+        0x0A..=0x0D => 0x38,
         0x08 => 0x34,
         _ => panic!("IGA version {} is unsupported", version),
     }

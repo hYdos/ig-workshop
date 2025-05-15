@@ -161,6 +161,7 @@ impl FromStr for IG_CORE_PLATFORM {
             "IG_CORE_PLATFORM_PS4" => Ok(IG_CORE_PLATFORM_PS4),
             "IG_CORE_PLATFORM_WP8" => Ok(IG_CORE_PLATFORM_WP8),
             "IG_CORE_PLATFORM_LINUX" => Ok(IG_CORE_PLATFORM_LINUX),
+            "IG_CORE_PLATFORM_NX" => Ok(IG_CORE_PLATFORM_NX),
             "IG_CORE_PLATFORM_MAX" => Ok(IG_CORE_PLATFORM_MAX),
             _ => Err(()),
         }
