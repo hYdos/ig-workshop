@@ -1,0 +1,6 @@
+[engine_type]
+TfbTool
+
+[full_package]
+app:/permanent/global.bld
+app:/character/init_setup.bld

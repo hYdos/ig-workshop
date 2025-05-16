@@ -4,7 +4,7 @@ use crate::core::ig_ark_core::{igArkCore, EGame};
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_memory::igMemoryPool;
-use crate::core::ig_objects::ObjectExt;
+use crate::core::ig_objects::{igAny, ObjectExt};
 use crate::core::ig_registry::igRegistry;
 use crate::core::meta::ig_metadata_manager::{
     __internalObjectBase, igMetaObject, FieldDoesntExist, SetObjectFieldError,

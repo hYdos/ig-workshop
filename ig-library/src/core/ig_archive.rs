@@ -274,7 +274,8 @@ impl igArchive {
                     header._sector_size = read_u32(&mut cursor, &header.endian).unwrap();
                     header._hash_search_divider = read_u32(&mut cursor, &header.endian).unwrap();
                     header._hash_search_slop = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._name_table_offset = read_u32(&mut cursor, &header.endian).unwrap() as u64;
+                    header._name_table_offset =
+                        read_u32(&mut cursor, &header.endian).unwrap() as u64;
                     header._name_table_size = read_u32(&mut cursor, &header.endian).unwrap();
                     header._num_large_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
                     header._num_medium_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
@@ -287,17 +288,13 @@ impl igArchive {
                     header._sector_size = 0x0800;
                     header._hash_search_divider = read_u32(&mut cursor, &header.endian).unwrap();
                     header._hash_search_slop = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_large_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_medium_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_small_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
                     header._name_table_offset =
                         read_u32(&mut cursor, &header.endian).unwrap() as u64;
                     header._name_table_size = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._num_large_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._num_medium_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._num_small_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
                     header._flags = read_u32(&mut cursor, &header.endian).unwrap();
-                    return Err(format!(
-                        "igArchive version {} is not implemented.",
-                        header._version
-                    ));
                 }
                 _ => {
                     return Err(format!(
@@ -328,14 +325,6 @@ impl igArchive {
                 let file = &mut _files[i as usize];
 
                 match header._version {
-                    0x0D => {
-                        // technically the offset is 5 bytes and the ordinal is 3
-                        let tmp = read_u64(&mut cursor, &header.endian).unwrap(); // Read all 8 bytes together at once
-                        file._ordinal = (tmp >> 40) as u32;
-                        file._offset = (tmp & 0xFFFFFFFF) as u32; // FIXME: this looks like its reading 4 bytes, not 5...
-                        file._length = read_u32(&mut cursor, &header.endian).unwrap();
-                        file._block_index = read_u32(&mut cursor, &header.endian).unwrap();
-                    },
                     0x0B => {
                         // technically the offset is 5 bytes and the ordinal is 3
                         let tmp = read_u64(&mut cursor, &header.endian).unwrap(); // Read all 8 bytes together at once
@@ -343,8 +332,14 @@ impl igArchive {
                         file._offset = (tmp & 0xFFFFFFFF) as u32; // FIXME: this looks like its reading 4 bytes, not 5...
                         file._length = read_u32(&mut cursor, &header.endian).unwrap();
                         file._block_index = read_u32(&mut cursor, &header.endian).unwrap();
-                    },
+                    }
                     0x08 => {
+                        file._offset = read_u32(&mut cursor, &header.endian).unwrap();
+                        file._length = read_u32(&mut cursor, &header.endian).unwrap();
+                        file._block_index = read_u32(&mut cursor, &header.endian).unwrap();
+                        // giants doesn't store the ordinal of the file?
+                    }
+                    0x04 => {
                         file._offset = read_u32(&mut cursor, &header.endian).unwrap();
                         file._length = read_u32(&mut cursor, &header.endian).unwrap();
                         file._block_index = read_u32(&mut cursor, &header.endian).unwrap();
@@ -377,7 +372,7 @@ impl igArchive {
                 if header._version >= 0x08 {
                     file._modification_time = read_u32(&mut cursor, &header.endian).unwrap();
                 }
-                
+
                 // Cauldron reorganizes the names for lower versions. As far as I know, this is wrong but just in case we will handle Tfb Games the newer way because that's what we expect.
                 if header._version >= 0x0B || ig_registry.build_tool == BuildTool::TfbTool {
                     file._name = name1;
@@ -531,6 +526,7 @@ fn get_header_size(version: u32) -> u8 {
     match version {
         0x0A..=0x0D => 0x38,
         0x08 => 0x34,
+        0x04 => 0x30,
         _ => panic!("IGA version {} is unsupported", version),
     }
 }
@@ -538,7 +534,7 @@ fn get_header_size(version: u32) -> u8 {
 fn get_file_info_size(version: u32) -> u8 {
     match version {
         0x0B => 0x10,
-        0x08 => 0x0C,
+        0x08 | 0x04 => 0x0C,
         _ => panic!("IGA version {} is unsupported", version),
     }
 }
@@ -822,7 +818,7 @@ impl igStorageDevice for Arc<igArchive> {
             BuildTool::TfbTool => {
                 let file_name = &work_item._path[(work_item._path.rfind('/').unwrap() + 1)..];
                 let archive_path = &work_item._path[..work_item._path.rfind('/').unwrap()];
-                
+
                 if archive_path == self._path {
                     for file in &self._files {
                         if file._name == file_name {
@@ -832,7 +828,7 @@ impl igStorageDevice for Arc<igArchive> {
                             work_item._file._device = Some(this.clone());
                             work_item._file._handle = Some(self.decompress_as_handle(file));
                             work_item._status = kStatusComplete;
-                            return
+                            return;
                         }
                     }
                 }
