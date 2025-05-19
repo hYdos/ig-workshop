@@ -3,11 +3,12 @@ use crate::core::meta::ig_metadata_manager::MetaEnumImpl;
 use ig_proc_macros::MetaEnum;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+use serde::Serialize;
 
 ///
 /// Represents a platform igAlchemy can support. Contains most platforms ranging from devices such as the wii to the xbox one
 ///
-#[derive(Debug, Hash, PartialEq, Eq, Clone, MetaEnum)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, MetaEnum, Serialize)]
 pub enum IG_CORE_PLATFORM {
     IG_CORE_PLATFORM_DEFAULT,
     /// Any platform that is marked for removal in alchemy.
@@ -22,7 +23,7 @@ pub enum IG_CORE_PLATFORM {
     IG_CORE_PLATFORM_ASPEN,
     /// Xbox 360
     IG_CORE_PLATFORM_XENON,
-    /// Playstation 3
+    /// PlayStation 3
     IG_CORE_PLATFORM_PS3,
     /// MacOS
     IG_CORE_PLATFORM_OSX,

@@ -1,19 +1,23 @@
-// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// TODO: on release tie this behind its own run config #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod logger;
 mod window;
 
 use crate::logger::init_logger;
-use crate::window::{igCauldronWindow, GameConfig, LoadedGame};
+use crate::window::{GameConfig, LoadedGame, igCauldronWindow};
 use eframe::HardwareAcceleration::Required;
 use egui::IconData;
 use egui_dock::DockState;
-use ig_library::core::ig_ark_core::{igArkCore, EGame};
+use ig_library::client::precache::load_init_script;
+use ig_library::core::ig_ark_core::{EGame, igArkCore};
 use ig_library::core::ig_core_platform::IG_CORE_PLATFORM;
 use ig_library::core::ig_file_context::igFileContext;
 use ig_library::core::ig_registry::igRegistry;
+use ig_library::util::ig_common::igAlchemy;
 use image::{ImageFormat, ImageReader};
-use log::{info, warn, LevelFilter};
+use log::{LevelFilter, error, info};
+use serde::Serialize;
+use sonic_rs::writer::BufferedWriter;
 use sonic_rs::{Array, JsonContainerTrait, JsonValueTrait, Object, Value};
 use std::collections::VecDeque;
 use std::fs;
@@ -24,8 +28,6 @@ use std::string::ToString;
 use std::sync::{Arc, Mutex};
 use std::thread::Builder;
 use std::time::Instant;
-use ig_library::client::precache::load_init_script;
-use ig_library::util::ig_common::igAlchemy;
 
 fn main() {
     #[cfg(debug_assertions)]
@@ -63,26 +65,31 @@ pub fn load_game_data(game_cfg: GameConfig, dock_state: Arc<Mutex<DockState<wind
             if !game_cfg._update_path.is_empty() {
                 ig_file_context.initialize_update(&ig_registry, game_cfg.clone()._update_path);
             }
-            
+
             let platform = ig_registry.platform.clone();
-            let mut ig_alchemy = igAlchemy::new(ig_file_context, ig_registry, igArkCore::new(game_cfg.clone()._game, platform));
+            let mut ig_alchemy = igAlchemy::new(
+                ig_file_context,
+                ig_registry,
+                igArkCore::new(game_cfg.clone()._game, platform),
+            );
 
             // Try out caching all metadata at the start only in debug to catch issues
             #[cfg(debug_assertions)]
             ig_alchemy.ark_core.metadata_manager.load_all();
 
             load_init_script(game_cfg.clone()._game, false, &mut ig_alchemy);
-            
+
             let new_leaf = Some(Arc::new(Mutex::new(LoadedGame {
                 cfg: game_cfg.clone(),
-                ig_alchemy
+                ig_alchemy,
             })));
 
             // I'm going to be honest I'm not a fan of this method.
             // however, with how complex these games are we need to save performance (by not recreating tabs) as much as possible
+            // basically turning this into a forward-ish rendered gui instead of immediate mode in a way
             if let Ok(mut dock_guard) = dock_state.lock() {
                 dock_guard.push_to_focused_leaf(new_leaf);
-            } else { 
+            } else {
                 panic!("We somehow failed the Mutex lock on the UI :(")
             }
 
@@ -135,15 +142,38 @@ fn init_config() -> VecDeque<Arc<Mutex<GameConfig>>> {
             }
         }
     } else {
-        warn!("Could not find config directory. New config will be saved later.");
+        error!("Could not find config directory. New config will be saved later.");
     }
 
     config
 }
 
+#[derive(Serialize)]
+struct GameConfigHeader<'a> {
+    _version: u32,
+    _games: &'a VecDeque<Arc<Mutex<GameConfig>>>,
+}
+
+fn save_config(game_configs: &VecDeque<Arc<Mutex<GameConfig>>>) {
+    if let Some(mut path) = dirs::config_dir() {
+        path.push("NefariousTechSupport");
+        path.push("igCauldron");
+        fs::create_dir_all(path.as_path()).unwrap();
+        path.push("gameconfig.json");
+
+        let file = File::create(path.as_path()).unwrap();
+        let writer = BufferedWriter::new(file);
+
+        sonic_rs::to_writer_pretty(writer, &GameConfigHeader { _version: 2, _games: game_configs }).unwrap();
+        info!("Config saved to {}", path.as_os_str().to_str().unwrap());
+    } else {
+        error!("Could not save config :(");
+    }
+}
+
 fn icon() -> Arc<IconData> {
     let bytes = include_bytes!("../data/icon.png");
-    
+
     let img = ImageReader::with_format(Cursor::new(bytes), ImageFormat::Png)
         .decode()
         .unwrap();

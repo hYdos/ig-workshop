@@ -1841,7 +1841,37 @@ dependencies = [
 ]
 
 [[package]]
-name = "ig-cauldron-rs"
+name = "ig-library"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "flate2",
+ "ig-proc-macros",
+ "log",
+ "lz4",
+ "lzma-rust2",
+ "once_cell",
+ "paste",
+ "phf",
+ "quick-xml 0.37.4",
+ "serde",
+ "strum 0.27.1",
+ "strum_macros 0.27.1",
+ "walkdir",
+]
+
+[[package]]
+name = "ig-proc-macros"
+version = "0.1.0"
+dependencies = [
+ "inventory",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "ig-workshop"
 version = "0.1.0"
 dependencies = [
  "byteorder",
@@ -1856,37 +1886,9 @@ dependencies = [
  "log",
  "phf",
  "rfd",
+ "serde",
  "sonic-rs",
  "walkdir",
-]
-
-[[package]]
-name = "ig-library"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "flate2",
- "ig-proc-macros",
- "log",
- "lz4",
- "lzma-rust2",
- "once_cell",
- "paste",
- "phf",
- "quick-xml 0.37.4",
- "strum 0.27.1",
- "strum_macros 0.27.1",
- "walkdir",
-]
-
-[[package]]
-name = "ig-proc-macros"
-version = "0.1.0"
-dependencies = [
- "inventory",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -3663,9 +3665,9 @@ dependencies = [
 
 [[package]]
 name = "sonic-rs"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afb178c7e517ce712b9ddfe3ccc0f22e6b44943b690a018fd8eb8df0a47c0311"
+checksum = "93070f7e7c0d7ec7d08406b1b407234af30420320fd854f304029e3c6db4a899"
 dependencies = [
  "ahash",
  "bumpalo",

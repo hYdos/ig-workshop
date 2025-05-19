@@ -1,26 +1,28 @@
 #![allow(non_camel_case_types)]
 
-use crate::load_game_data;
+use crate::{load_game_data, save_config};
 use crate::logger::LAST_LOG_LINE;
-use egui::{CollapsingHeader, Ui, WidgetText, menu};
+use egui::{CollapsingHeader, Ui, WidgetText, menu, Key, InputState};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use ig_library::core::ig_ark_core::EGame;
 use ig_library::core::ig_core_platform::IG_CORE_PLATFORM;
 use ig_library::util::ig_common::igAlchemy;
-use log::error;
+use log::{error};
 use rfd::FileDialog;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use serde::Serialize;
 
 pub struct igCauldronWindow {
     dock_state: Arc<Mutex<DockState<Tab>>>,
     tab_viewer: CauldronTabViewer,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct GameConfig {
     pub _path: String,
+    #[serde(rename(serialize = "_updatePath"))]
     pub _update_path: String,
     pub _game: EGame,
     pub _platform: IG_CORE_PLATFORM,
@@ -49,12 +51,20 @@ impl igCauldronWindow {
 
 impl eframe::App for igCauldronWindow {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if ctx.input(is_save_command) {
+            save(&self.tab_viewer);
+        }
+        
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    let _ = ui.button("Save"); // TODO: options to save to: update.pak, overwrite game files (not recommended), or save new files to new directory)
+                    let save_button = ui.button("Save"); // TODO: options to save to: update.pak, overwrite game files (not recommended), or save new files to new directory)
                     let _ = ui.button("Load file");
                     let _ = ui.button("Load folder");
+
+                    if save_button.clicked() {
+                        save(&self.tab_viewer);
+                    }
                 });
             });
         });
@@ -68,6 +78,14 @@ impl eframe::App for igCauldronWindow {
             .style(Style::from_egui(ctx.style().as_ref()))
             .show(ctx, &mut self.tab_viewer);
     }
+}
+
+fn save(tab_viewer: &CauldronTabViewer) {
+    save_config(&tab_viewer.available_games)
+}
+
+fn is_save_command(i: &InputState) -> bool {
+    i.modifiers.command && i.key_pressed(Key::S)
 }
 
 struct CauldronTabViewer {
@@ -88,7 +106,6 @@ impl TabViewer for CauldronTabViewer {
         }
     }
 
-    // Defines the contents of a given `tab`.
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         if tab.is_some() {
             let locked_cfg = tab.clone().unwrap();
@@ -96,6 +113,8 @@ impl TabViewer for CauldronTabViewer {
             let game = &config.cfg._game;
             ui.label(format!("Content of {:?}", game));
         } else {
+            // Configuration Tab.
+            // TODO: Tab becomes a trait and we split Configuration tabs apart from "Game" tabs.
             let mut game_cfg_to_remove: Option<usize> = None;
 
             for game_idx in 0..self.available_games.len() {
@@ -109,21 +128,21 @@ impl TabViewer for CauldronTabViewer {
                             egui::ComboBox::from_id_salt("Target Game")
                                 .selected_text(format!("{}", game_cfg._game))
                                 .show_ui(ui, |ui| {
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_MadagascarTMEscape2AfricaTMTheGameTM, format!("{}", EGame::EV_MadagascarTMEscape2AfricaTMTheGameTM));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_MadagascarTMEscape2AfricaTMTheGameTM, format!("{}", EGame::EV_MadagascarTMEscape2AfricaTMTheGameTM));
                                     ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersSpyrosAdventure, format!("{}", EGame::EV_SkylandersSpyrosAdventure));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersSpyrosAdventure_3DS, format!("{}", EGame::EV_SkylandersSpyrosAdventure_3DS));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_HatsuneMikuProjectDiva, format!("{}", EGame::EV_HatsuneMikuProjectDiva));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_HatsuneMikuProjectDiva2nd, format!("{}", EGame::EV_HatsuneMikuProjectDiva2nd));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_HatsuneMikuProjectDivaExtend, format!("{}", EGame::EV_HatsuneMikuProjectDivaExtend));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersBattlegrounds, format!("{}", EGame::EV_SkylandersBattlegrounds));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersCloudPatrol, format!("{}", EGame::EV_SkylandersCloudPatrol));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersSpyrosAdventure_3DS, format!("{}", EGame::EV_SkylandersSpyrosAdventure_3DS));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_HatsuneMikuProjectDiva, format!("{}", EGame::EV_HatsuneMikuProjectDiva));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_HatsuneMikuProjectDiva2nd, format!("{}", EGame::EV_HatsuneMikuProjectDiva2nd));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_HatsuneMikuProjectDivaExtend, format!("{}", EGame::EV_HatsuneMikuProjectDivaExtend));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersBattlegrounds, format!("{}", EGame::EV_SkylandersBattlegrounds));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersCloudPatrol, format!("{}", EGame::EV_SkylandersCloudPatrol));
                                     ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersGiants, format!("{}", EGame::EV_SkylandersGiants));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersGiants_3DS, format!("{}", EGame::EV_SkylandersGiants_3DS));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersLostIslands, format!("{}", EGame::EV_SkylandersLostIslands));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersGiants_3DS, format!("{}", EGame::EV_SkylandersGiants_3DS));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersLostIslands, format!("{}", EGame::EV_SkylandersLostIslands));
                                     ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersSwapForce, format!("{}", EGame::EV_SkylandersSwapForce));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersSwapForce_3DS, format!("{}", EGame::EV_SkylandersSwapForce_3DS));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersSwapForce_3DS, format!("{}", EGame::EV_SkylandersSwapForce_3DS));
                                     ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersTrapTeam, format!("{}", EGame::EV_SkylandersTrapTeam));
-                                    ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersTrapTeam_3DS, format!("{}", EGame::EV_SkylandersTrapTeam_3DS));
+                                    // ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersTrapTeam_3DS, format!("{}", EGame::EV_SkylandersTrapTeam_3DS));
                                     ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersSuperchargers, format!("{}", EGame::EV_SkylandersSuperchargers));
                                     ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersSuperchargersIos, format!("{}", EGame::EV_SkylandersSuperchargersIos));
                                     ui.selectable_value(&mut game_cfg._game, EGame::EV_SkylandersImaginators, format!("{}", EGame::EV_SkylandersImaginators));

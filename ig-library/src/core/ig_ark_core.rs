@@ -4,6 +4,7 @@ use crate::core::meta::ig_xml_metadata::load_xml_metadata;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
+use serde::Serialize;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::meta::field::r#impl::ig_memory_ref_meta_field::igMemoryRefMetaField;
 use crate::core::meta::field::r#impl::ig_object_ref_meta_field::igObjectRefMetaField;
@@ -35,7 +36,7 @@ fn register_metafields(imm: &mut igMetadataManager) {
     imm.meta_field_registry.register_complex::<igMemoryRefMetaField>(Arc::from("igMemoryRefMetaField"), |ark_field| {Arc::new(igMemoryRefMetaField(ark_field.clone()))});
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub enum EGame {
     EV_None = -1,
     EV_ZooCube,
