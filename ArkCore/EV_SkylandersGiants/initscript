@@ -2,8 +2,6 @@
 TfbTool
 
 [full_package]
-app:/item/legal.bld
-
 app:/permanent/bootstrap.bld
 app:/misc/bootstrap_lang.bld
 app:/item/legal.bld

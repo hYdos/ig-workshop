@@ -9,7 +9,7 @@ use crate::util::byteorder_fixes::{
     read_struct_array_u8_ref, read_u32, read_u64,
 };
 use crate::util::ig_hash;
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use flate2::read::DeflateDecoder;
 use log::debug;
 use lzma_rust2::LZMAReader;
@@ -121,17 +121,17 @@ impl igArchive {
     }
 
     fn decompress_as_handle(&self, file_info: &FileInfo) -> Cursor<Vec<u8>> {
-        Cursor::new(self.decompress(file_info))
+        Cursor::new(self.decompress(file_info, self._archive_header._version))
     }
 
-    fn decompress(&self, file_info: &FileInfo) -> Vec<u8> {
+    fn decompress(&self, file_info: &FileInfo, iga_version: u32) -> Vec<u8> {
         let mut dst = Vec::<u8>::new();
         if file_info._block_index == 0xFFFFFFFF {
             dst.write_all(&file_info._compressed_data).unwrap();
             return dst;
         }
         let blocks = file_info._blocks.clone().unwrap();
-        let compression_type = CompressionType::from_index(file_info._block_index);
+        let compression_type = CompressionType::from_index(file_info._block_index, iga_version);
         for i in 0..blocks.len() {
             let decompressed_size = if file_info._length < ((i + 1) * 0x8000) as u32 {
                 file_info._length & 0x7FFF
@@ -151,7 +151,12 @@ impl igArchive {
 
             let mut cursor = Cursor::new(&file_info._compressed_data);
             cursor.seek(SeekFrom::Start(offset as u64)).unwrap();
-            let compressed_size = cursor.read_u16::<LittleEndian>().unwrap(); // C# Implementation does not state what endian igCauldron is reading this in.
+            let compressed_size;
+            if iga_version <= 0x04 {
+                compressed_size = cursor.read_u16::<BigEndian>().unwrap(); // C# Implementation does not state what endian igCauldron is reading this in.
+            } else {
+                compressed_size = cursor.read_u16::<LittleEndian>().unwrap(); // C# Implementation does not state what endian igCauldron is reading this in.
+            }
             drop(cursor);
             offset += 2;
 
@@ -180,7 +185,6 @@ impl igArchive {
                             .wrapping_add((lzma_properties[1 + i] as u32) << (i * 8));
                     }
 
-                    let mut buf = [0; 1024];
                     let mut reader = LZMAReader::new(
                         Cursor::new(slice),
                         decompressed_size as u64,
@@ -192,13 +196,7 @@ impl igArchive {
                     )
                     .unwrap();
 
-                    loop {
-                        let n = reader.read(&mut buf).unwrap();
-                        if n == 0 {
-                            break;
-                        }
-                        dst.extend_from_slice(&buf[..n]);
-                    }
+                    reader.read_to_end(&mut dst).unwrap();
                 }
                 CompressionType::kLz4 => {
                     let slice =
@@ -986,19 +984,34 @@ pub enum CompressionType {
 }
 
 impl CompressionType {
-    fn from_index(block_index: u32) -> CompressionType {
+    fn from_index(block_index: u32, iga_version: u32) -> CompressionType {
         let shift = block_index >> 28;
-
-        match shift {
-            0 => CompressionType::kUncompressed,
-            1 => CompressionType::kZlib,
-            2 => CompressionType::kLzma,
-            3 => CompressionType::kLz4,
-            28 => CompressionType::kCompressionFormatShift,
-            0xF0000000 => CompressionType::kCompressionFormatMask,
-            0x0FFFFFFF => CompressionType::kFirstBlockMask,
-            40 => CompressionType::kOffsetBits,
-            _ => panic!("Unknown compression type"),
+        
+        // FIXME: SSA does compression type a bit differently.
+        if iga_version <= 0x04 {
+            match shift {
+                0 => CompressionType::kUncompressed,
+                1 => CompressionType::kLzma,
+                2 => CompressionType::kLzma,
+                3 => CompressionType::kLz4,
+                28 => CompressionType::kCompressionFormatShift,
+                0xF0000000 => CompressionType::kCompressionFormatMask,
+                0x0FFFFFFF => CompressionType::kFirstBlockMask,
+                40 => CompressionType::kOffsetBits,
+                _ => panic!("Unknown compression type"),
+            }
+        } else {
+            match shift {
+                0 => CompressionType::kUncompressed,
+                1 => CompressionType::kZlib,
+                2 => CompressionType::kLzma,
+                3 => CompressionType::kLz4,
+                28 => CompressionType::kCompressionFormatShift,
+                0xF0000000 => CompressionType::kCompressionFormatMask,
+                0x0FFFFFFF => CompressionType::kFirstBlockMask,
+                40 => CompressionType::kOffsetBits,
+                _ => panic!("Unknown compression type"),
+            }
         }
     }
 }
