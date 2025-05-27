@@ -1,9 +1,10 @@
-use crate::core::ig_fs::{igFileWorkItemProcessor, igStorageDevice};
 use crate::core::ig_file_context::WorkStatus::*;
 use crate::core::ig_file_context::{igFileWorkItem, WorkItemBuffer};
+use crate::core::ig_fs::{igFileWorkItemProcessor, igStorageDevice};
+use log::error;
 use std::fs;
 use std::fs::File;
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use walkdir::WalkDir;
@@ -36,6 +37,27 @@ impl igStdLibStorageDevice {
     }
 }
 
+/// Covers compatability issues with case-insensitive filesystems such as ext4 (linux).
+fn find_case_insensitive_path<P: AsRef<Path>>(input: P) -> std::io::Result<Option<PathBuf>> {
+    let input = input.as_ref();
+
+    let parent = input.parent().unwrap_or(Path::new("."));
+    let file_name = match input.file_name() {
+        Some(name) => name.to_string_lossy().to_lowercase(),
+        None => return Ok(None),
+    };
+
+    for entry in fs::read_dir(parent)? {
+        let entry = entry?;
+        let entry_name = entry.file_name();
+        if entry_name.to_string_lossy().to_lowercase() == file_name {
+            return Ok(Some(entry.path()));
+        }
+    }
+
+    Ok(None)
+}
+
 impl igStorageDevice for igStdLibStorageDevice {
     fn get_path(&self) -> String {
         self._path.clone()
@@ -57,22 +79,33 @@ impl igStorageDevice for igStdLibStorageDevice {
             work_item._status = kStatusInvalidPath
         }
     }
-
     fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        let full_path = self.get_combined_path(work_item);
-        let result = File::open(full_path);
-        if result.is_ok() {
-            let mut buffer = Vec::new();
-            result.unwrap().read_to_end(&mut buffer).unwrap();
+        let path_buf = PathBuf::from(&self.get_combined_path(work_item));
 
-            work_item._file._device = Some(this);
-            work_item._file._handle = Some(Cursor::new(buffer));
-            work_item._status = kStatusComplete;
-        } else {
-            let error = result.err().unwrap();
-            match error.kind() {
-                _ => {}
+        if let Ok(Some(path)) = find_case_insensitive_path(path_buf) {
+            let result = File::open(path);
+            if result.is_ok() {
+                let mut buffer = Vec::new();
+                result.unwrap().read_to_end(&mut buffer).unwrap();
+
+                work_item._file._device = Some(this);
+                work_item._file._handle = Some(Cursor::new(buffer));
+                work_item._status = kStatusComplete;
+            } else {
+                let error = result.err().unwrap();
+                match error.kind() {
+                    ErrorKind::NotFound => {
+                        work_item._status = kStatusInvalidPath;
+                    }
+                    _ => {
+                        work_item._status = kStatusGeneralError;
+                    }
+                }
             }
+        } else {
+            // If this comes up later on, without this there is little to no hope of debugging.
+            work_item._status = kStatusGeneralError;
+            error!("General work item error in ig_std_lib_storage_device.rs: open")
         }
     }
 

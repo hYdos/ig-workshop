@@ -107,7 +107,7 @@ impl<T: Send + Sync + 'static> __internalObjectBase for igDataList<T> {
             match name {
                 "_data" => {
                     let mut guard = value.write().unwrap();
-                    let memory = guard.downcast_mut::<igMemory<_>>().unwrap();
+                    let memory = guard.downcast_mut::<igMemory<T>>().expect("igMemory stored unexpected data.");
                     info!("input list size: {}", memory.data.len());
                     info!("input list capacity: {}", memory.data.capacity());
                     self.list.write().unwrap().append(&mut memory.data);

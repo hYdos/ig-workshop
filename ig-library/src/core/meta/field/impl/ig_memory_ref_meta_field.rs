@@ -35,7 +35,7 @@ impl igMetaField for igMemoryRefMetaField {
 
         let raw = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
         let offset = ctx.deserialize_offset(raw);
-        let mut memory: igMemory<igAny> = igMemory::new(); // we don't know the type inside the memory, we didn't create it. However, we know the metafield so we know what is supposed to be here, making it safe in the end.
+        let mut memory: igMemory<igAny> = igMemory::new(); // We don't know the type inside the memory, we didn't create it. However, we know the metafield so we know what is supposed to be here, making it safe in the end.
 
         // TODO: make 2 constructors for igMemory: one takes a pool and the other a set of flags. This fits in with rust's structuring where nothing should be used until initialized and guarantees better safety
         if ctx.runtime_fields.pool_ids.binary_search(&start).is_ok() {

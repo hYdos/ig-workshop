@@ -1,14 +1,14 @@
-use crate::core::ig_fs::{igFileDescriptor, igFileWorkItemProcessor, Endian};
 use crate::core::ig_archive::igArchive;
 use crate::core::ig_archive_manager::igArchiveManager;
 use crate::core::ig_archive_mount_manager::igArchiveMountManager;
 use crate::core::ig_file_context::WorkItemBuffer::Invalid;
+use crate::core::ig_fs::{igFileDescriptor, igFileWorkItemProcessor, Endian};
 use crate::core::ig_registry::igRegistry;
 use crate::core::ig_std_lib_storage_device::igStdLibStorageDevice;
 use log::{debug, error, warn};
+use phf::phf_map;
 use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
-use phf::phf_map;
 
 static VIRTUAL_DEVICES: phf::Map<&'static str, &'static str> = phf_map! {
     "actors"            => "actors",
@@ -146,10 +146,17 @@ impl igFileContext {
         };
         let processor_stack = self.processor_stack.lock().unwrap();
         processor_stack.process(self.processor_stack.clone(), &mut work_item);
-        
+
         match work_item._status {
-            WorkStatus::kStatusComplete => {},
-            _ => warn!("Work Item completed with status {:?}. Path is {}", work_item._status, work_item._file._path),
+            WorkStatus::kStatusComplete => {}
+            WorkStatus::kStatusActive => error!(
+                "Failed to open the file {}. no Work Status was set in any file system processor.",
+                work_item._path
+            ),
+            _ => warn!(
+                "Work Item completed with status {:?}. Path is {}",
+                work_item._status, work_item._path
+            ),
         }
         work_item._file
     }
@@ -220,7 +227,7 @@ fn interpret_path(alchemy_path: &str) -> String {
 pub fn get_native_path(mut path: String) -> String {
     path = path.replace("\\", "/");
     path = interpret_path(&path);
-    
+
     path
 }
 
