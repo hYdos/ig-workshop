@@ -66,7 +66,7 @@ impl igMetadataManager {
                     debug!("Setting up igz field {}", name);
                     handle.set_position(object_offset + field.offset as u64);
                     let metafield = self.meta_field_registry.get(field.clone());
-                    let value = metafield.value_from_igz(handle, &endian, ctx, &self.meta_field_registry);
+                    let value = metafield.value_from_igz(handle, &endian, ctx, &self.meta_field_registry, &self);
                     if let Ok(mut guard) = ig_object.write() {
                         match guard.set_field(name.as_ref(), value) {
                             Ok(_) => {}
@@ -147,6 +147,7 @@ pub trait __internalObjectBase: Sync + Send {
         &self,
         name: &str,
     ) -> Result<igAny, FieldDoesntExist>;
+    
     fn get_field(
         &self,
         name: &str,
@@ -155,7 +156,9 @@ pub trait __internalObjectBase: Sync + Send {
     fn as_mut_any(&mut self) -> &mut (dyn Any + Send + Sync);
 }
 
-/// Represents an object with no programmer made translation. However, programmer translated (structs implementing __internalObjectBase) may use this struct in order to build their representation of an igObject.
+/// Represents an object with no programmer-made translation. However, programmer translated (structs implementing __internalObjectBase) may use this struct in order to build their representation of an igObject. This has not been implemented though, and will most likely change in the future.
+// TODO: this class should NEVER be used. It WILL cause issues if there are two tools and one tool expects a class while the other one doesn't have one. I can't think of too many uses for it anyways. Maybe remove it in the future?
+#[deprecated]
 pub struct igGenericObject {
     meta: Arc<igMetaObject>,
     constructed_field_storage: Vec<RwLock<igConstructedField>>,

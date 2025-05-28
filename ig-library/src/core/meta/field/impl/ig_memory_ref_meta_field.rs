@@ -7,7 +7,7 @@ use crate::core::load::ig_igz_loader::IgzLoaderContext;
 use crate::core::memory::igMemory;
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 use crate::core::meta::field::ig_metafields::igMetaField;
-use crate::core::meta::ig_metadata_manager::igMetaFieldInfo;
+use crate::core::meta::ig_metadata_manager::{igMetaFieldInfo, igMetadataManager};
 use crate::core::save::ig_igb_saver::{IgbSaverContext, IgbSaverError};
 use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
@@ -28,12 +28,13 @@ impl igMetaField for igMemoryRefMetaField {
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
         ctx: &IgzLoaderContext,
-        registry: &igMetafieldRegistry
+        registry: &igMetafieldRegistry,
+        metadata_manager: &igMetadataManager,
     ) -> Option<igAny> {
         let start = handle.position();
         let flags = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
-
         let raw = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
+        
         let offset = ctx.deserialize_offset(raw);
         let mut memory: igMemory<igAny> = igMemory::new(); // We don't know the type inside the memory, we didn't create it. However, we know the metafield so we know what is supposed to be here, making it safe in the end.
 
@@ -41,7 +42,7 @@ impl igMetaField for igMemoryRefMetaField {
         if ctx.runtime_fields.pool_ids.binary_search(&start).is_ok() {
             memory.pool = ctx.loaded_pools[(flags & 0xFFFFFF) as usize];
         } else {
-            memory.set_flags(flags, self, ctx.platform.clone());
+            memory.set_flags(metadata_manager, flags, self, ctx.platform.clone());
             memory.pool = ctx.get_pool_from_serialized_offset(raw);
 
             let guard = self.0.ark_info.read().unwrap();
@@ -50,17 +51,25 @@ impl igMetaField for igMemoryRefMetaField {
                 handle.set_position(offset);
                 let slice = read_struct_array_u8_ref(handle, endian, memory.data.len()).unwrap();
                 for x in slice {
+                    handle.set_position(offset);
                     memory.data.push(Arc::new(RwLock::new(x)));
                 }
             } else {
                 let inner_ark_info_guard = guard.ig_memory_ref_info.clone().unwrap();
                 let inner_meta_field = registry.get_simple(&inner_ark_info_guard.read().unwrap());
-                for _ in 0..memory.data.capacity() {
-                    memory.data.push(inner_meta_field.value_from_igz(handle, endian, ctx, registry)?)
+                for i in 0..memory.data.len() {
+                    handle.set_position((offset + self.0.size as u64) * (i as u64));
+                    memory.data.push(inner_meta_field.value_from_igz(
+                        handle,
+                        endian,
+                        ctx,
+                        registry,
+                        metadata_manager,
+                    )?)
                 }
             }
         }
-        
+
         Some(Arc::new(RwLock::new(memory)))
     }
 
@@ -109,11 +118,19 @@ impl igMetaField for igMemoryRefMetaField {
         todo!()
     }
 
-    fn platform_size(&self, platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_size(
+        &self,
+        ig_metadata_manager: &igMetadataManager,
+        platform: IG_CORE_PLATFORM,
+    ) -> u32 {
         (platform.get_pointer_size() * 2) as u32
     }
 
-    fn platform_alignment(&self, platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_alignment(
+        &self,
+        ig_metadata_manager: &igMetadataManager,
+        platform: IG_CORE_PLATFORM,
+    ) -> u32 {
         platform.get_pointer_size() as u32
     }
 }

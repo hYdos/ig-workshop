@@ -9,6 +9,7 @@ use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
 use std::io::Cursor;
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
+use crate::core::meta::ig_metadata_manager::igMetadataManager;
 
 /// Implementation of a meta field that allows for serialization/deserialization of the type.
 pub trait igMetaField: Send + Sync {
@@ -20,7 +21,8 @@ pub trait igMetaField: Send + Sync {
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
         ctx: &IgzLoaderContext,
-        registry: &igMetafieldRegistry
+        registry: &igMetafieldRegistry,
+        metadata_manager: &igMetadataManager,
     ) -> Option<igAny>;
     /// Accepts a value of type <T> and will return [Ok] if successful. If an error occurred, the type [IgzSaverError] will be returned hopefully containing useful information for debugging
     fn value_into_igz(
@@ -61,8 +63,8 @@ pub trait igMetaField: Send + Sync {
     ) -> Result<(), IgbSaverError>;
 
     /// The size of the value on the specified platform
-    fn platform_size(&self, platform: IG_CORE_PLATFORM) -> u32;
+    fn platform_size(&self, ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32;
 
     /// The alignment needed to be used on the specified platform
-    fn platform_alignment(&self, platform: IG_CORE_PLATFORM) -> u32;
+    fn platform_alignment(&self, ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32;
 }

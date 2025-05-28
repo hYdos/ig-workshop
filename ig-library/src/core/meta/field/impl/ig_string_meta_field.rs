@@ -13,6 +13,7 @@ use std::any::TypeId;
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
+use crate::core::meta::ig_metadata_manager::igMetadataManager;
 
 pub(crate) struct igStringMetaField;
 
@@ -26,7 +27,8 @@ impl igMetaField for igStringMetaField {
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
         ctx: &IgzLoaderContext,
-        _registry: &igMetafieldRegistry
+        registry: &igMetafieldRegistry,
+        metadata_manager: &igMetadataManager
     ) -> Option<igAny> {
         let base_pos = handle.position();
         let is_ref = ctx
@@ -105,11 +107,11 @@ impl igMetaField for igStringMetaField {
         todo!()
     }
 
-    fn platform_size(&self, platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_size(&self, _ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32 {
         platform.get_pointer_size() as u32
     }
 
-    fn platform_alignment(&self, platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_alignment(&self, _ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32 {
         platform.get_pointer_size() as u32
     }
 }

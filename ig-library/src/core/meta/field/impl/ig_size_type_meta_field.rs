@@ -11,6 +11,7 @@ use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
 use std::any::TypeId;
 use std::io::Cursor;
+use crate::core::meta::ig_metadata_manager::igMetadataManager;
 
 pub struct igSizeTypeMetaField;
 
@@ -21,10 +22,11 @@ impl igMetaField for igSizeTypeMetaField {
 
     fn value_from_igz(
         &self,
-        _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
-        _ctx: &IgzLoaderContext,
-        _registry: &igMetafieldRegistry,
+        handle: &mut Cursor<Vec<u8>>,
+        endian: &Endian,
+        ctx: &IgzLoaderContext,
+        registry: &igMetafieldRegistry,
+        metadata_manager: &igMetadataManager,
     ) -> Option<igAny> {
         todo!()
     }
@@ -74,11 +76,11 @@ impl igMetaField for igSizeTypeMetaField {
         todo!()
     }
 
-    fn platform_size(&self, _platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_size(&self, _ig_metadata_manager: &igMetadataManager, _platform: IG_CORE_PLATFORM) -> u32 {
         todo!()
     }
 
-    fn platform_alignment(&self, _platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_alignment(&self, _ig_metadata_manager: &igMetadataManager, _platform: IG_CORE_PLATFORM) -> u32 {
         todo!()
     }
 }

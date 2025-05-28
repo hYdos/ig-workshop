@@ -11,6 +11,7 @@ use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
 use std::any::TypeId;
 use std::io::Cursor;
+use crate::core::meta::ig_metadata_manager::igMetadataManager;
 
 pub struct igObjectRefMetaField;
 
@@ -22,9 +23,10 @@ impl igMetaField for igObjectRefMetaField {
     fn value_from_igz(
         &self,
         handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
-        _ctx: &IgzLoaderContext,
-        _registry: &igMetafieldRegistry,
+        endian: &Endian,
+        ctx: &IgzLoaderContext,
+        registry: &igMetafieldRegistry,
+        metadata_manager: &igMetadataManager,
     ) -> Option<igAny> {
         let _base_offset = handle.position();
 
@@ -76,11 +78,11 @@ impl igMetaField for igObjectRefMetaField {
         todo!()
     }
 
-    fn platform_size(&self, _platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_size(&self, _ig_metadata_manager: &igMetadataManager,  _platform: IG_CORE_PLATFORM) -> u32 {
         todo!()
     }
 
-    fn platform_alignment(&self, _platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_alignment(&self, _ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32 {
         todo!()
     }
 }

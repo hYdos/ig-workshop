@@ -11,6 +11,7 @@ use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
 use crate::util::ig_hash::hash_lower;
 use ig_proc_macros::igStruct;
+use crate::core::meta::ig_metadata_manager::igMetadataManager;
 
 #[igStruct]
 #[derive(Debug, Clone)]

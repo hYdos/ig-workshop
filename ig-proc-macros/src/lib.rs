@@ -35,15 +35,15 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Generate reading code for each field (simplified)
     let read_fields = fields.iter().map(|field| {
-        let name = field.ident.as_ref().unwrap();
+        let name = field.ident.as_ref().expect("internal igStruct error #1");
         let ty = &field.ty;
         if quote!(#ty).to_string().contains("Option < String") {
             quote! {
-                let #name = Some(read_string(handle).unwrap());
+                let #name = Some(read_string(handle).expect("igStruct impl UTF-8 string decoding failed"));
             }
         } else if quote!(#ty).to_string() == "u32" {
             quote! {
-                let #name = read_u32(handle, endian).unwrap();
+                let #name = read_u32(handle, endian).expect("igStruct impl u32 decoding failed");
             }
         } else {
             quote! {
@@ -73,6 +73,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 endian: &Endian,
                 ctx: &IgzLoaderContext,
                 registry: &igMetafieldRegistry,
+                metadata_manager: &igMetadataManager
             ) -> Option<igAny> {
                 use crate::util::byteorder_fixes::*;
                 #(#read_fields)*
@@ -126,12 +127,12 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 todo!()
             }
 
-            fn platform_size(&self, platform: IG_CORE_PLATFORM) -> u32 {
-                (platform.get_pointer_size() + std::mem::size_of::<u32>()) as u32
+            fn platform_size(&self, ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32 {
+                todo!("platform_size")
             }
 
-            fn platform_alignment(&self, platform: IG_CORE_PLATFORM) -> u32 {
-                (platform.get_pointer_size() + std::mem::size_of::<u32>()) as u32
+            fn platform_alignment(&self, ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32 {
+                todo!("platform_alignment")
             }
         }
     };

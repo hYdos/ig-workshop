@@ -1,10 +1,12 @@
 // TODO: on release tie this behind its own run config #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod logger;
+mod tabs;
 mod window;
 
 use crate::logger::init_logger;
-use crate::window::{GameConfig, LoadedGame, igCauldronWindow};
+use crate::tabs::raw_editor::RawEditorTab;
+use crate::window::{GameConfig, LoadedGame, igWorkshopWindow};
 use eframe::HardwareAcceleration::Required;
 use egui::IconData;
 use egui_dock::DockState;
@@ -25,7 +27,7 @@ use std::fs::File;
 use std::io::Cursor;
 use std::ops::Sub;
 use std::string::ToString;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread::Builder;
 use std::time::Instant;
 
@@ -48,12 +50,15 @@ fn main() {
     eframe::run_native(
         "igWorkshop",
         options,
-        Box::new(|_cc| Ok(Box::new(igCauldronWindow::new(configs)))),
+        Box::new(|_cc| Ok(Box::new(igWorkshopWindow::new(configs)))),
     )
     .expect("How did you fail this lol");
 }
 
-pub fn load_game_data(game_cfg: GameConfig, dock_state: Arc<Mutex<DockState<window::Tab>>>) {
+pub fn load_game_data(
+    game_cfg: GameConfig,
+    dock_state: Arc<Mutex<DockState<window::WorkshopTab>>>,
+) {
     Builder::new()
         .name("igGameDataLoader".to_string())
         .spawn(move || {
@@ -79,10 +84,12 @@ pub fn load_game_data(game_cfg: GameConfig, dock_state: Arc<Mutex<DockState<wind
 
             load_init_script(game_cfg.clone()._game, false, &mut ig_alchemy);
 
-            let new_leaf = Some(Arc::new(Mutex::new(LoadedGame {
-                cfg: game_cfg.clone(),
-                ig_alchemy,
-            })));
+            let new_leaf = Box::new(RawEditorTab {
+                game: LoadedGame {
+                    cfg: game_cfg.clone(),
+                    ig_alchemy,
+                },
+            });
 
             // I'm going to be honest I'm not a fan of this method.
             // however, with how complex these games are we need to save performance (by not recreating tabs) as much as possible
@@ -164,7 +171,14 @@ fn save_config(game_configs: &VecDeque<Arc<Mutex<GameConfig>>>) {
         let file = File::create(path.as_path()).unwrap();
         let writer = BufferedWriter::new(file);
 
-        sonic_rs::to_writer_pretty(writer, &GameConfigHeader { _version: 2, _games: game_configs }).unwrap();
+        sonic_rs::to_writer_pretty(
+            writer,
+            &GameConfigHeader {
+                _version: 2,
+                _games: game_configs,
+            },
+        )
+        .unwrap();
         info!("Config saved to {}", path.as_os_str().to_str().unwrap());
     } else {
         error!("Could not save config :(");

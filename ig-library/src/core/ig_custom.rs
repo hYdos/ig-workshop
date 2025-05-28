@@ -107,10 +107,10 @@ impl<T: Send + Sync + 'static> __internalObjectBase for igDataList<T> {
             match name {
                 "_data" => {
                     let mut guard = value.write().unwrap();
-                    let memory = guard.downcast_mut::<igMemory<T>>().expect("igMemory stored unexpected data.");
+                    let memory = guard.downcast_mut::<igMemory<igAny>>().expect("igMemory generic does not match _data. TODO: generate these with macros and have an error message that says what the generic is");
                     info!("input list size: {}", memory.data.len());
                     info!("input list capacity: {}", memory.data.capacity());
-                    self.list.write().unwrap().append(&mut memory.data);
+                    // self.list.write().unwrap().append(&mut memory.data);
                     return Ok(());
                 }
                 &_ => {
@@ -125,10 +125,12 @@ impl<T: Send + Sync + 'static> __internalObjectBase for igDataList<T> {
         Ok(())
     }
 
+    #[inline]
     fn get_non_null_field(&self, _name: &str) -> Result<igAny, FieldDoesntExist> {
         todo!()
     }
 
+    #[inline]
     fn get_field(
         &self,
         _name: &str,

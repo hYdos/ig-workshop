@@ -627,14 +627,16 @@ impl igIGZLoader {
     ) {
         let mut fd = ig_file_context.open(ig_registry, file_path, 0);
         if let Some(mut handle) = fd._handle {
-            // use std::io::Read;
-            // use byteorder::WriteBytesExt;
-            // let old_pos = handle.position();
-            // let mut file = std::fs::File::create("level.igz").unwrap();
-            // for byte in handle.bytes() {
-            //     file.write_u8(byte.unwrap()).unwrap();
+            // if file_path == "packages/generated/packagexmls/permanent_pkg.igz" {
+            //     use std::io::Read;
+            //     use byteorder::WriteBytesExt;
+            //     let old_pos = handle.position();
+            //     let mut file = std::fs::File::create("file.igz").unwrap();
+            //     for byte in handle.bytes() {
+            //         file.write_u8(byte.unwrap()).unwrap();
+            //     }
+            //     todo!("file.igz saved");
             // }
-            // todo!("level.igz saved");
 
             let magic = read_u32(&mut handle, &Little).unwrap();
             match magic {

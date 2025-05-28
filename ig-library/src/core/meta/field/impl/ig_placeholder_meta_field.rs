@@ -10,9 +10,10 @@ use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
 use log::{error, warn};
 use std::any::TypeId;
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Read};
 use std::sync::{Arc, RwLock};
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
+use crate::core::meta::ig_metadata_manager::igMetadataManager;
 
 pub struct igPlaceholderMetafield(pub u32, pub Arc<str>);
 
@@ -24,12 +25,13 @@ impl igMetaField for igPlaceholderMetafield {
     fn value_from_igz(
         &self,
         handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        endian: &Endian,
         ctx: &IgzLoaderContext,
-        _registry: &igMetafieldRegistry
+        registry: &igMetafieldRegistry,
+        metadata_manager: &igMetadataManager
     ) -> Option<igAny> {
         warn!("{} has no implementation. Using igPlaceholderMetafield. Harass hydos to implement this or make a PR!", self.1);
-        let mut fake_buffer = Vec::with_capacity(self.platform_size(ctx.platform.clone()) as usize);
+        let mut fake_buffer = Vec::with_capacity(self.platform_size(metadata_manager, ctx.platform.clone()) as usize);
         handle.read_exact(&mut fake_buffer).unwrap();
         Some(Arc::new(RwLock::new(fake_buffer)))
     }
@@ -40,11 +42,12 @@ impl igMetaField for igPlaceholderMetafield {
         _endian: &Endian,
         ctx: &mut IgzSaverContext,
     ) -> Result<(), IgzSaverError> {
-        let fake_buffer = Vec::with_capacity(self.platform_size(ctx.platform.clone()) as usize);
-        handle
-            .write(fake_buffer.as_slice())
-            .map_err(|_e| IgzSaverError::Unknown)
-            .map(|_t| {})
+        todo!()
+        // let fake_buffer = Vec::with_capacity(self.platform_size(ctx.platform.clone()) as usize);
+        // handle
+        //     .write(fake_buffer.as_slice())
+        //     .map_err(|_e| IgzSaverError::Unknown)
+        //     .map(|_t| {})
     }
 
     fn value_from_igx(
@@ -90,11 +93,12 @@ impl igMetaField for igPlaceholderMetafield {
         panic!("Alchemy Error! Check the logs.")
     }
 
-    fn platform_size(&self, _platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_size(&self, _ig_metadata_manager: &igMetadataManager, _platform: IG_CORE_PLATFORM) -> u32 {
+        
         self.0
     }
 
-    fn platform_alignment(&self, _platform: IG_CORE_PLATFORM) -> u32 {
+    fn platform_alignment(&self, _ig_metadata_manager: &igMetadataManager, _platform: IG_CORE_PLATFORM) -> u32 {
         self.0
     }
 }
