@@ -26,9 +26,14 @@ jobs:
       - name: Build in release mode
         run: cargo build --release
 
-      - name: Upload build artifacts
+      - name: Prepare artifact contents
+        run: |
+          mkdir -p artifact
+          cp target/release/${{ github.event.repository.name }}* artifact/
+          cp -r ArkCore artifact/
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-binary
-          path: |
-            target/release/${{ github.event.repository.name }}*
+          name: ${{ matrix.os }}-build
+          path: artifact/
