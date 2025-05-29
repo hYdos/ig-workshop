@@ -1,2 +1,2 @@
-pub mod raw_editor;
+pub mod laboratory_editor;
 pub mod configuration;

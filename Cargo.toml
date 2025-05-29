@@ -21,6 +21,7 @@ phf = { version = "0.11.3", features = ["macros"] }
 byteorder = "1.5.0"
 walkdir = "2.5.0"
 rfd = "0.15.3"
+egui_ltreeview = "0.2.0"
 
 [profile.release]
 debug = true

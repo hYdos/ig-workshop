@@ -1,0 +1,206 @@
+use crate::window::{LoadedGame, WorkshopTabImpl, WorkshopTabViewer};
+use egui::{CentralPanel, Id, SidePanel, Ui, WidgetText};
+use egui_ltreeview::{NodeBuilder, TreeView, TreeViewBuilder};
+use ig_library::core::ig_objects::igObject;
+use ig_library::util::ig_name::igName;
+use std::collections::HashMap;
+use std::sync::Arc;
+use rfd::FileDialog;
+
+/// Tab specifically designed for usage with games made in Vicarious Visions Laboratory.
+pub struct VVLaboratoryEditor {
+    game: LoadedGame,
+    loaded_packages: HashMap<Arc<str>, LaboratoryPackage>,
+}
+
+struct LaboratoryPackage {
+    #[allow(dead_code)] // used for referencing the internal ig_object_dir if needed in the future
+    pub name: igName,
+    pub pkg_list: Vec<igObject>,
+    pub character_data_list: Vec<igObject>,
+    pub actor_skin_list: Vec<igObject>,
+    pub havok_anim_db_list: Vec<igObject>,
+    pub havok_rigid_body_list: Vec<igObject>,
+    pub havok_physics_system_list: Vec<igObject>,
+    pub texture_list: Vec<igObject>,
+    pub effect_list: Vec<igObject>,
+    pub shader_list: Vec<igObject>,
+    pub motion_path_list: Vec<igObject>,
+    pub igx_file_list: Vec<igObject>,
+    pub material_instances_list: Vec<igObject>,
+    pub igx_entities_list: Vec<igObject>,
+    pub gui_project_list: Vec<igObject>,
+    pub font_list: Vec<igObject>,
+    pub lang_file_list: Vec<igObject>,
+    pub spawn_mesh_list: Vec<igObject>,
+    pub model_list: Vec<igObject>,
+    pub sky_model_list: Vec<igObject>,
+    pub behavior_list: Vec<igObject>,
+    pub graph_data_behavior_list: Vec<igObject>,
+    pub events_behavior_list: Vec<igObject>,
+    pub asset_behavior_list: Vec<igObject>,
+    pub hkb_behavior_list: Vec<igObject>,
+    pub hkc_character_list: Vec<igObject>,
+    pub navmesh_list: Vec<igObject>,
+    pub script_list: Vec<igObject>,
+}
+
+impl VVLaboratoryEditor {
+    pub fn new(game: LoadedGame) -> Box<VVLaboratoryEditor> {
+        let mut loaded_packages = HashMap::new();
+
+        // process all initscript files loaded once at tab startup
+        let loaded_igzs = &game
+            .ig_alchemy
+            .object_stream_manager
+            .name_to_directory_lookup;
+        for (_, igz_directory) in loaded_igzs {
+            let objects = igz_directory.list.read().unwrap();
+            for object in objects.iter() {
+                let ig_object_dir = object.read().unwrap();
+                let igz_name = ig_object_dir.name.string.clone().unwrap();
+                let is_laboratory_package = igz_name.ends_with("_pkg.igz");
+                if is_laboratory_package {
+                    let user_friendly_name = igz_name
+                        .replace("packages/generated/", "")
+                        .replace("_pkg.igz", "");
+
+                    loaded_packages.insert(
+                        Arc::from(user_friendly_name),
+                        LaboratoryPackage {
+                            name: ig_object_dir.name.clone(),
+                            pkg_list: vec![],
+                            character_data_list: vec![],
+                            actor_skin_list: vec![],
+                            havok_anim_db_list: vec![],
+                            havok_rigid_body_list: vec![],
+                            havok_physics_system_list: vec![],
+                            texture_list: vec![],
+                            effect_list: vec![],
+                            shader_list: vec![],
+                            motion_path_list: vec![],
+                            igx_file_list: vec![],
+                            material_instances_list: vec![],
+                            igx_entities_list: vec![],
+                            gui_project_list: vec![],
+                            font_list: vec![],
+                            lang_file_list: vec![],
+                            spawn_mesh_list: vec![],
+                            model_list: vec![],
+                            sky_model_list: vec![],
+                            behavior_list: vec![],
+                            graph_data_behavior_list: vec![],
+                            events_behavior_list: vec![],
+                            asset_behavior_list: vec![],
+                            hkb_behavior_list: vec![],
+                            hkc_character_list: vec![],
+                            navmesh_list: vec![],
+                            script_list: vec![],
+                        },
+                    );
+                }
+            }
+        }
+
+        Box::new(Self {
+            game,
+            loaded_packages,
+        })
+    }
+}
+impl WorkshopTabImpl for VVLaboratoryEditor {
+    fn title(&self, _viewer: &mut WorkshopTabViewer) -> WidgetText {
+        format!("{} ({})", self.game.cfg._game, self.game.cfg._platform).into()
+    }
+
+    fn ui(&mut self, ui: &mut Ui, _viewer: &mut WorkshopTabViewer) {
+        SidePanel::left(ui.make_persistent_id("left_file_panel"))
+            .resizable(true)
+            .min_width(50.0)
+            .show_inside(ui, |ui| {
+                let load_pkg = ui.button("Load Package");
+
+                if load_pkg.clicked() {
+                    todo!("Load Package not implemented")
+                }
+                
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    let id = ui.make_persistent_id("file_tree_view");
+                    TreeView::new(id).show(ui, |builder| {
+                        for (package_name, package) in &self.loaded_packages {
+                            builder.node(
+                                NodeBuilder::dir(package.name.hash)
+                                    .default_open(false)
+                                    .activatable(true)
+                                    .label_ui(|ui| {
+                                        ui.add(
+                                            egui::Label::new(WidgetText::from(
+                                                package_name.clone().to_string(),
+                                            ))
+                                            .selectable(false),
+                                        );
+                                    }),
+                            );
+                            builder.dir(package.name.hash + 1, "Character Data");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 2, "Actor Skins");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 3, "Havok Animation Databases");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 4, "Havok Rigid Bodies");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 5, "Havok Physics Systems");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 6, "Textures");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 7, "Effects");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 8, "Shaders");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 9, "Motion Paths");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 10, "igx Files");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 11, "Material Instances");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 12, "igx Entities");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 13, "Gui Projects");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 14, "Fonts");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 15, "Lang Files");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 16, "Spawn Meshes");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 17, "Models");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 18, "Sky Models");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 19, "Behaviours");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 20, "Graph Data");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 21, "Events Behaviours");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 22, "Asset Behaviours");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 23, "Havok Binary Behaviors");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 24, "Havok Char Characters");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 25, "Navigation Meshes");
+                            builder.close_dir();
+                            builder.dir(package.name.hash + 26, "Scripts");
+                            builder.close_dir();
+
+                            builder.close_dir();
+                        }
+                    });
+                });
+            });
+        CentralPanel::default().show_inside(ui, |ui| {
+            ui.label(format!("Content of {:?}", self.game.cfg._game));
+        });
+    }
+}

@@ -5,7 +5,7 @@ mod tabs;
 mod window;
 
 use crate::logger::init_logger;
-use crate::tabs::raw_editor::RawEditorTab;
+use crate::tabs::laboratory_editor::VVLaboratoryEditor;
 use crate::window::{GameConfig, LoadedGame, igWorkshopWindow};
 use eframe::HardwareAcceleration::Required;
 use egui::IconData;
@@ -27,7 +27,7 @@ use std::fs::File;
 use std::io::Cursor;
 use std::ops::Sub;
 use std::string::ToString;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use std::thread::Builder;
 use std::time::Instant;
 
@@ -84,11 +84,9 @@ pub fn load_game_data(
 
             load_init_script(game_cfg.clone()._game, false, &mut ig_alchemy);
 
-            let new_leaf = Box::new(RawEditorTab {
-                game: LoadedGame {
-                    cfg: game_cfg.clone(),
-                    ig_alchemy,
-                },
+            let new_leaf = VVLaboratoryEditor::new(LoadedGame {
+                cfg: game_cfg.clone(),
+                ig_alchemy,
             });
 
             // I'm going to be honest I'm not a fan of this method.

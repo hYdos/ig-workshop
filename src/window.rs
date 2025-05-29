@@ -2,6 +2,7 @@
 
 use crate::logger::LAST_LOG_LINE;
 use crate::save_config;
+use crate::tabs::configuration::ConfigurationTab;
 use egui::{menu, InputState, Key, Ui, WidgetText};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use ig_library::core::ig_ark_core::EGame;
@@ -9,8 +10,7 @@ use ig_library::core::ig_core_platform::IG_CORE_PLATFORM;
 use ig_library::util::ig_common::igAlchemy;
 use serde::Serialize;
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex, RwLock};
-use crate::tabs::configuration::ConfigurationTab;
+use std::sync::{Arc, Mutex};
 
 pub struct igWorkshopWindow {
     dock_state: Arc<Mutex<DockState<WorkshopTab>>>,
