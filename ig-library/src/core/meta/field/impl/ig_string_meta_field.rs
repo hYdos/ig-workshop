@@ -1,4 +1,3 @@
-use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_fs::Endian;
 use crate::core::ig_objects::igAny;
 use crate::core::load::ig_igb_loader::IgbLoaderContext;
@@ -26,7 +25,7 @@ impl igMetaField for igStringMetaField {
     fn value_from_igz(
         &self,
         handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
+        endian: Endian,
         ctx: &IgzLoaderContext,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager
@@ -67,7 +66,7 @@ impl igMetaField for igStringMetaField {
     fn value_into_igz(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgzSaverContext,
     ) -> Result<(), IgzSaverError> {
         todo!()
@@ -76,7 +75,7 @@ impl igMetaField for igStringMetaField {
     fn value_from_igx(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgxLoaderContext,
     ) -> Option<igAny> {
         todo!()
@@ -85,7 +84,7 @@ impl igMetaField for igStringMetaField {
     fn value_into_igx(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgxSaverContext,
     ) -> Result<(), IgxSaverError> {
         todo!()
@@ -94,7 +93,7 @@ impl igMetaField for igStringMetaField {
     fn value_from_igb(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgbLoaderContext,
     ) -> Option<igAny> {
         todo!()
@@ -103,17 +102,9 @@ impl igMetaField for igStringMetaField {
     fn value_into_igb(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgbSaverContext,
     ) -> Result<(), IgbSaverError> {
         todo!()
-    }
-
-    fn platform_size(&self, _ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32 {
-        platform.get_pointer_size() as u32
-    }
-
-    fn platform_alignment(&self, _ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32 {
-        platform.get_pointer_size() as u32
     }
 }

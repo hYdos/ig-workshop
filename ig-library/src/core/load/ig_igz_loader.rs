@@ -55,7 +55,7 @@ impl Fixup {
     fn fix(
         &self,
         handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
+        endian: Endian,
         imm: &mut igMetadataManager,
         length: u32,
         start: u32,
@@ -131,8 +131,8 @@ impl Fixup {
             Fixup::EXTERNAL_DEPENDENCIES_BY_ID => {
                 for _i in 0..count {
                     let dependency_name = igHandleName::new(
-                        igName::from_hash(read_u32(handle, endian).unwrap()), // name
-                        igName::from_hash(read_u32(handle, endian).unwrap()), // namespace
+                        igName::from_hash(read_u32(handle, endian.clone()).unwrap()), // name
+                        igName::from_hash(read_u32(handle, endian.clone()).unwrap()), // namespace
                     );
 
                     let mut obj = None;
@@ -206,7 +206,7 @@ impl Fixup {
             }
             Fixup::EXTERNAL_DEPENDENCIES_BY_NAME => {
                 for _i in 0..count {
-                    let raw_handle = read_u64(handle, endian).unwrap();
+                    let raw_handle = read_u64(handle, endian.clone()).unwrap();
                     let ns_str_index = (raw_handle >> 32) as u32;
                     let name_str_index = raw_handle as u32;
                     let dependency_handle_name = igHandleName::new(
@@ -259,15 +259,15 @@ impl Fixup {
             }
             Fixup::THUMBNAIL => {
                 for _i in 0..count {
-                    let size = read_ptr(handle, ctx.platform.clone(), &endian).unwrap();
-                    let raw = read_ptr(handle, ctx.platform.clone(), &endian).unwrap();
+                    let size = read_ptr(handle, ctx.platform.clone(), endian.clone()).unwrap();
+                    let raw = read_ptr(handle, ctx.platform.clone(), endian.clone()).unwrap();
                     ctx.thumbnails.push((size, raw))
                 }
             }
             Fixup::RUNTIME_V_TABLES => {
-                let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
+                let vec = read_struct_array_u8(handle, endian.clone(), (length - start) as usize).unwrap();
                 ctx.runtime_fields.vtables = unpack_compressed_ints(ctx, &vec, count, false);
-                instantiate_and_append_objects(ctx, handle, endian);
+                instantiate_and_append_objects(ctx, handle, endian.clone());
             }
             Fixup::RUNTIME_OBJECT_LISTS => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
@@ -329,18 +329,18 @@ impl Fixup {
 fn instantiate_and_append_objects(
     ctx: &mut IgzLoaderContext,
     handle: &mut Cursor<Vec<u8>>,
-    endian: &Endian,
+    endian: Endian,
 ) {
     for vtable in &ctx.runtime_fields.vtables {
         ctx.offset_object_list
-            .insert(*vtable, instantiate_object(ctx, handle, endian, vtable));
+            .insert(*vtable, instantiate_object(ctx, handle, endian.clone(), vtable));
     }
 }
 
 fn instantiate_object(
     ctx: &IgzLoaderContext,
     handle: &mut Cursor<Vec<u8>>,
-    endian: &Endian,
+    endian: Endian,
     offset: &u64,
 ) -> Arc<RwLock<dyn __internalObjectBase>> {
     let deserialize_offset = ctx.deserialize_offset(*offset);
@@ -637,7 +637,7 @@ impl igIGZLoader {
             //     todo!("file.igz saved");
             // }
 
-            let magic = read_u32(&mut handle, &Little).unwrap();
+            let magic = read_u32(&mut handle, Little).unwrap();
             match magic {
                 IGZ_BIG_ENDIAN_MAGIC => fd.endianness = Big,
                 IGZ_LITTLE_ENDIAN_MAGIC => fd.endianness = Little,
@@ -650,17 +650,17 @@ impl igIGZLoader {
                 }
             }
 
-            let version = read_u32(&mut handle, &fd.endianness).unwrap();
-            let meta_object_version = read_u32(&mut handle, &fd.endianness).unwrap();
+            let version = read_u32(&mut handle, fd.endianness.clone()).unwrap();
+            let meta_object_version = read_u32(&mut handle, fd.endianness.clone()).unwrap();
             let platform = imm.get_enum::<IG_CORE_PLATFORM>(
-                read_u32(&mut handle, &fd.endianness).unwrap() as usize,
+                read_u32(&mut handle, fd.endianness.clone()).unwrap() as usize,
             );
 
             let mut fixup_count = 0; // Older IGZ versions rely on you grabbing this information later on at the first section's offset (usually 2048 from what I've seen) + 0x10
 
             if version >= 0x07 {
                 // TODO: verify 0x07 acts like this as well. I know 0x08 does
-                fixup_count = read_u32(&mut handle, &fd.endianness).unwrap();
+                fixup_count = read_u32(&mut handle, fd.endianness.clone()).unwrap();
             }
 
             let mut shared_state = IgzLoaderContext {
@@ -682,11 +682,11 @@ impl igIGZLoader {
                 offset_object_list: HashMap::new(),
             };
 
-            igIGZLoader::parse_sections(&mut handle, &fd.endianness, &mut shared_state);
+            igIGZLoader::parse_sections(&mut handle, fd.endianness.clone(), &mut shared_state);
             if shared_state.version > 0x06 {
                 igIGZLoader::process_modern_fixup_sections(
                     &mut handle,
-                    &fd.endianness,
+                    fd.endianness.clone(),
                     &mut shared_state,
                     ig_file_context,
                     ig_registry,
@@ -698,7 +698,7 @@ impl igIGZLoader {
             } else {
                 igIGZLoader::process_legacy_fixup_sections(
                     &mut handle,
-                    &fd.endianness,
+                    fd.endianness.clone(),
                     &mut shared_state,
                     ig_file_context,
                     ig_registry,
@@ -709,7 +709,7 @@ impl igIGZLoader {
                 );
             }
 
-            igIGZLoader::read_objects(&mut handle, fd.endianness, imm, &mut shared_state);
+            igIGZLoader::read_objects(&mut handle, fd.endianness.clone(), imm, &mut shared_state);
         } else {
             error!("Failed to load igz {}. File could not be read.", file_path);
             panic!("Alchemy Error! Check the logs.")
@@ -718,17 +718,17 @@ impl igIGZLoader {
 
     fn parse_sections(
         handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
+        endian: Endian,
         shared_state: &mut IgzLoaderContext,
     ) {
         for i in 0..0x20 {
             handle.seek(SeekFrom::Start(get_chunk_descriptor_start(shared_state.version) + 0x10 * i)).unwrap();
-            let mem_pool_name_ptr = read_u32(handle, endian).unwrap();
+            let mem_pool_name_ptr = read_u32(handle, endian.clone()).unwrap();
             let offset;
 
-            offset = read_u32(handle, endian).unwrap();
-            let _length = read_u32(handle, endian).unwrap();
-            let _alignment = read_u32(handle, endian).unwrap();
+            offset = read_u32(handle, endian.clone()).unwrap();
+            let _length = read_u32(handle, endian.clone()).unwrap();
+            let _alignment = read_u32(handle, endian.clone()).unwrap();
 
             if offset == 0 {
                 shared_state.section_count = i as u32;
@@ -738,7 +738,7 @@ impl igIGZLoader {
             if i == 0 && shared_state.version <= 0x06 {
                 // Giants and under don't store the fixup count in the header but in this weird second IGZ header area. TODO: find out if this applies to version 0x07(SSF)
                 handle.set_position((offset + 0x10) as u64); // We don't care about storing the old position because the next code will just seek again anyway
-                shared_state.fixup_count = read_u32(handle, endian).unwrap()
+                shared_state.fixup_count = read_u32(handle, endian.clone()).unwrap()
             }
 
             handle
@@ -760,7 +760,7 @@ impl igIGZLoader {
     /// This function handles the older style of fixup used in IGZ versions 0x06 (Giants/SSA Wii) and below. It is handled quite differently so in the end its just better do keep it separate.
     fn process_legacy_fixup_sections(
         handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
+        endian: Endian,
         shared_state: &mut IgzLoaderContext,
         ig_file_context: &igFileContext,
         ig_registry: &igRegistry,
@@ -774,12 +774,12 @@ impl igIGZLoader {
 
         for _i in 0..shared_state.fixup_count {
             handle.set_position((shared_state.fixup_offset + bytes_processed) as u64);
-            let magic = read_u32(handle, endian).unwrap() as u8;
-            let _padding = read_u32(handle, endian).unwrap();
-            let _padding = read_u32(handle, endian).unwrap();
-            let count = read_u32(handle, endian).unwrap();
-            let length = read_u32(handle, endian).unwrap();
-            let start = read_u32(handle, endian).unwrap();
+            let magic = read_u32(handle, endian.clone()).unwrap() as u8;
+            let _padding = read_u32(handle, endian.clone()).unwrap();
+            let _padding = read_u32(handle, endian.clone()).unwrap();
+            let count = read_u32(handle, endian.clone()).unwrap();
+            let length = read_u32(handle, endian.clone()).unwrap();
+            let start = read_u32(handle, endian.clone()).unwrap();
             let fixup = Fixup::try_from(magic);
             handle.set_position((shared_state.fixup_offset + bytes_processed + start) as u64);
 
@@ -787,7 +787,7 @@ impl igIGZLoader {
                 debug!("Processing {:?}",fixup);
                 fixup.fix(
                     handle,
-                    endian,
+                    endian.clone(),
                     imm,
                     length,
                     start,
@@ -812,7 +812,7 @@ impl igIGZLoader {
 
     fn process_modern_fixup_sections(
         handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
+        endian: Endian,
         shared_state: &mut IgzLoaderContext,
         ig_file_context: &igFileContext,
         ig_registry: &igRegistry,
@@ -825,10 +825,10 @@ impl igIGZLoader {
 
         for _i in 0..shared_state.fixup_count {
             handle.set_position((shared_state.fixup_offset + bytes_processed) as u64);
-            let magic = read_u32(handle, endian).unwrap();
-            let count = read_u32(handle, endian).unwrap();
-            let length = read_u32(handle, endian).unwrap();
-            let start = read_u32(handle, endian).unwrap();
+            let magic = read_u32(handle, endian.clone()).unwrap();
+            let count = read_u32(handle, endian.clone()).unwrap();
+            let length = read_u32(handle, endian.clone()).unwrap();
+            let start = read_u32(handle, endian.clone()).unwrap();
             handle
                 .seek(SeekFrom::Start(
                     (shared_state.fixup_offset + bytes_processed + start) as u64,
@@ -843,7 +843,7 @@ impl igIGZLoader {
                 );
                 fixup.fix(
                     handle,
-                    endian,
+                    endian.clone(),
                     imm,
                     length,
                     start,

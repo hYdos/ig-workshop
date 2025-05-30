@@ -23,7 +23,7 @@ impl igMetaField for igSizeTypeMetaField {
     fn value_from_igz(
         &self,
         handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
+        endian: Endian,
         ctx: &IgzLoaderContext,
         registry: &igMetafieldRegistry,
         metadata_manager: &igMetadataManager,
@@ -34,7 +34,7 @@ impl igMetaField for igSizeTypeMetaField {
     fn value_into_igz(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgzSaverContext,
     ) -> Result<(), IgzSaverError> {
         todo!()
@@ -43,7 +43,7 @@ impl igMetaField for igSizeTypeMetaField {
     fn value_from_igx(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgxLoaderContext,
     ) -> Option<igAny> {
         todo!()
@@ -52,7 +52,7 @@ impl igMetaField for igSizeTypeMetaField {
     fn value_into_igx(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgxSaverContext,
     ) -> Result<(), IgxSaverError> {
         todo!()
@@ -61,7 +61,7 @@ impl igMetaField for igSizeTypeMetaField {
     fn value_from_igb(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgbLoaderContext,
     ) -> Option<igAny> {
         todo!()
@@ -70,17 +70,9 @@ impl igMetaField for igSizeTypeMetaField {
     fn value_into_igb(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgbSaverContext,
     ) -> Result<(), IgbSaverError> {
-        todo!()
-    }
-
-    fn platform_size(&self, _ig_metadata_manager: &igMetadataManager, _platform: IG_CORE_PLATFORM) -> u32 {
-        todo!()
-    }
-
-    fn platform_alignment(&self, _ig_metadata_manager: &igMetadataManager, _platform: IG_CORE_PLATFORM) -> u32 {
         todo!()
     }
 }

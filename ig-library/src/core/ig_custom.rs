@@ -8,7 +8,7 @@ use crate::core::meta::ig_metadata_manager::{
     SetObjectFieldError,
 };
 use crate::util::ig_name::igName;
-use log::{error, info, warn};
+use log::{error, warn};
 use std::any::Any;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 
@@ -106,7 +106,7 @@ impl<T: Send + Sync + 'static + Clone> __internalObjectBase for igDataList<T> {
         if let Some(value) = value {
             match name {
                 "_data" => {
-                    let mut guard = value.read().unwrap();
+                    let guard = value.read().unwrap();
                     let memory = guard.downcast_ref::<igMemory<igAny>>().unwrap();
                     let mut data_writer = self.list.write().unwrap();
                     for value in memory.data.iter() {

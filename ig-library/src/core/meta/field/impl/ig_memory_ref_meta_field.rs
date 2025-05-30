@@ -1,4 +1,3 @@
-use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_fs::Endian;
 use crate::core::ig_objects::igAny;
 use crate::core::load::ig_igb_loader::IgbLoaderContext;
@@ -27,16 +26,16 @@ impl igMetaField for igMemoryRefMetaField {
     fn value_from_igz(
         &self,
         handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
+        endian: Endian,
         ctx: &IgzLoaderContext,
         registry: &igMetafieldRegistry,
         metadata_manager: &igMetadataManager,
     ) -> Option<igAny> {
         debug!("Internal meta object type={}", self.0._type);
         let start = handle.position();
-        let flags = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
-        let raw = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
-        
+        let flags = read_ptr(handle, ctx.platform.clone(), endian.clone()).unwrap();
+        let raw = read_ptr(handle, ctx.platform.clone(), endian.clone()).unwrap();
+
         let offset = ctx.deserialize_offset(raw);
         let mut memory: igMemory<igAny> = igMemory::new(); // We don't know the type inside the memory, we didn't create it. However, we know the metafield so we know what is supposed to be here, making it safe in the end.
 
@@ -44,14 +43,14 @@ impl igMetaField for igMemoryRefMetaField {
         if ctx.runtime_fields.pool_ids.binary_search(&start).is_ok() {
             memory.pool = ctx.loaded_pools[(flags & 0xFFFFFF) as usize];
         } else {
-            memory.set_flags(metadata_manager, flags, self, ctx.platform.clone());
+            memory.set_flags(metadata_manager, flags, ctx.platform.get_pointer_size(), ctx.platform.get_pointer_size() * 2, ctx.platform.clone());
             memory.pool = ctx.get_pool_from_serialized_offset(raw);
 
             let guard = self.0.ark_info.read().unwrap();
             // Optimized u8 slice copy
             if guard._type.as_ref() == "igUnsignedCharMetaField" {
                 handle.set_position(offset);
-                let slice = read_struct_array_u8_ref(handle, endian, memory.data.len()).unwrap();
+                let slice = read_struct_array_u8_ref(handle, endian.clone(), memory.data.len()).unwrap();
                 for x in slice {
                     handle.set_position(offset);
                     memory.data.push(Arc::new(RwLock::new(x)));
@@ -62,7 +61,7 @@ impl igMetaField for igMemoryRefMetaField {
                     handle.set_position(offset + (self.0.size as u64) * (i as u64));
                     memory.data.push(inner_meta_field.value_from_igz(
                         handle,
-                        endian,
+                        endian.clone(),
                         ctx,
                         registry,
                         metadata_manager,
@@ -77,7 +76,7 @@ impl igMetaField for igMemoryRefMetaField {
     fn value_into_igz(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgzSaverContext,
     ) -> Result<(), IgzSaverError> {
         todo!()
@@ -86,7 +85,7 @@ impl igMetaField for igMemoryRefMetaField {
     fn value_from_igx(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgxLoaderContext,
     ) -> Option<igAny> {
         todo!()
@@ -95,7 +94,7 @@ impl igMetaField for igMemoryRefMetaField {
     fn value_into_igx(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgxSaverContext,
     ) -> Result<(), IgxSaverError> {
         todo!()
@@ -104,7 +103,7 @@ impl igMetaField for igMemoryRefMetaField {
     fn value_from_igb(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgbLoaderContext,
     ) -> Option<igAny> {
         todo!()
@@ -113,25 +112,9 @@ impl igMetaField for igMemoryRefMetaField {
     fn value_into_igb(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgbSaverContext,
     ) -> Result<(), IgbSaverError> {
         todo!()
-    }
-
-    fn platform_size(
-        &self,
-        ig_metadata_manager: &igMetadataManager,
-        platform: IG_CORE_PLATFORM,
-    ) -> u32 {
-        (platform.get_pointer_size() * 2) as u32
-    }
-
-    fn platform_alignment(
-        &self,
-        ig_metadata_manager: &igMetadataManager,
-        platform: IG_CORE_PLATFORM,
-    ) -> u32 {
-        platform.get_pointer_size() as u32
     }
 }

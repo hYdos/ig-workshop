@@ -41,13 +41,13 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 let string_meta_field = igStringMetaField;
 
-                let #name = string_meta_field.value_from_igz(handle, endian, ctx, registry, metadata_manager)
+                let #name = string_meta_field.value_from_igz(handle, endian.clone(), ctx, registry, metadata_manager)
                     .map(|s| Some(s.read().unwrap().downcast_ref::<Arc<str>>().expect("igStruct string downcast failed.").to_string()))
                     .unwrap_or(None);
             }
         } else if quote!(#ty).to_string() == "u32" {
             quote! {
-                let #name = read_u32(handle, endian).expect("igStruct impl u32 decoding failed");
+                let #name = read_u32(handle, endian.clone()).expect("igStruct impl u32 decoding failed");
             }
         } else {
             quote! {
@@ -74,7 +74,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn value_from_igz(
                 &self,
                 handle: &mut std::io::Cursor<Vec<u8>>,
-                endian: &Endian,
+                endian: Endian,
                 ctx: &IgzLoaderContext,
                 registry: &igMetafieldRegistry,
                 metadata_manager: &igMetadataManager
@@ -89,7 +89,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn value_into_igz(
                 &self,
                 handle: &mut std::io::Cursor<Vec<u8>>,
-                endian: &Endian,
+                endian: Endian,
                 ctx: &mut IgzSaverContext,
             ) -> Result<(), IgzSaverError> {
                 todo!()
@@ -98,7 +98,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn value_from_igx(
                 &self,
                 handle: &mut std::io::Cursor<Vec<u8>>,
-                endian: &Endian,
+                endian: Endian,
                 ctx: &mut IgxLoaderContext,
             ) -> Option<igAny> {
                 todo!()
@@ -107,7 +107,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn value_into_igx(
                 &self,
                 handle: &mut std::io::Cursor<Vec<u8>>,
-                endian: &Endian,
+                endian: Endian,
                 ctx: &mut IgxSaverContext,
             ) -> Result<(), IgxSaverError> {
                 todo!()
@@ -116,7 +116,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn value_from_igb(
                 &self,
                 handle: &mut std::io::Cursor<Vec<u8>>,
-                endian: &Endian,
+                endian: Endian,
                 ctx: &mut IgbLoaderContext,
             ) -> Option<igAny> {
                 todo!()
@@ -125,18 +125,10 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn value_into_igb(
                 &self,
                 handle: &mut std::io::Cursor<Vec<u8>>,
-                endian: &Endian,
+                endian: Endian,
                 ctx: &mut IgbSaverContext,
             ) -> Result<(), IgbSaverError> {
                 todo!()
-            }
-
-            fn platform_size(&self, ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32 {
-                todo!("platform_size")
-            }
-
-            fn platform_alignment(&self, ig_metadata_manager: &igMetadataManager, platform: IG_CORE_PLATFORM) -> u32 {
-                todo!("platform_alignment")
             }
         }
     };

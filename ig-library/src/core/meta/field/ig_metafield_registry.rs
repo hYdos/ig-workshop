@@ -56,10 +56,10 @@ impl igMetafieldRegistry {
                         "instantiated a new igPlaceholderMetafield. No implementation for {}",
                         field._type
                     );
-                    Arc::new(igPlaceholderMetafield(
-                        field.size,
-                        field.name.clone().unwrap(),
-                    ))
+                    Arc::new(igPlaceholderMetafield {
+                        size: field.size,
+                        missing_impl_name: field.name.clone().unwrap(),
+                    })
                 }
             },
         }
@@ -72,10 +72,10 @@ impl igMetafieldRegistry {
             Some(v) => v.clone(),
             None => {
                 debug!("instantiated a new igPlaceholderMetafield. No SIMPLE implementation for {}. (This could be very bad lots of my code would need to be changed to make this work pls tell me it's not a complex type)", name);
-                Arc::new(igPlaceholderMetafield(
-                    ark_info.required_alignment.unwrap() as u32,
-                    ark_info.name.clone().unwrap(),
-                ))
+                Arc::new(igPlaceholderMetafield {
+                    size: ark_info.required_alignment.unwrap() as u32,
+                    missing_impl_name: ark_info.name.clone().unwrap(),
+                })
             }
         }
     }

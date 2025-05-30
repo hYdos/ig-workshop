@@ -9,7 +9,7 @@ use std::slice::from_raw_parts;
 
 // Endian is ignored here so it needs a custom implementation
 #[inline]
-pub fn read_u8(cursor: &mut Cursor<Vec<u8>>, _endian: &Endian) -> std::io::Result<u8> {
+pub fn read_u8(cursor: &mut Cursor<Vec<u8>>, _endian: Endian) -> std::io::Result<u8> {
     cursor.read_u8()
 }
 
@@ -17,7 +17,7 @@ macro_rules! define_read {
     ($type:ty) => {
         paste! {
             #[inline]
-            pub fn [<read_ $type>](cursor: &mut Cursor<Vec<u8>>, endian: &Endian) -> std::io::Result<$type> {
+            pub fn [<read_ $type>](cursor: &mut Cursor<Vec<u8>>, endian: Endian) -> std::io::Result<$type> {
                 match endian {
                     Endian::Little => cursor.[<read_ $type>]::<LittleEndian>(),
                     Endian::Big => cursor.[<read_ $type>]::<BigEndian>(),
@@ -34,7 +34,7 @@ macro_rules! define_read {
 pub fn read_ptr(
     cursor: &mut Cursor<Vec<u8>>,
     platform: IG_CORE_PLATFORM,
-    endian: &Endian,
+    endian: Endian,
 ) -> std::io::Result<u64> {
     if platform.is_64bit() {
         read_u64(cursor, endian)
@@ -72,12 +72,12 @@ macro_rules! define_read_struct_array {
             paste::paste! {
                 pub fn [<read_struct_array_ $typ>](
                     reader: &mut Cursor<Vec<u8>>,
-                    endian: &Endian,
+                    endian: Endian,
                     count: usize,
                 ) -> std::io::Result<Vec<$typ>> {
                     let mut vec = Vec::with_capacity(count);
                     for _ in 0..count {
-                        vec.push([<read_ $typ>](reader, endian)?);
+                        vec.push([<read_ $typ>](reader, endian.clone())?);
                     }
                     Ok(vec)
                 }
@@ -89,7 +89,7 @@ macro_rules! define_read_struct_array {
 // Custom implementation separate to macro doubles the speed
 pub fn read_struct_array_u8<'a>(
     cursor: &mut Cursor<Vec<u8>>,
-    _endian: &Endian,
+    _endian: Endian,
     count: usize,
 ) -> std::io::Result<Vec<u8>> {
     let mut buf = vec![0u8; count];
@@ -102,7 +102,7 @@ pub fn read_struct_array_u8<'a>(
 /// and is faster than [read_struct_array_u8] due to the copy-less nature of a reference over an owned [Vec<u8>]
 pub fn read_struct_array_u8_ref<'a>(
     cursor: &mut Cursor<Vec<u8>>,
-    _endian: &Endian,
+    _endian: Endian,
     count: usize,
 ) -> std::io::Result<&'a [u8]> {
     let start = cursor.position() as usize;

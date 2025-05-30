@@ -1,4 +1,3 @@
-use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_fs::Endian;
 use crate::core::ig_objects::igAny;
 use crate::core::load::ig_igb_loader::IgbLoaderContext;
@@ -15,7 +14,11 @@ use std::sync::{Arc, RwLock};
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 use crate::core::meta::ig_metadata_manager::igMetadataManager;
 
-pub struct igPlaceholderMetafield(pub u32, pub Arc<str>);
+pub struct igPlaceholderMetafield {
+    pub size: u32,
+    /// the name this placeholder metafield is covering
+    pub missing_impl_name: Arc<str>
+}
 
 impl igMetaField for igPlaceholderMetafield {
     fn type_id(&self) -> TypeId {
@@ -25,22 +28,22 @@ impl igMetaField for igPlaceholderMetafield {
     fn value_from_igz(
         &self,
         handle: &mut Cursor<Vec<u8>>,
-        endian: &Endian,
-        ctx: &IgzLoaderContext,
-        registry: &igMetafieldRegistry,
-        metadata_manager: &igMetadataManager
+        _endian: Endian,
+        _ctx: &IgzLoaderContext,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager
     ) -> Option<igAny> {
-        warn!("{} has no implementation. Using igPlaceholderMetafield. Harass hydos to implement this or make a PR!", self.1);
-        let mut fake_buffer = Vec::with_capacity(self.platform_size(metadata_manager, ctx.platform.clone()) as usize);
+        warn!("{} has no implementation. Using igPlaceholderMetafield. Harass hydos to implement this or make a PR!", self.missing_impl_name);
+        let mut fake_buffer = Vec::with_capacity(self.size as usize);
         handle.read_exact(&mut fake_buffer).unwrap();
         Some(Arc::new(RwLock::new(fake_buffer)))
     }
 
     fn value_into_igz(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
-        ctx: &mut IgzSaverContext,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: Endian,
+        _ctx: &mut IgzSaverContext,
     ) -> Result<(), IgzSaverError> {
         todo!()
         // let fake_buffer = Vec::with_capacity(self.platform_size(ctx.platform.clone()) as usize);
@@ -53,7 +56,7 @@ impl igMetaField for igPlaceholderMetafield {
     fn value_from_igx(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgxLoaderContext,
     ) -> Option<igAny> {
         todo!()
@@ -62,7 +65,7 @@ impl igMetaField for igPlaceholderMetafield {
     fn value_into_igx(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgxSaverContext,
     ) -> Result<(), IgxSaverError> {
         error!(
@@ -74,7 +77,7 @@ impl igMetaField for igPlaceholderMetafield {
     fn value_from_igb(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgbLoaderContext,
     ) -> Option<igAny> {
         error!("Using igPlaceholderMetafield not supported. Implement the metafield!");
@@ -84,21 +87,12 @@ impl igMetaField for igPlaceholderMetafield {
     fn value_into_igb(
         &self,
         _handle: &mut Cursor<Vec<u8>>,
-        _endian: &Endian,
+        _endian: Endian,
         _ctx: &mut IgbSaverContext,
     ) -> Result<(), IgbSaverError> {
         error!(
             "Using igPlaceholderMetafield for saving is not supported. Implement the metafield!"
         );
         panic!("Alchemy Error! Check the logs.")
-    }
-
-    fn platform_size(&self, _ig_metadata_manager: &igMetadataManager, _platform: IG_CORE_PLATFORM) -> u32 {
-        
-        self.0
-    }
-
-    fn platform_alignment(&self, _ig_metadata_manager: &igMetadataManager, _platform: IG_CORE_PLATFORM) -> u32 {
-        self.0
     }
 }

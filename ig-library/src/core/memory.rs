@@ -1,6 +1,5 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_memory::igMemoryPool;
-use crate::core::meta::field::ig_metafields::igMetaField;
 use crate::core::meta::ig_metadata_manager::igMetadataManager;
 
 #[allow(dead_code)] // TODO: i need to look into this more. it seems cauldron's implementation (what this is based on) isn't completely finished and leaves a few things out... Will check in ghidra later hopefully
@@ -18,7 +17,7 @@ where
     T: 'static + Send + Sync
 {
     /// Takes the flags specified and writes their values into [Self]
-    pub fn set_flags(&mut self, metadata_manager: &igMetadataManager, flags: u64, meta_field: &dyn igMetaField, platform: IG_CORE_PLATFORM) {
+    pub fn set_flags(&mut self, metadata_manager: &igMetadataManager, flags: u64, metafield_alignment: usize, metafield_size: usize, platform: IG_CORE_PLATFORM) {
         let alignment: u32;
         let size: u64;
         
@@ -32,8 +31,8 @@ where
             size = flags & 0x07FF_FFFF;
         }
         
-        self.alignment_multiple = alignment / meta_field.platform_alignment(metadata_manager, platform.clone());
-        self.data = Vec::with_capacity((size / meta_field.platform_size(metadata_manager, platform) as u64) as usize)
+        self.alignment_multiple = alignment / metafield_alignment as u32;
+        self.data = Vec::with_capacity(size as usize / metafield_size)
     }
 }
 

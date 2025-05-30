@@ -240,7 +240,7 @@ impl igArchive {
 
         if let Some(mut cursor) = file_descriptor._handle {
             cursor.seek(SeekFrom::Start(0)).unwrap();
-            header._magic_number = read_u32(&mut cursor, &Endian::Little).unwrap();
+            header._magic_number = read_u32(&mut cursor, Endian::Little).unwrap();
 
             if header._magic_number == u32::from_be_bytes(*b"IGA\x1A") {
                 header.endian = Endian::Big;
@@ -248,51 +248,51 @@ impl igArchive {
                 return Err(format!("{} is not a valid igArchive.", _path));
             }
 
-            header._version = read_u32(&mut cursor, &header.endian).unwrap();
+            header._version = read_u32(&mut cursor, header.endian.clone()).unwrap();
             match header._version {
                 // Crash Team Racing: Nitro Fueled, Crash NST, Trap Team, Superchargers, Imaginators
                 0x0A..=0x0D => {
-                    header._toc_size = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_files = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._sector_size = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._hash_search_divider = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._hash_search_slop = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_large_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_medium_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_small_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._name_table_offset = read_u64(&mut cursor, &header.endian).unwrap();
-                    header._name_table_size = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._flags = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._toc_size = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_files = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._sector_size = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._hash_search_divider = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._hash_search_slop = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_large_file_blocks = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_medium_file_blocks = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_small_file_blocks = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._name_table_offset = read_u64(&mut cursor, header.endian.clone()).unwrap();
+                    header._name_table_size = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._flags = read_u32(&mut cursor, header.endian.clone()).unwrap();
                 }
                 // TODO: lost islands/ssf (version 0x0A)
                 // SSA(WiiU), SG
                 0x08 => {
-                    header._toc_size = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_files = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._sector_size = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._hash_search_divider = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._hash_search_slop = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._toc_size = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_files = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._sector_size = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._hash_search_divider = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._hash_search_slop = read_u32(&mut cursor, header.endian.clone()).unwrap();
                     header._name_table_offset =
-                        read_u32(&mut cursor, &header.endian).unwrap() as u64;
-                    header._name_table_size = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_large_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_medium_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_small_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._flags = read_u32(&mut cursor, &header.endian).unwrap();
+                        read_u32(&mut cursor, header.endian.clone()).unwrap() as u64;
+                    header._name_table_size = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_large_file_blocks = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_medium_file_blocks = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_small_file_blocks = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._flags = read_u32(&mut cursor, header.endian.clone()).unwrap();
                 }
                 0x04 => {
-                    header._toc_size = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_files = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._toc_size = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_files = read_u32(&mut cursor, header.endian.clone()).unwrap();
                     header._sector_size = 0x0800;
-                    header._hash_search_divider = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._hash_search_slop = read_u32(&mut cursor, &header.endian).unwrap();
+                    header._hash_search_divider = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._hash_search_slop = read_u32(&mut cursor, header.endian.clone()).unwrap();
                     header._name_table_offset =
-                        read_u32(&mut cursor, &header.endian).unwrap() as u64;
-                    header._name_table_size = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_large_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_medium_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._num_small_file_blocks = read_u32(&mut cursor, &header.endian).unwrap();
-                    header._flags = read_u32(&mut cursor, &header.endian).unwrap();
+                        read_u32(&mut cursor, header.endian.clone()).unwrap() as u64;
+                    header._name_table_size = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_large_file_blocks = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_medium_file_blocks = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._num_small_file_blocks = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                    header._flags = read_u32(&mut cursor, header.endian.clone()).unwrap();
                 }
                 _ => {
                     return Err(format!(
@@ -315,7 +315,7 @@ impl igArchive {
                     _modification_time: 0,
                     _blocks: None,
                     _compressed_data: vec![],
-                    _hash: read_u32(&mut cursor, &header.endian).unwrap(),
+                    _hash: read_u32(&mut cursor, header.endian.clone()).unwrap(),
                 })
             }
 
@@ -325,22 +325,22 @@ impl igArchive {
                 match header._version {
                     0x0B => {
                         // technically the offset is 5 bytes and the ordinal is 3
-                        let tmp = read_u64(&mut cursor, &header.endian).unwrap(); // Read all 8 bytes together at once
+                        let tmp = read_u64(&mut cursor, header.endian.clone()).unwrap(); // Read all 8 bytes together at once
                         file._ordinal = (tmp >> 40) as u32;
                         file._offset = (tmp & 0xFFFFFFFF) as u32; // FIXME: this looks like its reading 4 bytes, not 5...
-                        file._length = read_u32(&mut cursor, &header.endian).unwrap();
-                        file._block_index = read_u32(&mut cursor, &header.endian).unwrap();
+                        file._length = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                        file._block_index = read_u32(&mut cursor, header.endian.clone()).unwrap();
                     }
                     0x08 => {
-                        file._offset = read_u32(&mut cursor, &header.endian).unwrap();
-                        file._length = read_u32(&mut cursor, &header.endian).unwrap();
-                        file._block_index = read_u32(&mut cursor, &header.endian).unwrap();
+                        file._offset = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                        file._length = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                        file._block_index = read_u32(&mut cursor, header.endian.clone()).unwrap();
                         // giants doesn't store the ordinal of the file?
                     }
                     0x04 => {
-                        file._offset = read_u32(&mut cursor, &header.endian).unwrap();
-                        file._length = read_u32(&mut cursor, &header.endian).unwrap();
-                        file._block_index = read_u32(&mut cursor, &header.endian).unwrap();
+                        file._offset = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                        file._length = read_u32(&mut cursor, header.endian.clone()).unwrap();
+                        file._block_index = read_u32(&mut cursor, header.endian.clone()).unwrap();
                         // giants doesn't store the ordinal of the file?
                     }
                     _ => todo!("Unsupported IGA version"),
@@ -355,7 +355,7 @@ impl igArchive {
                 cursor
                     .seek(SeekFrom::Start(name_tbl_offset + i as u64 * 0x04))
                     .unwrap();
-                let inner_ptr = read_u32(&mut cursor, &header.endian).unwrap() as u64;
+                let inner_ptr = read_u32(&mut cursor, header.endian.clone()).unwrap() as u64;
                 cursor
                     .seek(SeekFrom::Start(name_tbl_offset + inner_ptr))
                     .unwrap();
@@ -368,7 +368,7 @@ impl igArchive {
                 }
 
                 if header._version >= 0x08 {
-                    file._modification_time = read_u32(&mut cursor, &header.endian).unwrap();
+                    file._modification_time = read_u32(&mut cursor, header.endian.clone()).unwrap();
                 }
 
                 // Cauldron reorganizes the names for lower versions. As far as I know, this is wrong but just in case we will handle Tfb Games the newer way because that's what we expect.
@@ -387,19 +387,19 @@ impl igArchive {
             cursor.seek(SeekFrom::Start(block_info_start)).unwrap();
             let large_block_tbl = read_struct_array_u32(
                 &mut cursor,
-                &header.endian,
+                header.endian.clone(),
                 header._num_large_file_blocks as usize,
             )
             .unwrap();
             let medium_block_tbl = read_struct_array_u16(
                 &mut cursor,
-                &header.endian,
+                header.endian.clone(),
                 header._num_medium_file_blocks as usize,
             )
             .unwrap();
             let small_block_tbl = read_struct_array_u8_ref(
                 &mut cursor,
-                &header.endian,
+                header.endian.clone(),
                 header._num_small_file_blocks as usize,
             )
             .unwrap();
@@ -408,7 +408,7 @@ impl igArchive {
                 cursor.seek(SeekFrom::Start(file._offset as u64)).unwrap();
                 if file._block_index == 0xFFFFFFFF {
                     file._compressed_data =
-                        read_struct_array_u8(&mut cursor, &header.endian, file._length as usize)
+                        read_struct_array_u8(&mut cursor, header.endian.clone(), file._length as usize)
                             .unwrap();
                     continue;
                 }
@@ -451,7 +451,7 @@ impl igArchive {
                 file._blocks = Some(fixed_blocks);
                 file._compressed_data = read_struct_array_u8(
                     &mut cursor,
-                    &header.endian,
+                    header.endian.clone(),
                     (sector_count * header._sector_size) as usize,
                 )
                 .unwrap()
