@@ -62,6 +62,7 @@ impl eframe::App for igWorkshopWindow {
 
                     if save_button.clicked() {
                         save(&self.tab_viewer);
+                        ui.close_menu();
                     }
                 });
             });

@@ -9,7 +9,7 @@ ig-library = { path = "ig-library" }
 log = "0.4"
 env_logger = { version = "0.11.8", features = ["color", "humantime"] }
 egui = { version = "0.31.1", features = [] }
-#egui_extras = "0.31.1" requires 2024 edition
+egui_extras = { version = "0.31.1", features = ["all_loaders"] }
 eframe = { version = "0.31.1", features = ["glow"] }
 image = "0.25.6"
 egui_dock = "0.16.0"

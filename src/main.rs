@@ -48,11 +48,14 @@ fn main() {
     };
 
     eframe::run_native(
-        "igWorkshop",
+        "ig-workshop",
         options,
-        Box::new(|_cc| Ok(Box::new(igWorkshopWindow::new(configs)))),
+        Box::new(|cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
+            Ok(Box::new(igWorkshopWindow::new(configs)))
+        }),
     )
-    .expect("How did you fail this lol");
+    .expect("Failed to start ig-workshop");
 }
 
 pub fn load_game_data(

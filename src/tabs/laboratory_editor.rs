@@ -1,16 +1,20 @@
 use crate::window::{LoadedGame, WorkshopTabImpl, WorkshopTabViewer};
-use egui::{CentralPanel, Id, SidePanel, Ui, WidgetText};
+use egui::{include_image, Button, CentralPanel, Label, SidePanel, TextEdit, Ui, Vec2, Widget, WidgetText};
 use egui_ltreeview::{NodeBuilder, TreeView, TreeViewBuilder};
 use ig_library::core::ig_objects::igObject;
 use ig_library::util::ig_name::igName;
 use std::collections::HashMap;
 use std::sync::Arc;
-use rfd::FileDialog;
+use log::error;
 
 /// Tab specifically designed for usage with games made in Vicarious Visions Laboratory.
 pub struct VVLaboratoryEditor {
     game: LoadedGame,
     loaded_packages: HashMap<Arc<str>, LaboratoryPackage>,
+    /// Packages that contain the search query
+    filtered_packages: Vec<Arc<str>>,
+    search_bar_contents: String,
+    old_search_bar_contents: String
 }
 
 struct LaboratoryPackage {
@@ -105,7 +109,100 @@ impl VVLaboratoryEditor {
         Box::new(Self {
             game,
             loaded_packages,
+            filtered_packages: vec![],
+            search_bar_contents: "".to_string(),
+            old_search_bar_contents: "".to_string(),
         })
+    }
+
+    /// Loops through all loaded packages and filters them based on the search bar contents.
+    pub fn filter_packages(&mut self) {
+        self.old_search_bar_contents = self.search_bar_contents.clone();
+        self.filtered_packages.clear();
+        for (package_name, _) in &self.loaded_packages {
+            if package_name.contains(&self.search_bar_contents) {
+                self.filtered_packages.push(package_name.clone());
+            }
+        }
+    }
+
+    fn render_package(builder: &mut TreeViewBuilder<u32>, package_name: Arc<str>, package: &LaboratoryPackage) {
+        builder.node(
+            NodeBuilder::dir(package.name.hash)
+                .default_open(false)
+                .activatable(true)
+                .label_ui(|ui| {
+                    ui.add(
+                        Label::new(WidgetText::from(
+                            package_name.clone().to_string(),
+                        ))
+                            .selectable(false),
+                    );
+                }),
+        );
+
+        builder.node(NodeBuilder::dir(package.name.hash + 1).label_ui(|ui| {
+            ui.image(include_image!("../../data/character_data.png"));
+            ui.add(Label::new("Character Data").selectable(false));
+        }));
+        builder.close_dir();
+
+        builder.node(NodeBuilder::dir(package.name.hash + 2).label_ui(|ui| {
+            ui.image(include_image!("../../data/actor_skins.png"));
+            ui.add(Label::new("Actor Skins").selectable(false));
+        }));
+        builder.close_dir();
+
+        builder.dir(package.name.hash + 3, "Havok Animation Databases");
+        builder.close_dir();
+        builder.dir(package.name.hash + 4, "Havok Rigid Bodies");
+        builder.close_dir();
+        builder.dir(package.name.hash + 5, "Havok Physics Systems");
+        builder.close_dir();
+        builder.dir(package.name.hash + 6, "Textures");
+        builder.close_dir();
+        builder.dir(package.name.hash + 7, "Effects");
+        builder.close_dir();
+        builder.dir(package.name.hash + 8, "Shaders");
+        builder.close_dir();
+        builder.dir(package.name.hash + 9, "Motion Paths");
+        builder.close_dir();
+        builder.dir(package.name.hash + 10, "igx Files");
+        builder.close_dir();
+        builder.dir(package.name.hash + 11, "Material Instances");
+        builder.close_dir();
+        builder.dir(package.name.hash + 12, "igx Entities");
+        builder.close_dir();
+        builder.dir(package.name.hash + 13, "Gui Projects");
+        builder.close_dir();
+        builder.dir(package.name.hash + 14, "Fonts");
+        builder.close_dir();
+        builder.dir(package.name.hash + 15, "Lang Files");
+        builder.close_dir();
+        builder.dir(package.name.hash + 16, "Spawn Meshes");
+        builder.close_dir();
+        builder.dir(package.name.hash + 17, "Models");
+        builder.close_dir();
+        builder.dir(package.name.hash + 18, "Sky Models");
+        builder.close_dir();
+        builder.dir(package.name.hash + 19, "Behaviours");
+        builder.close_dir();
+        builder.dir(package.name.hash + 20, "Graph Data");
+        builder.close_dir();
+        builder.dir(package.name.hash + 21, "Events Behaviours");
+        builder.close_dir();
+        builder.dir(package.name.hash + 22, "Asset Behaviours");
+        builder.close_dir();
+        builder.dir(package.name.hash + 23, "Havok Binary Behaviors");
+        builder.close_dir();
+        builder.dir(package.name.hash + 24, "Havok Char Characters");
+        builder.close_dir();
+        builder.dir(package.name.hash + 25, "Navigation Meshes");
+        builder.close_dir();
+        builder.dir(package.name.hash + 26, "Scripts");
+        builder.close_dir();
+
+        builder.close_dir();
     }
 }
 impl WorkshopTabImpl for VVLaboratoryEditor {
@@ -118,83 +215,35 @@ impl WorkshopTabImpl for VVLaboratoryEditor {
             .resizable(true)
             .min_width(50.0)
             .show_inside(ui, |ui| {
-                let load_pkg = ui.button("Load Package");
+                ui.vertical_centered(|ui| {
+                    let load_pkg = Button::new("Load Package")
+                        .min_size(Vec2::new(ui.available_size_before_wrap().x, 10.0))
+                        .ui(ui);
 
-                if load_pkg.clicked() {
-                    todo!("Load Package not implemented")
-                }
-                
+                    if load_pkg.clicked() {
+                        error!("Load Package not implemented")
+                    }
+                });
+
+                TextEdit::singleline(&mut self.search_bar_contents)
+                    .hint_text("Search for archives")
+                    .ui(ui);
+
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     let id = ui.make_persistent_id("file_tree_view");
                     TreeView::new(id).show(ui, |builder| {
-                        for (package_name, package) in &self.loaded_packages {
-                            builder.node(
-                                NodeBuilder::dir(package.name.hash)
-                                    .default_open(false)
-                                    .activatable(true)
-                                    .label_ui(|ui| {
-                                        ui.add(
-                                            egui::Label::new(WidgetText::from(
-                                                package_name.clone().to_string(),
-                                            ))
-                                            .selectable(false),
-                                        );
-                                    }),
-                            );
-                            builder.dir(package.name.hash + 1, "Character Data");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 2, "Actor Skins");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 3, "Havok Animation Databases");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 4, "Havok Rigid Bodies");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 5, "Havok Physics Systems");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 6, "Textures");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 7, "Effects");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 8, "Shaders");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 9, "Motion Paths");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 10, "igx Files");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 11, "Material Instances");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 12, "igx Entities");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 13, "Gui Projects");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 14, "Fonts");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 15, "Lang Files");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 16, "Spawn Meshes");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 17, "Models");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 18, "Sky Models");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 19, "Behaviours");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 20, "Graph Data");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 21, "Events Behaviours");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 22, "Asset Behaviours");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 23, "Havok Binary Behaviors");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 24, "Havok Char Characters");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 25, "Navigation Meshes");
-                            builder.close_dir();
-                            builder.dir(package.name.hash + 26, "Scripts");
-                            builder.close_dir();
+                        if self.search_bar_contents.is_empty() {
+                            for (package_name, package) in &self.loaded_packages {
+                                VVLaboratoryEditor::render_package(builder, package_name.clone(), package);
+                            }
+                        } else {
+                            if self.old_search_bar_contents != self.search_bar_contents {
+                                self.filter_packages();
+                            }
 
-                            builder.close_dir();
+                            for package_name in &self.filtered_packages {
+                                VVLaboratoryEditor::render_package(builder, package_name.clone(), self.loaded_packages.get_mut(package_name).unwrap());
+                            }
                         }
                     });
                 });
