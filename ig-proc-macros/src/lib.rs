@@ -39,7 +39,11 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let ty = &field.ty;
         if quote!(#ty).to_string().contains("Option < String") {
             quote! {
-                let #name = Some(read_string(handle).expect("igStruct impl UTF-8 string decoding failed"));
+                let string_meta_field = igStringMetaField;
+
+                let #name = string_meta_field.value_from_igz(handle, endian, ctx, registry, metadata_manager)
+                    .map(|s| Some(s.read().unwrap().downcast_ref::<Arc<str>>().expect("igStruct string downcast failed.").to_string()))
+                    .unwrap_or(None);
             }
         } else if quote!(#ty).to_string() == "u32" {
             quote! {

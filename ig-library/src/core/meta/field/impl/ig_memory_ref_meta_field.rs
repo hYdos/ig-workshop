@@ -15,6 +15,7 @@ use crate::util::byteorder_fixes::{read_ptr, read_struct_array_u8_ref};
 use std::any::TypeId;
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
+use log::debug;
 
 pub(crate) struct igMemoryRefMetaField(pub Arc<igMetaFieldInfo>);
 
@@ -31,6 +32,7 @@ impl igMetaField for igMemoryRefMetaField {
         registry: &igMetafieldRegistry,
         metadata_manager: &igMetadataManager,
     ) -> Option<igAny> {
+        debug!("Internal meta object type={}", self.0._type);
         let start = handle.position();
         let flags = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
         let raw = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
@@ -55,10 +57,9 @@ impl igMetaField for igMemoryRefMetaField {
                     memory.data.push(Arc::new(RwLock::new(x)));
                 }
             } else {
-                let inner_ark_info_guard = guard.ig_memory_ref_info.clone().unwrap();
-                let inner_meta_field = registry.get_simple(&inner_ark_info_guard.read().unwrap());
-                for i in 0..memory.data.len() {
-                    handle.set_position((offset + self.0.size as u64) * (i as u64));
+                let inner_meta_field = registry.get_simple(&self.0.ark_info.read().unwrap());
+                for i in 0..memory.data.capacity() {
+                    handle.set_position(offset + (self.0.size as u64) * (i as u64));
                     memory.data.push(inner_meta_field.value_from_igz(
                         handle,
                         endian,

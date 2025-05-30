@@ -1,3 +1,5 @@
+use crate::core::meta::field::r#impl::ig_string_meta_field::igStringMetaField;
+use std::sync::Arc;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_fs::Endian;
 use crate::core::ig_objects::igAny;

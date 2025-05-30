@@ -22,7 +22,7 @@ pub struct igDataList<T> {
 pub type igObjectList = igDataList<igObject>;
 pub type igArchiveList = igDataList<Arc<igArchive>>;
 pub type igObjectDirectoryList = igDataList<Arc<RwLock<igObjectDirectory>>>;
-pub type igNameList = igDataList<Arc<igName>>;
+pub type igNameList = igDataList<igName>;
 
 pub struct QueryGuard<'a, T>(RwLockReadGuard<'a, Vec<T>>);
 pub struct MutableQueryGuard<'a, T>(RwLockWriteGuard<'a, Vec<T>>);
@@ -60,7 +60,7 @@ pub trait DataListExt<T> {
 
 impl<T> DataListExt<T> for Arc<RwLock<igDataList<T>>>
 where
-    T: Send + Sync + 'static,
+    T: Send + Sync + Clone + 'static,
 {
     fn cast<U, F>(self, f: F) -> Arc<RwLock<igDataList<U>>>
     where
@@ -86,7 +86,7 @@ where
     }
 }
 
-impl<T: Send + Sync + 'static> __internalObjectBase for igDataList<T> {
+impl<T: Send + Sync + 'static + Clone> __internalObjectBase for igDataList<T> {
     fn meta_type(&self) -> Arc<igMetaObject> {
         if self.meta.is_none() {
             panic!("Tried to get metadata of type constructed without one")
@@ -106,13 +106,22 @@ impl<T: Send + Sync + 'static> __internalObjectBase for igDataList<T> {
         if let Some(value) = value {
             match name {
                 "_data" => {
-                    let mut guard = value.write().unwrap();
-                    let memory = guard.downcast_mut::<igMemory<igAny>>().expect("igMemory generic does not match _data. TODO: generate these with macros and have an error message that says what the generic is");
+                    let mut guard = value.read().unwrap();
+                    let memory = guard.downcast_ref::<igMemory<igAny>>().unwrap();
                     info!("input list size: {}", memory.data.len());
                     info!("input list capacity: {}", memory.data.capacity());
-                    // self.list.write().unwrap().append(&mut memory.data);
+                    let mut data_writer = self.list.write().unwrap();
+                    for value in memory.data.iter() {
+                        let test = value.read().unwrap();
+
+                        let correct_type_val: &T = test.downcast_ref().expect("igMemory generic does not match _data. TODO: generate these with macros and have an error message that says what the generic is");
+                        data_writer.push(correct_type_val.clone());
+                    }
                     return Ok(());
                 }
+                "_count" | "_capacity" => {
+                    // we dont care about these. TODO: sanity check compare these against the igMemory's values.
+                },
                 &_ => {
                     warn!(
                         "igDataList<T> attempted to set unknown field with name {} ",
@@ -147,7 +156,7 @@ impl<T: Send + Sync + 'static> __internalObjectBase for igDataList<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> igDataList<T> {
+impl<T: Send + Sync + 'static + Clone> igDataList<T> {
     pub fn construct(
         meta: Arc<igMetaObject>,
         pool: igMemoryPool,

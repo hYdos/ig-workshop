@@ -1,11 +1,12 @@
 use crate::core::ig_ark_core::EGame::*;
-use crate::core::meta::ig_metadata_manager::igMetadataManager;
+use crate::core::meta::ig_metadata_manager::{igMetaFieldInfo, igMetadataManager};
 use crate::core::meta::ig_xml_metadata::load_xml_metadata;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
 use serde::Serialize;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
+use crate::core::meta::field::r#impl::ig_int_meta_field::igIntMetaField;
 use crate::core::meta::field::r#impl::ig_memory_ref_meta_field::igMemoryRefMetaField;
 use crate::core::meta::field::r#impl::ig_object_ref_meta_field::igObjectRefMetaField;
 use crate::core::meta::field::r#impl::ig_size_type_meta_field::igSizeTypeMetaField;
@@ -29,11 +30,23 @@ impl igArkCore {
 
 /// Registers all built in meta fields to the [core::meta::field::ig_metafield_registry::igMetafieldRegistry]
 fn register_metafields(imm: &mut igMetadataManager) {
+    imm.meta_field_registry.register::<igIntMetaField>(Arc::from("igIntMetaField"), Arc::new(igIntMetaField));
     imm.meta_field_registry.register::<igStringMetaField>(Arc::from("igStringMetaField"), Arc::new(igStringMetaField));
     imm.meta_field_registry.register::<igNameMetaField>(Arc::from("igNameMetaField"), Arc::new(igNameMetaField));
     imm.meta_field_registry.register::<igSizeTypeMetaField>(Arc::from("igSizeTypeMetaField"), Arc::new(igSizeTypeMetaField));
     imm.meta_field_registry.register::<igObjectRefMetaField>(Arc::from("igObjectRefMetaField"), Arc::new(igObjectRefMetaField));
-    imm.meta_field_registry.register_complex::<igMemoryRefMetaField>(Arc::from("igMemoryRefMetaField"), |ark_field| {Arc::new(igMemoryRefMetaField(ark_field.clone()))});
+    imm.meta_field_registry.register_complex::<igMemoryRefMetaField>(Arc::from("igMemoryRefMetaField"), |ark_field, imm, metafield_registry, platform| {
+        let raw_internal_metafield = &ark_field.ark_info.read().unwrap().clone().ig_memory_ref_info.unwrap();
+        // TODO: i need a better system for this. so many types here it really is ugly but the oop side of this makes it hard to work through
+        let updated_internal_metafield = igMetaFieldInfo {
+            ark_info: raw_internal_metafield.clone(),
+            _type: raw_internal_metafield.read().unwrap().clone()._type,
+            name: raw_internal_metafield.read().unwrap().clone().name,
+            size: imm.calculate_size(&raw_internal_metafield.read().unwrap(), &platform),
+            offset: raw_internal_metafield.read().unwrap().clone().offset, // should always be 0 but just in case.
+        };
+        Arc::new(igMemoryRefMetaField(Arc::new(updated_internal_metafield)))
+    });
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]

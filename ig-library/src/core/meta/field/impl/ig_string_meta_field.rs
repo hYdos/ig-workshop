@@ -12,14 +12,15 @@ use crate::util::byteorder_fixes::{read_ptr, read_string};
 use std::any::TypeId;
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
+use log::debug;
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 use crate::core::meta::ig_metadata_manager::igMetadataManager;
 
-pub(crate) struct igStringMetaField;
+pub struct igStringMetaField;
 
 impl igMetaField for igStringMetaField {
     fn type_id(&self) -> TypeId {
-        TypeId::of::<Box<str>>()
+        TypeId::of::<Arc<str>>()
     }
 
     fn value_from_igz(
@@ -27,15 +28,15 @@ impl igMetaField for igStringMetaField {
         handle: &mut Cursor<Vec<u8>>,
         endian: &Endian,
         ctx: &IgzLoaderContext,
-        registry: &igMetafieldRegistry,
-        metadata_manager: &igMetadataManager
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager
     ) -> Option<igAny> {
         let base_pos = handle.position();
         let is_ref = ctx
             .runtime_fields
             .string_references
-            .binary_search(&base_pos)
-            >= Ok(0);
+            .binary_search(&base_pos).is_ok();
+
         let is_table = ctx.runtime_fields.string_tables.binary_search(&base_pos) >= Ok(0);
 
         let raw = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
@@ -52,6 +53,7 @@ impl igMetaField for igStringMetaField {
         handle.set_position(base_pos + ctx.platform.get_pointer_size() as u64);
         // Based rust casting
         result.map(|s| {
+            debug!("{}", s);
             // 1) make an Arc<str>
             let arc_str: Arc<str> = Arc::from(s.into_boxed_str());
             // 2) lock the Arc<str>, producing Arc<RwLock<Arc<str>>>

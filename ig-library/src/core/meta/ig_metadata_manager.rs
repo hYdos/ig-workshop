@@ -23,13 +23,13 @@ type MetaObjectConstructor = fn(
     pool: igMemoryPool,
 ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError>;
 
-/// Stores every registered meta object implementation that can be constructed.
+/// Stores every registered metaobject implementation that can be constructed.
 pub static TYPE_TO_METAOBJECT_LOOKUP: phf::Map<
     &str,
     MetaObjectConstructor,
 > = phf_map! {
     "igObjectList"            => igObjectList::construct,
-    "igStringRefList"            => igDataList::<Arc<RwLock<Arc<str>>>>::construct,
+    "igStringRefList"            => igDataList::<Arc<str>>::construct,
     "igNameList"            => igNameList::construct,
 };
 
@@ -55,6 +55,7 @@ impl igMetadataManager {
     ) {
         let object_offset = handle.position();
         let meta = ig_object.read().unwrap().meta_type();
+        debug!("igObject(name={}) fields are being set", meta.name);
         let fields = &meta.field_storage.name_lookup;
 
         for (name, field) in fields {
@@ -63,9 +64,9 @@ impl igMetadataManager {
                     // ignored, not important on a per-object basis.
                 }
                 &_ => {
-                    debug!("Setting up igz field {}", name);
+                    debug!("Setting up igz field(name={}, type={})", name, field._type);
                     handle.set_position(object_offset + field.offset as u64);
-                    let metafield = self.meta_field_registry.get(field.clone());
+                    let metafield = self.meta_field_registry.get(field.clone(), self, self.platform.clone());
                     let value = metafield.value_from_igz(handle, &endian, ctx, &self.meta_field_registry, &self);
                     if let Ok(mut guard) = ig_object.write() {
                         match guard.set_field(name.as_ref(), value) {
@@ -395,7 +396,7 @@ impl igMetadataManager {
         }
     }
 
-    fn calculate_size(&self, object: &RawArkMetaObjectField, platform: &IG_CORE_PLATFORM) -> u32 {
+    pub(crate) fn calculate_size(&self, object: &RawArkMetaObjectField, platform: &IG_CORE_PLATFORM) -> u32 {
         self.meta_fields[&object._type].platform_info[platform].size as u32
     }
 
@@ -462,7 +463,7 @@ impl igMetadataManager {
                     ark_info: Arc::new(RwLock::new(lock.clone())),
                     _type: lock._type.clone(),
                     name: lock.name.clone(),
-                    size: igMetadataManager::calculate_size(self, &lock, platform),
+                    size: self.calculate_size(&lock, platform),
                     offset: lock.offset,
                 });
 
