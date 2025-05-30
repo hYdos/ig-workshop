@@ -67,7 +67,7 @@ impl igMetadataManager {
                     debug!("Setting up igz field(name={}, type={})", name, field._type);
                     handle.set_position(object_offset + field.offset as u64);
                     let metafield = self.meta_field_registry.get(field.clone(), self, self.platform.clone());
-                    let value = metafield.value_from_igz(handle, endian.clone(), ctx, &self.meta_field_registry, &self);
+                    let value = metafield.value_from_igz(&self.meta_field_registry, &self, handle, endian.clone(), ctx, );
                     if let Ok(mut guard) = ig_object.write() {
                         match guard.set_field(name.as_ref(), value) {
                             Ok(_) => {}
@@ -159,7 +159,7 @@ pub trait __internalObjectBase: Sync + Send {
 
 /// Represents an object with no programmer-made translation. However, programmer translated (structs implementing __internalObjectBase) may use this struct in order to build their representation of an igObject. This has not been implemented though, and will most likely change in the future.
 // TODO: this class should NEVER be used. It WILL cause issues if there are two tools and one tool expects a class while the other one doesn't have one. I can't think of too many uses for it anyways. Maybe remove it in the future?
-#[deprecated]
+// #[deprecated]
 pub struct igGenericObject {
     meta: Arc<igMetaObject>,
     constructed_field_storage: Vec<RwLock<igConstructedField>>,

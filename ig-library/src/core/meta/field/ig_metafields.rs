@@ -17,47 +17,57 @@ pub trait igMetaField: Send + Sync {
     /// Takes a value in an igz and will convert it into <T>. Will return [None] when the read value is "null"
     fn value_from_igz(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: Endian,
-        ctx: &IgzLoaderContext,
-        registry: &igMetafieldRegistry,
-        metadata_manager: &igMetadataManager,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: Endian,
+        _ctx: &IgzLoaderContext,
     ) -> Option<igAny>;
     /// Accepts a value of type <T> and will return [Ok] if successful. If an error occurred, the type [IgzSaverError] will be returned hopefully containing useful information for debugging
     fn value_into_igz(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: Endian,
-        ctx: &mut IgzSaverContext,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: Endian,
+        _ctx: &mut IgzSaverContext,
     ) -> Result<(), IgzSaverError>;
 
     /// Takes a value in an igx and will convert it into <T>. Will return [None] when the read value is "null"
     fn value_from_igx(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: Endian,
-        ctx: &mut IgxLoaderContext,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: Endian,
+        _ctx: &mut IgxLoaderContext,
     ) -> Option<igAny>;
     /// Accepts a value of type <T> and will return [Ok] if successful. If an error occurred, the type [IgxSaverError] will be returned hopefully containing useful information for debugging
     fn value_into_igx(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: Endian,
-        ctx: &mut IgxSaverContext,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: Endian,
+        _ctx: &mut IgxSaverContext,
     ) -> Result<(), IgxSaverError>;
 
     /// Takes a value in an igb and will convert it into <T>. Will return [None] when the read value is "null"
     fn value_from_igb(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: Endian,
-        ctx: &mut IgbLoaderContext,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: Endian,
+        _ctx: &mut IgbLoaderContext,
     ) -> Option<igAny>;
     /// Accepts a value of type <T> and will return [Ok] if successful. If an error occurred, the type [IgbSaverError] will be returned hopefully containing useful information for debugging
     fn value_into_igb(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        endian: Endian,
-        ctx: &mut IgbSaverContext,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: Endian,
+        _ctx: &mut IgbSaverContext,
     ) -> Result<(), IgbSaverError>;
 }

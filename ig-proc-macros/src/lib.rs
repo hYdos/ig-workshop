@@ -41,7 +41,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 let string_meta_field = igStringMetaField;
 
-                let #name = string_meta_field.value_from_igz(handle, endian.clone(), ctx, registry, metadata_manager)
+                let #name = string_meta_field.value_from_igz(registry, metadata_manager, handle, endian.clone(), ctx)
                     .map(|s| Some(s.read().unwrap().downcast_ref::<Arc<str>>().expect("igStruct string downcast failed.").to_string()))
                     .unwrap_or(None);
             }
@@ -73,11 +73,11 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             fn value_from_igz(
                 &self,
+                registry: &igMetafieldRegistry,
+                metadata_manager: &igMetadataManager,
                 handle: &mut std::io::Cursor<Vec<u8>>,
                 endian: Endian,
                 ctx: &IgzLoaderContext,
-                registry: &igMetafieldRegistry,
-                metadata_manager: &igMetadataManager
             ) -> Option<igAny> {
                 use crate::util::byteorder_fixes::*;
                 #(#read_fields)*
@@ -85,47 +85,56 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     #(#init_fields)*
                 })))
             }
-
+            
             fn value_into_igz(
                 &self,
-                handle: &mut std::io::Cursor<Vec<u8>>,
+                registry: &igMetafieldRegistry,
+                metadata_manager: &igMetadataManager,
+                handle: &mut Cursor<Vec<u8>>,
                 endian: Endian,
-                ctx: &mut IgzSaverContext,
+                ctx: &mut IgzSaverContext
             ) -> Result<(), IgzSaverError> {
                 todo!()
             }
 
             fn value_from_igx(
-                &self,
-                handle: &mut std::io::Cursor<Vec<u8>>,
+                &self, 
+                registry: &igMetafieldRegistry,
+                metadata_manager: &igMetadataManager,
+                handle: &mut Cursor<Vec<u8>>,
                 endian: Endian,
-                ctx: &mut IgxLoaderContext,
+                ctx: &mut IgxLoaderContext
             ) -> Option<igAny> {
                 todo!()
             }
-
+        
             fn value_into_igx(
-                &self,
-                handle: &mut std::io::Cursor<Vec<u8>>,
-                endian: Endian,
-                ctx: &mut IgxSaverContext,
+                &self, 
+                registry: &igMetafieldRegistry,
+                metadata_manager: &igMetadataManager, 
+                handle: &mut Cursor<Vec<u8>>, 
+                endian: Endian, 
+                ctx: &mut IgxSaverContext
             ) -> Result<(), IgxSaverError> {
                 todo!()
             }
-
+        
             fn value_from_igb(
                 &self,
-                handle: &mut std::io::Cursor<Vec<u8>>,
+                registry: &igMetafieldRegistry,
+                metadata_manager: &igMetadataManager,
+                handle: &mut Cursor<Vec<u8>>,
                 endian: Endian,
                 ctx: &mut IgbLoaderContext,
             ) -> Option<igAny> {
                 todo!()
             }
-
+        
             fn value_into_igb(
-                &self,
-                handle: &mut std::io::Cursor<Vec<u8>>,
-                endian: Endian,
+                &self, registry: &igMetafieldRegistry,
+                metadata_manager: &igMetadataManager,
+                handle: &mut Cursor<Vec<u8>>,
+                endian: Endian, 
                 ctx: &mut IgbSaverContext,
             ) -> Result<(), IgbSaverError> {
                 todo!()

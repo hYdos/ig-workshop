@@ -21,46 +21,52 @@ impl igMetaField for igObjectRefMetaField {
 
     fn value_from_igz(
         &self,
-        handle: &mut Cursor<Vec<u8>>,
-        _endian: Endian,
-        _ctx: &IgzLoaderContext,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _handle: &mut Cursor<Vec<u8>>,
+        _endian: Endian,
+        _ctx: &IgzLoaderContext,
     ) -> Option<igAny> {
-        let _base_offset = handle.position();
-
         todo!()
     }
 
     fn value_into_igz(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
-        _ctx: &mut IgzSaverContext,
+        _ctx: &mut IgzSaverContext
     ) -> Result<(), IgzSaverError> {
         todo!()
     }
 
     fn value_from_igx(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
-        _ctx: &mut IgxLoaderContext,
+        _ctx: &mut IgxLoaderContext
     ) -> Option<igAny> {
         todo!()
     }
 
     fn value_into_igx(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
-        _ctx: &mut IgxSaverContext,
+        _ctx: &mut IgxSaverContext
     ) -> Result<(), IgxSaverError> {
         todo!()
     }
 
     fn value_from_igb(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbLoaderContext,
@@ -69,7 +75,9 @@ impl igMetaField for igObjectRefMetaField {
     }
 
     fn value_into_igb(
-        &self,
+        &self, 
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbSaverContext,

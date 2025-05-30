@@ -35,7 +35,7 @@ fn register_metafields(imm: &mut igMetadataManager) {
     imm.meta_field_registry.register::<igNameMetaField>(Arc::from("igNameMetaField"), Arc::new(igNameMetaField));
     imm.meta_field_registry.register::<igSizeTypeMetaField>(Arc::from("igSizeTypeMetaField"), Arc::new(igSizeTypeMetaField));
     imm.meta_field_registry.register::<igObjectRefMetaField>(Arc::from("igObjectRefMetaField"), Arc::new(igObjectRefMetaField));
-    imm.meta_field_registry.register_complex::<igMemoryRefMetaField>(Arc::from("igMemoryRefMetaField"), |ark_field, imm, metafield_registry, platform| {
+    imm.meta_field_registry.register_complex::<igMemoryRefMetaField>(Arc::from("igMemoryRefMetaField"), |ark_field, imm, _metafield_registry, platform| {
         let raw_internal_metafield = &ark_field.ark_info.read().unwrap().clone().ig_memory_ref_info.unwrap();
         // TODO: i need a better system for this. so many types here it really is ugly but the oop side of this makes it hard to work through
         let updated_internal_metafield = igMetaFieldInfo {

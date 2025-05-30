@@ -24,11 +24,11 @@ impl igMetaField for igStringMetaField {
 
     fn value_from_igz(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         handle: &mut Cursor<Vec<u8>>,
         endian: Endian,
         ctx: &IgzLoaderContext,
-        _registry: &igMetafieldRegistry,
-        _metadata_manager: &igMetadataManager
     ) -> Option<igAny> {
         let base_pos = handle.position();
         let is_ref = ctx
@@ -65,6 +65,8 @@ impl igMetaField for igStringMetaField {
 
     fn value_into_igz(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgzSaverContext,
@@ -74,6 +76,8 @@ impl igMetaField for igStringMetaField {
 
     fn value_from_igx(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgxLoaderContext,
@@ -83,6 +87,8 @@ impl igMetaField for igStringMetaField {
 
     fn value_into_igx(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgxSaverContext,
@@ -92,6 +98,8 @@ impl igMetaField for igStringMetaField {
 
     fn value_from_igb(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbLoaderContext,
@@ -101,6 +109,8 @@ impl igMetaField for igStringMetaField {
 
     fn value_into_igb(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbSaverContext,

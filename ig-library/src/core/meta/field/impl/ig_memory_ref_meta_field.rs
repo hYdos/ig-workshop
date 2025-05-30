@@ -25,11 +25,11 @@ impl igMetaField for igMemoryRefMetaField {
 
     fn value_from_igz(
         &self,
+        registry: &igMetafieldRegistry,
+        metadata_manager: &igMetadataManager,
         handle: &mut Cursor<Vec<u8>>,
         endian: Endian,
         ctx: &IgzLoaderContext,
-        registry: &igMetafieldRegistry,
-        metadata_manager: &igMetadataManager,
     ) -> Option<igAny> {
         debug!("Internal meta object type={}", self.0._type);
         let start = handle.position();
@@ -43,7 +43,7 @@ impl igMetaField for igMemoryRefMetaField {
         if ctx.runtime_fields.pool_ids.binary_search(&start).is_ok() {
             memory.pool = ctx.loaded_pools[(flags & 0xFFFFFF) as usize];
         } else {
-            memory.set_flags(metadata_manager, flags, ctx.platform.get_pointer_size(), ctx.platform.get_pointer_size() * 2, ctx.platform.clone());
+            memory.set_flags(flags, ctx.platform.get_pointer_size(), ctx.platform.get_pointer_size() * 2, ctx.platform.clone());
             memory.pool = ctx.get_pool_from_serialized_offset(raw);
 
             let guard = self.0.ark_info.read().unwrap();
@@ -60,11 +60,11 @@ impl igMetaField for igMemoryRefMetaField {
                 for i in 0..memory.data.capacity() {
                     handle.set_position(offset + (self.0.size as u64) * (i as u64));
                     memory.data.push(inner_meta_field.value_from_igz(
+                        registry,
+                        metadata_manager,
                         handle,
                         endian.clone(),
                         ctx,
-                        registry,
-                        metadata_manager,
                     )?)
                 }
             }
@@ -75,6 +75,8 @@ impl igMetaField for igMemoryRefMetaField {
 
     fn value_into_igz(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgzSaverContext,
@@ -84,6 +86,8 @@ impl igMetaField for igMemoryRefMetaField {
 
     fn value_from_igx(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgxLoaderContext,
@@ -93,6 +97,8 @@ impl igMetaField for igMemoryRefMetaField {
 
     fn value_into_igx(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgxSaverContext,
@@ -102,6 +108,8 @@ impl igMetaField for igMemoryRefMetaField {
 
     fn value_from_igb(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbLoaderContext,
@@ -111,6 +119,8 @@ impl igMetaField for igMemoryRefMetaField {
 
     fn value_into_igb(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbSaverContext,

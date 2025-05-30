@@ -27,11 +27,11 @@ impl igMetaField for igPlaceholderMetafield {
 
     fn value_from_igz(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &IgzLoaderContext,
-        _registry: &igMetafieldRegistry,
-        _metadata_manager: &igMetadataManager
     ) -> Option<igAny> {
         warn!("{} has no implementation. Using igPlaceholderMetafield. Harass hydos to implement this or make a PR!", self.missing_impl_name);
         let mut fake_buffer = Vec::with_capacity(self.size as usize);
@@ -41,6 +41,8 @@ impl igMetaField for igPlaceholderMetafield {
 
     fn value_into_igz(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgzSaverContext,
@@ -55,6 +57,8 @@ impl igMetaField for igPlaceholderMetafield {
 
     fn value_from_igx(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgxLoaderContext,
@@ -64,6 +68,8 @@ impl igMetaField for igPlaceholderMetafield {
 
     fn value_into_igx(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgxSaverContext,
@@ -76,6 +82,8 @@ impl igMetaField for igPlaceholderMetafield {
 
     fn value_from_igb(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbLoaderContext,
@@ -86,6 +94,8 @@ impl igMetaField for igPlaceholderMetafield {
 
     fn value_into_igb(
         &self,
+        _registry: &igMetafieldRegistry,
+        _metadata_manager: &igMetadataManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbSaverContext,
