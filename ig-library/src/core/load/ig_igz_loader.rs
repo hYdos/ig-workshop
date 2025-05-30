@@ -353,7 +353,6 @@ fn instantiate_object(
 
     match return_value {
         Ok(value) => {
-            info!("{}", value.read().unwrap().meta_type().name);
             value
         }
         Err(igMetaInstantiationError::TypeMismatchError(expected_type)) => {

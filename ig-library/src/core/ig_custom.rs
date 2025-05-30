@@ -108,13 +108,10 @@ impl<T: Send + Sync + 'static + Clone> __internalObjectBase for igDataList<T> {
                 "_data" => {
                     let mut guard = value.read().unwrap();
                     let memory = guard.downcast_ref::<igMemory<igAny>>().unwrap();
-                    info!("input list size: {}", memory.data.len());
-                    info!("input list capacity: {}", memory.data.capacity());
                     let mut data_writer = self.list.write().unwrap();
                     for value in memory.data.iter() {
-                        let test = value.read().unwrap();
-
-                        let correct_type_val: &T = test.downcast_ref().expect("igMemory generic does not match _data. TODO: generate these with macros and have an error message that says what the generic is");
+                        let ig_any = value.read().unwrap();
+                        let correct_type_val= ig_any.downcast_ref::<T>().expect("igMemory generic does not match _data. TODO: generate these with macros and have an error message that says what the generic is");
                         data_writer.push(correct_type_val.clone());
                     }
                     return Ok(());
