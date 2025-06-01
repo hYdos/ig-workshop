@@ -11,6 +11,9 @@ use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
 use std::any::TypeId;
 use std::io::Cursor;
+use std::sync::{Arc, RwLock};
+use log::error;
+use crate::core::meta::field::r#impl::ig_size_type_meta_field::igSizeTypeMetaField;
 
 pub struct igObjectRefMetaField;
 
@@ -21,13 +24,42 @@ impl igMetaField for igObjectRefMetaField {
 
     fn value_from_igz(
         &self,
-        _registry: &igMetafieldRegistry,
-        _metadata_manager: &igMetadataManager,
-        _handle: &mut Cursor<Vec<u8>>,
-        _endian: Endian,
-        _ctx: &IgzLoaderContext,
+        registry: &igMetafieldRegistry,
+        metadata_manager: &igMetadataManager,
+        handle: &mut Cursor<Vec<u8>>,
+        endian: Endian,
+        ctx: &IgzLoaderContext,
     ) -> Option<igAny> {
-        todo!()
+        let base_offset = handle.position();
+        let size_type_meta_field = igSizeTypeMetaField;
+        let raw = *size_type_meta_field.value_from_igz(
+            registry,
+            metadata_manager,
+            handle,
+            endian,
+            ctx
+        ).unwrap().read().unwrap().downcast_ref::<u64>().unwrap();
+
+        let is_offset = ctx.runtime_fields.offsets.binary_search(&base_offset).is_ok();
+        if is_offset {
+            return Some(Arc::new(RwLock::new(ctx.offset_object_list[&raw].clone())));
+        }
+        let is_named_external = ctx.runtime_fields.named_externals.binary_search(&base_offset).is_ok();
+        if is_named_external {
+            return Some(Arc::new(RwLock::new(ctx.named_external_list[(raw & 0x7FFFFFFF) as usize].clone())));
+        }
+        let is_exid = ctx.runtime_fields.externals.binary_search(&base_offset).is_ok();
+        if is_exid {
+            return Some(Arc::new(RwLock::new(ctx.external_list[(raw & 0x7FFFFFFF) as usize].get_object_alias())));
+        }
+        if raw != 0 {
+
+            // value should not be null, but we couldn't determine what it actually was.
+            error!("Failed to read igObjectRefMetaField properly");
+            panic!("Alchemy Error! Check the logs.");
+        }
+
+        None
     }
 
     fn value_into_igz(

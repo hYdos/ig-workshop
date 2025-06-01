@@ -5,11 +5,11 @@ use crate::core::ig_ark_core::EGame;
 use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_file_context::{get_file_name, igFileContext};
 use crate::core::ig_memory::EMemoryPoolID;
-use crate::core::ig_objects::igObjectStreamManager;
+use crate::core::ig_objects::{igObjectStreamManager, ObjectExt};
 use crate::core::ig_registry::{igRegistry, BuildTool};
 use crate::core::meta::ig_metadata_manager::igMetadataManager;
 use crate::util::ig_common::{get_platform_string, igAlchemy};
-use log::{error, info};
+use log::{debug, error, info};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::fs::File;
@@ -17,345 +17,553 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::Arc;
 use strum::IntoEnumIterator;
+use crate::core::ig_custom::igDataList;
 
 pub trait CResourcePreCacher: Send + Sync {
-    fn precache(&mut self);
-    fn recache(&mut self);
-    fn uncache(&mut self);
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    );
+    fn recache(&self);
+    fn uncache(&self);
 }
 
 pub struct CPrecacheManager {
     pub resource_pre_cachers: Vec<Arc<dyn CResourcePreCacher>>,
-    pub resource_pre_cacher_lookup: HashMap<String, Arc<dyn CResourcePreCacher>>,
+    pub resource_pre_cacher_lookup: HashMap<Arc<str>, Arc<dyn CResourcePreCacher>>,
     pub pool_package_lookup: HashMap<EMemoryPoolID, Vec<String>>,
 }
 
 pub struct COtherPackagePreCacher;
 impl CResourcePreCacher for COtherPackagePreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CCharacterDataPreCacher;
 impl CResourcePreCacher for CCharacterDataPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CSkinPreCacher;
 impl CResourcePreCacher for CSkinPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CHavokAnimDBPreCacher;
 impl CResourcePreCacher for CHavokAnimDBPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CHavokPhysicsSystemPreCacher;
 impl CResourcePreCacher for CHavokPhysicsSystemPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CTexturePreCacher;
 impl CResourcePreCacher for CTexturePreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CVfxPreCacher;
 impl CResourcePreCacher for CVfxPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CShaderPreCacher;
 impl CResourcePreCacher for CShaderPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CMotionPathPreCacher;
 impl CResourcePreCacher for CMotionPathPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CIgFilePreCacher;
 impl CResourcePreCacher for CIgFilePreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CMaterialPreCacher;
 impl CResourcePreCacher for CMaterialPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CEntityPreCacher;
 impl CResourcePreCacher for CEntityPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CGuiProjectPreCacher;
 impl CResourcePreCacher for CGuiProjectPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CFontPreCacher;
 impl CResourcePreCacher for CFontPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CLanguageFilePreCacher;
 impl CResourcePreCacher for CLanguageFilePreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CModelPreCacher;
 impl CResourcePreCacher for CModelPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CBehaviorPreCacher;
 impl CResourcePreCacher for CBehaviorPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CBehaviorGraphDataPreCacher;
 impl CResourcePreCacher for CBehaviorGraphDataPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CBehaviorEventPreCacher;
 impl CResourcePreCacher for CBehaviorEventPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CBehaviorAssetPreCacher;
 impl CResourcePreCacher for CBehaviorAssetPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CNavMeshPreCacher;
 impl CResourcePreCacher for CNavMeshPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
 
 pub struct CScriptPreCacher;
 impl CResourcePreCacher for CScriptPreCacher {
-    fn precache(&mut self) {
+    fn precache(
+        &self,
+        archive_loader: &CArchive,
+        cdn: &CContentDeployment,
+        ig_registry: &igRegistry,
+        ig_file_context: &mut igFileContext,
+        ig_object_stream_manager: &mut igObjectStreamManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_metadata_manager: &mut igMetadataManager,
+    ) {
+
+    }
+
+    fn recache(&self) {
         todo!()
     }
 
-    fn recache(&mut self) {
-        todo!()
-    }
-
-    fn uncache(&mut self) {
+    fn uncache(&self) {
         todo!()
     }
 }
@@ -417,7 +625,7 @@ impl CPrecacheManager {
     fn register(&mut self, name: &str, resource_pre_cacher: Arc<dyn CResourcePreCacher>) {
         self.resource_pre_cachers.push(resource_pre_cacher.clone());
         self.resource_pre_cacher_lookup
-            .insert(name.to_string(), resource_pre_cacher);
+            .insert(Arc::from(name), resource_pre_cacher);
     }
 
     pub fn precache_package(
@@ -425,7 +633,7 @@ impl CPrecacheManager {
         archive_loader: &CArchive,
         cdn: &CContentDeployment,
         ig_registry: &igRegistry,
-        ig_file_context: &igFileContext,
+        ig_file_context: &mut igFileContext,
         ig_object_stream_manager: &mut igObjectStreamManager,
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
@@ -459,15 +667,43 @@ impl CPrecacheManager {
                     )
                     .unwrap();
 
-                let _pkg_dir = ig_object_stream_manager
+                let pkg_dir = ig_object_stream_manager
                     .load(
                         ig_file_context,
                         ig_registry,
                         ig_metadata_manager,
                         ig_ext_ref_system,
-                        package_path,
+                        package_path.clone(),
                     )
                     .unwrap();
+
+                let guard = pkg_dir.read().unwrap();
+                let ig_object_list = guard.object_list.read().unwrap();
+                let objects = &ig_object_list.list.read().unwrap();
+                let ig_string_ref_list = objects[0].clone().downcast::<igDataList<Arc<str>>>().unwrap();
+                let ig_string_ref_guard = ig_string_ref_list.read().unwrap();
+                let data = ig_string_ref_guard.list.read().unwrap();
+                for i in (0..data.len()).step_by(2) {
+                    let package_name = &package_path;
+                    let file_data_type = &data[i];
+                    let file_name = data[i + 1].clone();
+
+                    if let Some(precacher) = self.resource_pre_cacher_lookup.get(file_data_type) {
+                        debug!("Precache type = {}, value = {}", file_data_type, file_name);
+                        precacher.precache(
+                            archive_loader,
+                            cdn,
+                            ig_registry,
+                            ig_file_context,
+                            ig_object_stream_manager,
+                            ig_ext_ref_system,
+                            ig_metadata_manager
+                        );
+                    } else {
+                        error!("file type {} has no registered loader", file_data_type);
+                    }
+                }
+
             }
             BuildTool::TfbTool => {
                 // TODO: move to where tfb handles loading stuff
@@ -643,7 +879,7 @@ fn process_task(
     line: String,
 ) {
     info!("initscript -> {:?} {}", task, line);
-    let precache_manager = &client.precache_manager;
+    let precache_manager = &mut client.precache_manager;
 
     match task {
         LoaderTask::LooseIga => {

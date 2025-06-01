@@ -131,7 +131,7 @@ pub enum SetObjectFieldError {
 pub struct FieldDoesntExist;
 
 /// Represents an object that can be converted from igz or other data into a igObject
-pub trait __internalObjectBase: Sync + Send {
+pub trait __internalObjectBase: Any + Sync + Send {
     /// Returns the [igMetaObject] that built the object
     fn meta_type(&self) -> Arc<igMetaObject>;
     /// Returns a reference to the [igMemoryPool] used to construct the object
@@ -260,6 +260,7 @@ pub struct igMetaFieldInfo {
     pub _type: Arc<str>,
     pub name: Option<Arc<str>>,
     pub size: u32,
+    pub alignment: u32,
     pub offset: u16,
 }
 
@@ -427,6 +428,7 @@ impl igMetadataManager {
                                 &override_field,
                                 platform,
                             ),
+                            alignment: override_field.required_alignment.unwrap(),
                             offset: override_field.offset,
                         }));
                         overriden = true;
@@ -441,12 +443,14 @@ impl igMetadataManager {
 
             for field in &current_object.new_fields {
                 let field = field.read().unwrap();
+                // info!("{}", field.clone()._type);
 
                 new_fields.push(Arc::new(igMetaFieldInfo {
                     ark_info: Arc::new(RwLock::new(field.clone())),
                     _type: field.clone()._type,
                     name: field.clone().name,
                     size: igMetadataManager::calculate_size(self, &field, platform),
+                    alignment: *field.clone().required_alignment.get_or_insert(4),
                     offset: field.offset,
                 }));
             }
@@ -464,6 +468,7 @@ impl igMetadataManager {
                     _type: lock._type.clone(),
                     name: lock.name.clone(),
                     size: self.calculate_size(&lock, platform),
+                    alignment: lock.required_alignment.unwrap(),
                     offset: lock.offset,
                 });
 

@@ -581,6 +581,8 @@ pub struct IgzLoaderContext {
     pub vtbl_list: Vec<Arc<igMetaObject>>,
     /// A list of all strings present inside the igz
     pub string_list: Vec<String>,
+    /// A list of all external ig object dependencies needed that don't get names
+    pub external_list: Vec<igHandle>,
     /// A list of all external ig object dependencies needed
     pub named_external_list: Vec<igObject>,
     /// A list of all handles used from dependencies
@@ -592,7 +594,7 @@ pub struct IgzLoaderContext {
     /// All runtime lists stored from fixups. Used for various parts of the runtime
     pub runtime_fields: RuntimeFields,
     /// TODO: comment
-    pub offset_object_list: HashMap<u64, Arc<RwLock<dyn __internalObjectBase>>>,
+    pub offset_object_list: HashMap<u64, igObject>,
 }
 
 impl IgzLoaderContext {
@@ -674,6 +676,7 @@ impl igIGZLoader {
                 fixup_offset: 0,
                 vtbl_list: vec![],
                 string_list: vec![],
+                external_list: vec![],
                 named_external_list: vec![],
                 named_handle_list: vec![],
                 read_dependencies,

@@ -29,6 +29,6 @@ impl igHandle {
     }
 
     pub fn get_object_alias(&self) -> igObject {
-        todo!()
+        panic!("get_object_alias is unimplemented")
     }
 }

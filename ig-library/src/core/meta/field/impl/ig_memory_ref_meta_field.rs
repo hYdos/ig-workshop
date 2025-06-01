@@ -43,7 +43,7 @@ impl igMetaField for igMemoryRefMetaField {
         if ctx.runtime_fields.pool_ids.binary_search(&start).is_ok() {
             memory.pool = ctx.loaded_pools[(flags & 0xFFFFFF) as usize];
         } else {
-            memory.set_flags(flags, ctx.platform.get_pointer_size(), ctx.platform.get_pointer_size() * 2, ctx.platform.clone());
+            memory.set_flags(flags, self.0.alignment as usize, self.0.size as usize, ctx.platform.clone());
             memory.pool = ctx.get_pool_from_serialized_offset(raw);
 
             let guard = self.0.ark_info.read().unwrap();

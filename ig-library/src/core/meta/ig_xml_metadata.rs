@@ -88,7 +88,7 @@ pub struct RawArkMetaObjectField {
     /// Present when _type is equal to "igObjectRefMetaField"
     pub meta_object: Option<Arc<str>>,
     /// Some field will require a specific alignment otherwise they won't work. These types will specify it. I am unsure specifically which ones do this.
-    pub required_alignment: Option<u8>,
+    pub required_alignment: Option<u32>,
     /// Present when _type is equal to "igVectorMetaField"
     pub ig_vector_info: Option<VectorInfo>,
     /// Present when _type is equal to "igMemoryRefMetaField"
@@ -676,7 +676,7 @@ fn process_new_metafield(e: &BytesStart) -> Option<ArkMetaObjectField> {
     let mut offset: Option<u16> = None;
     let mut name: Option<Arc<str>> = None;
     let mut meta_object: Option<Arc<str>> = None;
-    let mut required_alignment: Option<u8> = None;
+    let mut required_alignment: Option<u32> = None;
     let mut ig_bit_shift_info = BitShiftInfo {
         shift: 0,
         bits: 0,
@@ -702,7 +702,7 @@ fn process_new_metafield(e: &BytesStart) -> Option<ArkMetaObjectField> {
             b"requiredAlignment" => {
                 // Jasleen made it write the value in decimal not hex here?
                 let raw = String::from(attrib.unescape_value().unwrap());
-                required_alignment = Some(u8::from_str(&raw).unwrap());
+                required_alignment = Some(u32::from_str(&raw).unwrap());
             }
             // igBitFieldMetaField
             b"shift" => {

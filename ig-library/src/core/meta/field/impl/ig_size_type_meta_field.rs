@@ -9,25 +9,27 @@ use crate::core::meta::ig_metadata_manager::igMetadataManager;
 use crate::core::save::ig_igb_saver::{IgbSaverContext, IgbSaverError};
 use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
+use crate::util::byteorder_fixes::read_ptr;
 use std::any::TypeId;
 use std::io::Cursor;
+use std::sync::{Arc, RwLock};
 
 pub struct igSizeTypeMetaField;
 
 impl igMetaField for igSizeTypeMetaField {
     fn type_id(&self) -> TypeId {
-        todo!()
+        TypeId::of::<u64>()
     }
 
     fn value_from_igz(
         &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
-        _handle: &mut Cursor<Vec<u8>>,
-        _endian: Endian,
-        _ctx: &IgzLoaderContext,
+        handle: &mut Cursor<Vec<u8>>,
+        endian: Endian,
+        ctx: &IgzLoaderContext,
     ) -> Option<igAny> {
-        todo!()
+        Some(Arc::new(RwLock::new(read_ptr(handle, ctx.platform.clone(), endian).unwrap())))
     }
 
     fn value_into_igz(
