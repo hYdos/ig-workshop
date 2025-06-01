@@ -64,6 +64,7 @@ impl igMetadataManager {
                     // ignored, not important on a per-object basis.
                 }
                 &_ => {
+                    #[cfg(debug_assertions)]
                     debug!("Setting up igz field(name={}, type={})", name, field._type);
                     handle.set_position(object_offset + field.offset as u64);
                     let metafield = self.meta_field_registry.get(field.clone(), self, self.platform.clone());

@@ -588,6 +588,7 @@ impl igStorageDevice for igArchive {
     fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
         match work_item.ig_registry.build_tool {
             BuildTool::AlchemyLaboratory => {
+                #[cfg(debug_assertions)]
                 debug!(
                     "{} has hash {}",
                     work_item._path,
@@ -791,6 +792,7 @@ impl igStorageDevice for Arc<igArchive> {
     fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
         match work_item.ig_registry.build_tool {
             BuildTool::AlchemyLaboratory => {
+                #[cfg(debug_assertions)]
                 debug!(
                     "{} has hash {}",
                     work_item._path,

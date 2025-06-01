@@ -52,7 +52,6 @@ impl igMetaField for igStringMetaField {
         handle.set_position(base_pos + ctx.platform.get_pointer_size() as u64);
         // Based rust casting
         result.map(|s| {
-            debug!("{}", s);
             // 1) make an Arc<str>
             let arc_str: Arc<str> = Arc::from(s.into_boxed_str());
             // 2) lock the Arc<str>, producing Arc<RwLock<Arc<str>>>

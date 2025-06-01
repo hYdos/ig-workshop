@@ -44,7 +44,7 @@ pub fn read_ptr(
 }
 
 pub fn read_string(cursor: &mut Cursor<Vec<u8>>) -> std::io::Result<String> {
-    let mut buf = Vec::new();
+    let mut buf = Vec::with_capacity(0x20); // guess a good starting point for a string. usually names are pretty long so lets go with 0x20
 
     loop {
         let mut byte = [0u8];

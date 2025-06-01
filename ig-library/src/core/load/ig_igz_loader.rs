@@ -840,6 +840,7 @@ impl igIGZLoader {
 
             let fixup = Fixup::try_from(magic);
             if let Ok(fixup) = fixup {
+                #[cfg(debug_assertions)]
                 debug!(
                     "Processing {}",
                     String::from_utf8_lossy(&magic.to_le_bytes())

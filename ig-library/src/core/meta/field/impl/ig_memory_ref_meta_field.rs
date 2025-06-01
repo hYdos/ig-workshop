@@ -31,6 +31,7 @@ impl igMetaField for igMemoryRefMetaField {
         endian: Endian,
         ctx: &IgzLoaderContext,
     ) -> Option<igAny> {
+        #[cfg(debug_assertions)]
         debug!("Internal meta object type={}", self.0._type);
         let start = handle.position();
         let flags = read_ptr(handle, ctx.platform.clone(), endian.clone()).unwrap();

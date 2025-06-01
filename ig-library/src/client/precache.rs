@@ -700,7 +700,7 @@ impl CPrecacheManager {
                             ig_metadata_manager
                         );
                     } else {
-                        error!("file type {} has no registered loader", file_data_type);
+                        // error!("file type {} has no registered loader", file_data_type);
                     }
                 }
 
