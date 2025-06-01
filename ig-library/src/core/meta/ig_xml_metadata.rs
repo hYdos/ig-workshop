@@ -77,7 +77,7 @@ pub struct TfbXmlScriptBinding {
     pub object_type: Arc<str>
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct RawArkMetaObjectField {
     /// meta field type to use when serializing, deserializing, and constructing new instances
     pub _type: Arc<str>,

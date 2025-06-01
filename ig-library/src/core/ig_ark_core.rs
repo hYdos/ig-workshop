@@ -42,7 +42,7 @@ fn register_metafields(imm: &mut igMetadataManager) {
             ark_info: raw_internal_metafield.clone(),
             _type: raw_internal_metafield.read().unwrap().clone()._type,
             name: raw_internal_metafield.read().unwrap().clone().name,
-            size: imm.calculate_size(&raw_internal_metafield.read().unwrap(), &platform),
+            size: imm.calculate_size(&raw_internal_metafield.read().unwrap(), platform),
             alignment: raw_internal_metafield.read().unwrap().required_alignment.unwrap_or_else(|| 4),
             offset: raw_internal_metafield.read().unwrap().clone().offset, // should always be 0 but just in case.
         };

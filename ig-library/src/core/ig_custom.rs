@@ -3,10 +3,7 @@ use crate::core::ig_archive::igArchive;
 use crate::core::ig_memory::igMemoryPool;
 use crate::core::ig_objects::{igAny, igObject, igObjectDirectory, ObjectExt};
 use crate::core::memory::igMemory;
-use crate::core::meta::ig_metadata_manager::{
-    __internalObjectBase, igMetaInstantiationError, igMetaObject, FieldDoesntExist,
-    SetObjectFieldError,
-};
+use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetaInstantiationError, igMetaObject, igMetadataManager, FieldDoesntExist, SetObjectFieldError};
 use crate::util::ig_name::igName;
 use log::{error, warn};
 use std::any::Any;
@@ -15,11 +12,12 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 #[derive(Clone)]
 pub struct igDataList<T> {
     pub list: Arc<RwLock<Vec<T>>>,
-    meta: Option<Arc<igMetaObject>>,
+    object_name: Arc<str>,
     pool: igMemoryPool,
 }
 
 pub type igObjectList = igDataList<igObject>;
+pub type igStringRefList = igDataList<Arc<str>>;
 pub type igArchiveList = igDataList<Arc<igArchive>>;
 pub type igObjectDirectoryList = igDataList<Arc<RwLock<igObjectDirectory>>>;
 pub type igNameList = igDataList<igName>;
@@ -42,9 +40,7 @@ where
         if let Some(t) = self.clone().downcast::<T>() {
             Ok(t)
         } else {
-            // grab actual type name for error
-            let actual = self.read().unwrap().meta_type().name.clone();
-            Err(igMetaInstantiationError::TypeMismatchError(actual))
+            Err(igMetaInstantiationError::TypeMismatchError(self.read().unwrap().object_name()))
         }
     }
 }
@@ -77,7 +73,7 @@ where
         // 3) build a brand-new igDataList<U> with the same meta+pool
         let new_list = igDataList {
             list: Arc::new(RwLock::new(new_vec)),
-            meta: old.meta.clone(),
+            object_name: old.object_name.clone(),
             pool: old.pool,
         };
 
@@ -87,11 +83,12 @@ where
 }
 
 impl<T: Send + Sync + 'static + Clone> __internalObjectBase for igDataList<T> {
-    fn meta_type(&self) -> Arc<igMetaObject> {
-        if self.meta.is_none() {
-            panic!("Tried to get metadata of type constructed without one")
-        }
-        self.meta.clone().unwrap()
+    fn object_name(&self) -> Arc<str> {
+        self.object_name.clone()
+    }
+
+    fn meta_type(&self, metadata_manager: &mut igMetadataManager) -> Arc<RwLock<igMetaObject>> {
+        metadata_manager.get_or_create_meta(self.object_name.as_ref()).unwrap()
     }
 
     fn internal_pool(&self) -> &igMemoryPool {
@@ -155,12 +152,12 @@ impl<T: Send + Sync + 'static + Clone> __internalObjectBase for igDataList<T> {
 
 impl<T: Send + Sync + 'static + Clone> igDataList<T> {
     pub fn construct(
-        meta: Arc<igMetaObject>,
+        meta: &igMetaObject,
         pool: igMemoryPool,
     ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError> {
         Ok(Arc::new(RwLock::new(igDataList {
             list: Arc::new(RwLock::new(Vec::<T>::new())),
-            meta: Some(meta),
+            object_name: meta.name.clone(),
             pool,
         })))
     }
@@ -170,7 +167,7 @@ impl<T: Clone> igDataList<T> {
     pub fn new() -> Self {
         Self {
             list: Arc::new(RwLock::new(Vec::new())),
-            meta: None,
+            object_name: Arc::from("INVALID"),
             pool: Default::default(),
         }
     }
@@ -178,7 +175,7 @@ impl<T: Clone> igDataList<T> {
     pub fn new_with_capacity(capacity: usize) -> Self {
         Self {
             list: Arc::new(RwLock::new(Vec::with_capacity(capacity))),
-            meta: None,
+            object_name: Arc::from("INVALID"),
             pool: Default::default(),
         }
     }

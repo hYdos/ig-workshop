@@ -3,6 +3,7 @@
 mod logger;
 mod tabs;
 mod window;
+mod plugin;
 
 use crate::logger::init_logger;
 use crate::tabs::laboratory_editor::VVLaboratoryEditor;

@@ -1,11 +1,12 @@
 use crate::window::{LoadedGame, WorkshopTabImpl, WorkshopTabViewer};
 use egui::{include_image, Button, CentralPanel, Label, SidePanel, TextEdit, Ui, Vec2, Widget, WidgetText};
 use egui_ltreeview::{NodeBuilder, TreeView, TreeViewBuilder};
-use ig_library::core::ig_objects::igObject;
+use ig_library::core::ig_objects::{igObject, igObjectDirectory, ObjectExt};
 use ig_library::util::ig_name::igName;
 use std::collections::HashMap;
-use std::sync::Arc;
-use log::error;
+use std::sync::{Arc, RwLock};
+use log::{error, info};
+use ig_library::core::ig_custom::igStringRefList;
 
 /// Tab specifically designed for usage with games made in Vicarious Visions Laboratory.
 pub struct VVLaboratoryEditor {
@@ -20,37 +21,37 @@ pub struct VVLaboratoryEditor {
 struct LaboratoryPackage {
     #[allow(dead_code)] // used for referencing the internal ig_object_dir if needed in the future
     pub name: igName,
-    pub pkg_list: Vec<igObject>,
-    pub character_data_list: Vec<igObject>,
-    pub actor_skin_list: Vec<igObject>,
-    pub havok_anim_db_list: Vec<igObject>,
-    pub havok_rigid_body_list: Vec<igObject>,
-    pub havok_physics_system_list: Vec<igObject>,
-    pub texture_list: Vec<igObject>,
-    pub effect_list: Vec<igObject>,
-    pub shader_list: Vec<igObject>,
-    pub motion_path_list: Vec<igObject>,
-    pub igx_file_list: Vec<igObject>,
-    pub material_instances_list: Vec<igObject>,
-    pub igx_entities_list: Vec<igObject>,
-    pub gui_project_list: Vec<igObject>,
-    pub font_list: Vec<igObject>,
-    pub lang_file_list: Vec<igObject>,
-    pub spawn_mesh_list: Vec<igObject>,
-    pub model_list: Vec<igObject>,
-    pub sky_model_list: Vec<igObject>,
-    pub behavior_list: Vec<igObject>,
-    pub graph_data_behavior_list: Vec<igObject>,
-    pub events_behavior_list: Vec<igObject>,
-    pub asset_behavior_list: Vec<igObject>,
-    pub hkb_behavior_list: Vec<igObject>,
-    pub hkc_character_list: Vec<igObject>,
-    pub navmesh_list: Vec<igObject>,
-    pub script_list: Vec<igObject>,
+    pub pkg_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub character_data_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub actor_skin_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub havok_anim_db_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub havok_rigid_body_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub havok_physics_system_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub texture_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub effect_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub shader_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub motion_path_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub igx_file_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub material_instances_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub igx_entities_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub gui_project_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub font_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub lang_file_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub spawn_mesh_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub model_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub sky_model_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub behavior_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub graph_data_behavior_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub events_behavior_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub asset_behavior_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub hkb_behavior_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub hkc_character_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub navmesh_list: Vec<Arc<RwLock<igObjectDirectory>>>,
+    pub script_list: Vec<String>, // TODO: vvl impl
 }
 
 impl VVLaboratoryEditor {
-    pub fn new(game: LoadedGame) -> Box<VVLaboratoryEditor> {
+    pub fn new(mut game: LoadedGame) -> Box<VVLaboratoryEditor> {
         let mut loaded_packages = HashMap::new();
 
         // process all initscript files loaded once at tab startup
@@ -102,6 +103,52 @@ impl VVLaboratoryEditor {
                             script_list: vec![],
                         },
                     );
+                }
+            }
+        }
+
+        let ig_registry=  &game.ig_alchemy.registry;
+        let ig_file_context=  &game.ig_alchemy.file_context;
+        let ig_object_stream_manager=  &mut game.ig_alchemy.object_stream_manager;
+        let imm=  &mut game.ig_alchemy.ark_core.metadata_manager;
+        let ig_ext_ref_system=  &mut game.ig_alchemy.ig_ext_ref_system;
+
+        for (name, package) in &mut loaded_packages {
+            let pkg_dir = ig_object_stream_manager
+                .load(
+                    ig_file_context,
+                    ig_registry,
+                    imm,
+                    ig_ext_ref_system,
+                    format!("packages/generated/{}_pkg.igz", name),
+                )
+                .unwrap();
+
+            let guard = pkg_dir.read().unwrap();
+            let ig_object_list = guard.object_list.read().unwrap();
+            let objects = &ig_object_list.list.read().unwrap();
+            let ig_string_ref_list = objects[0].clone().downcast::<igStringRefList>().unwrap();
+            let ig_string_ref_guard = ig_string_ref_list.read().unwrap();
+            let data = ig_string_ref_guard.list.read().unwrap();
+            for i in (0..data.len()).step_by(2) {
+                let file_data_type = &data[i];
+                let file_name = data[i + 1].clone();
+
+                match file_data_type.as_ref() {
+                    "lang_file" =>  {
+                        let igz = ig_object_stream_manager
+                            .load(
+                                ig_file_context,
+                                ig_registry,
+                                imm,
+                                ig_ext_ref_system,
+                                file_name.to_string(),
+                            )
+                            .unwrap();
+
+                        package.lang_file_list.push(igz)
+                    },
+                    _ => error!("Unsupported data type {}", file_data_type)
                 }
             }
         }

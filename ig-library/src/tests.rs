@@ -54,7 +54,7 @@ struct igModelData {
 }
 
 impl __internalObjectBase for igModelData {
-    fn meta_type(&self) -> Arc<igMetaObject> {
+    fn meta_type(&self) -> Arc<RwLock<igMetaObject>> {
         todo!()
     }
 
@@ -99,7 +99,7 @@ struct igModelInfo {
 }
 
 impl __internalObjectBase for igModelInfo {
-    fn meta_type(&self) -> Arc<igMetaObject> {
+    fn meta_type(&self) -> Arc<RwLock<igMetaObject>> {
         todo!()
     }
 

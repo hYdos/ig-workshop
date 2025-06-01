@@ -17,7 +17,7 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::Arc;
 use strum::IntoEnumIterator;
-use crate::core::ig_custom::igDataList;
+use crate::core::ig_custom::{igDataList, igStringRefList};
 
 pub trait CResourcePreCacher: Send + Sync {
     fn precache(
@@ -680,7 +680,7 @@ impl CPrecacheManager {
                 let guard = pkg_dir.read().unwrap();
                 let ig_object_list = guard.object_list.read().unwrap();
                 let objects = &ig_object_list.list.read().unwrap();
-                let ig_string_ref_list = objects[0].clone().downcast::<igDataList<Arc<str>>>().unwrap();
+                let ig_string_ref_list = objects[0].clone().downcast::<igStringRefList>().unwrap();
                 let ig_string_ref_guard = ig_string_ref_list.read().unwrap();
                 let data = ig_string_ref_guard.list.read().unwrap();
                 for i in (0..data.len()).step_by(2) {

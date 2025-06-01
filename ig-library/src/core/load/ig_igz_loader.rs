@@ -1,6 +1,6 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_custom::CastTo;
-use crate::core::ig_external_ref::igExternalReferenceSystem;
+use crate::core::ig_external_ref::{igExternalReferenceSystem, igReferenceResolverContext};
 use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_fs::Endian;
 use crate::core::ig_fs::Endian::{Big, Little};
@@ -207,8 +207,8 @@ impl Fixup {
             Fixup::EXTERNAL_DEPENDENCIES_BY_NAME => {
                 for _i in 0..count {
                     let raw_handle = read_u64(handle, endian.clone()).unwrap();
-                    let ns_str_index = (raw_handle >> 32) as u32;
-                    let name_str_index = raw_handle as u32;
+                    let ns_str_index = (raw_handle >> 32) as u32 & 0x7FFF_FFFF;
+                    let name_str_index = raw_handle as u32 & 0x7FFF_FFFF;
                     let dependency_handle_name = igHandleName::new(
                         igName::new(ctx.string_list[name_str_index as usize].clone()),
                         igName::new(ctx.string_list[ns_str_index as usize].clone()),
@@ -247,9 +247,16 @@ impl Fixup {
                     if (ns_str_index & 0x80000000) != 0 {
                         ctx.named_handle_list.push(dependency_handle.clone());
                     } else {
+                        let mut ref_ctx = igReferenceResolverContext {
+                            root_objects: None,
+                            base_path: None,
+                            data: None,
+                            ig_metadata_manager: imm,
+                        };
+                        
                         let mut reference = ig_ext_ref_system
                             .global_set
-                            .resolve_reference(&dependency_handle_name);
+                            .resolve_reference(&dependency_handle_name, &mut ref_ctx);
                         if reference.is_none() {
                             reference = Some(dependency_handle.read().unwrap().get_object_alias())
                         }
@@ -349,6 +356,8 @@ fn instantiate_object(
     let index = read_ptr(handle, ctx.platform.clone(), endian).unwrap();
     let return_value = ctx.vtbl_list[index as usize]
         .clone()
+        .read()
+        .unwrap()
         .raw_instantiate(get_mem_pool_from_serialized_offset(ctx, *offset), false);
 
     match return_value {
@@ -492,7 +501,7 @@ impl TryFrom<u8> for Fixup {
 
 impl igObjectLoader for igIGZObjectLoader {
     fn can_read(&self, file_name: &str) -> bool {
-        file_name.ends_with(".igz") || file_name.ends_with(".bld")
+        file_name.ends_with(".igz") || file_name.ends_with(".bld") || file_name.ends_with(".lng")
     }
 
     fn get_name(&self) -> &'static str {
@@ -578,7 +587,7 @@ pub struct IgzLoaderContext {
     /// Offset where fixup's are present
     pub fixup_offset: u32,
     /// A list of all igObject instances present inside the igz
-    pub vtbl_list: Vec<Arc<igMetaObject>>,
+    pub vtbl_list: Vec<Arc<RwLock<igMetaObject>>>,
     /// A list of all strings present inside the igz
     pub string_list: Vec<String>,
     /// A list of all external ig object dependencies needed that don't get names
@@ -873,7 +882,7 @@ impl igIGZLoader {
     fn read_objects(
         handle: &mut Cursor<Vec<u8>>,
         endian: Endian,
-        imm: &igMetadataManager,
+        imm: &mut igMetadataManager,
         ctx: &mut IgzLoaderContext,
     ) {
         for (offset, object) in &ctx.offset_object_list {
