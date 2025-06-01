@@ -331,6 +331,7 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
                     }
                     
                     current_meta_object = None;
+                    current_meta_field = None;
                 }
             }
             Ok(Event::Empty(e)) => match e.local_name().as_ref() {
