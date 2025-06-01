@@ -1,5 +1,5 @@
 use crate::core::ig_fs::Endian;
-use crate::core::ig_objects::{igAny, igObject};
+use crate::core::ig_objects::{igAny, igObject, igObjectStreamManager};
 use crate::core::load::ig_igb_loader::IgbLoaderContext;
 use crate::core::load::ig_igx_loader::IgxLoaderContext;
 use crate::core::load::ig_igz_loader::IgzLoaderContext;
@@ -26,18 +26,20 @@ impl igMetaField for igObjectRefMetaField {
         &self,
         registry: &igMetafieldRegistry,
         metadata_manager: &igMetadataManager,
+        object_stream_manager: &igObjectStreamManager,
         handle: &mut Cursor<Vec<u8>>,
         endian: Endian,
-        ctx: &IgzLoaderContext,
+        ctx: &mut IgzLoaderContext,
     ) -> Option<igAny> {
         let base_offset = handle.position();
         let size_type_meta_field = igSizeTypeMetaField;
         let raw = *size_type_meta_field.value_from_igz(
             registry,
             metadata_manager,
+            object_stream_manager,
             handle,
             endian,
-            ctx
+            ctx,
         ).unwrap().read().unwrap().downcast_ref::<u64>().unwrap();
 
         let is_offset = ctx.runtime_fields.offsets.binary_search(&base_offset).is_ok();
@@ -50,10 +52,13 @@ impl igMetaField for igObjectRefMetaField {
         }
         let is_exid = ctx.runtime_fields.externals.binary_search(&base_offset).is_ok();
         if is_exid {
-            return Some(Arc::new(RwLock::new(ctx.external_list[(raw & 0x7FFFFFFF) as usize].get_object_alias())));
+            return if let Some(obj) = ctx.external_list[(raw & 0x7FFFFFFF) as usize].get_object_alias(object_stream_manager) {
+                Some(Arc::new(RwLock::new(obj)))
+            } else {
+                None
+            };
         }
         if raw != 0 {
-
             // value should not be null, but we couldn't determine what it actually was.
             error!("Failed to read igObjectRefMetaField properly");
             panic!("Alchemy Error! Check the logs.");
@@ -66,9 +71,10 @@ impl igMetaField for igObjectRefMetaField {
         &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _object_stream_manager: &igObjectStreamManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
-        _ctx: &mut IgzSaverContext
+        _ctx: &mut IgzSaverContext,
     ) -> Result<(), IgzSaverError> {
         todo!()
     }
@@ -77,9 +83,10 @@ impl igMetaField for igObjectRefMetaField {
         &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _object_stream_manager: &igObjectStreamManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
-        _ctx: &mut IgxLoaderContext
+        _ctx: &mut IgxLoaderContext,
     ) -> Option<igAny> {
         todo!()
     }
@@ -88,9 +95,10 @@ impl igMetaField for igObjectRefMetaField {
         &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _object_stream_manager: &igObjectStreamManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
-        _ctx: &mut IgxSaverContext
+        _ctx: &mut IgxSaverContext,
     ) -> Result<(), IgxSaverError> {
         todo!()
     }
@@ -99,6 +107,7 @@ impl igMetaField for igObjectRefMetaField {
         &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _object_stream_manager: &igObjectStreamManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbLoaderContext,
@@ -107,9 +116,10 @@ impl igMetaField for igObjectRefMetaField {
     }
 
     fn value_into_igb(
-        &self, 
+        &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _object_stream_manager: &igObjectStreamManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbSaverContext,

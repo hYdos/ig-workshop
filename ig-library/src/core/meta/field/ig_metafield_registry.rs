@@ -73,8 +73,8 @@ impl igMetafieldRegistry {
             None => {
                 debug!("instantiated a new igPlaceholderMetafield. No SIMPLE implementation for {}. (This could be very bad lots of my code would need to be changed to make this work pls tell me it's not a complex type)", name);
                 Arc::new(igPlaceholderMetafield {
-                    size: ark_info.required_alignment.unwrap() as u32,
-                    missing_impl_name: ark_info.name.clone().unwrap(),
+                    size: ark_info.required_alignment.unwrap_or(4),
+                    missing_impl_name: ark_info.name.clone().unwrap_or(Arc::from("unknown??? (possible child metafield from memoryRef or similar)")),
                 })
             }
         }

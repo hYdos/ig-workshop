@@ -41,7 +41,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 let string_meta_field = igStringMetaField;
 
-                let #name = string_meta_field.value_from_igz(registry, metadata_manager, handle, endian.clone(), ctx)
+                let #name = string_meta_field.value_from_igz(registry, metadata_manager, object_stream_manager, handle, endian.clone(), ctx)
                     .map(|s| Some(s.read().unwrap().downcast_ref::<Arc<str>>().expect("igStruct string downcast failed.").to_string()))
                     .unwrap_or(None);
             }
@@ -75,9 +75,10 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 &self,
                 registry: &igMetafieldRegistry,
                 metadata_manager: &igMetadataManager,
+                object_stream_manager: &igObjectStreamManager,
                 handle: &mut std::io::Cursor<Vec<u8>>,
                 endian: Endian,
-                ctx: &IgzLoaderContext,
+                ctx: &mut IgzLoaderContext,
             ) -> Option<igAny> {
                 use crate::util::byteorder_fixes::*;
                 #(#read_fields)*
@@ -90,6 +91,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 &self,
                 registry: &igMetafieldRegistry,
                 metadata_manager: &igMetadataManager,
+                object_stream_manager: &igObjectStreamManager,
                 handle: &mut Cursor<Vec<u8>>,
                 endian: Endian,
                 ctx: &mut IgzSaverContext
@@ -101,6 +103,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 &self, 
                 registry: &igMetafieldRegistry,
                 metadata_manager: &igMetadataManager,
+                object_stream_manager: &igObjectStreamManager,
                 handle: &mut Cursor<Vec<u8>>,
                 endian: Endian,
                 ctx: &mut IgxLoaderContext
@@ -111,7 +114,8 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn value_into_igx(
                 &self, 
                 registry: &igMetafieldRegistry,
-                metadata_manager: &igMetadataManager, 
+                metadata_manager: &igMetadataManager,
+                object_stream_manager: &igObjectStreamManager,
                 handle: &mut Cursor<Vec<u8>>, 
                 endian: Endian, 
                 ctx: &mut IgxSaverContext
@@ -123,6 +127,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 &self,
                 registry: &igMetafieldRegistry,
                 metadata_manager: &igMetadataManager,
+                object_stream_manager: &igObjectStreamManager,
                 handle: &mut Cursor<Vec<u8>>,
                 endian: Endian,
                 ctx: &mut IgbLoaderContext,
@@ -133,6 +138,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn value_into_igb(
                 &self, registry: &igMetafieldRegistry,
                 metadata_manager: &igMetadataManager,
+                object_stream_manager: &igObjectStreamManager,
                 handle: &mut Cursor<Vec<u8>>,
                 endian: Endian, 
                 ctx: &mut IgbSaverContext,

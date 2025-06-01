@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use log::error;
 use crate::core::ig_custom::igObjectList;
 use crate::core::ig_handle::igHandleName;
 use crate::core::ig_objects::igObject;
@@ -36,7 +37,11 @@ struct igMetaFieldReferenceResolver;
 
 impl igReferenceResolver for igMetaFieldReferenceResolver {
     fn resolve_reference(&self, name: String, ctx: &mut igReferenceResolverContext) -> Option<igObject> {
-        todo!()
+        let args: Vec<&str> = name.split("::").collect();
+        let object_meta = ctx.ig_metadata_manager.get_or_create_meta(args[0]).unwrap();
+        // object_meta.read().unwrap().field_storage.name_lookup.get(args[1]).unwrap()
+        error!("igMetaFieldReferenceResolver need to implement the type for this to work.");
+        Some(object_meta)
     }
 }
 

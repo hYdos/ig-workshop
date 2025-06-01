@@ -1,5 +1,5 @@
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
-use crate::core::ig_custom::CastTo;
+use crate::core::ig_custom::{igNull, CastTo};
 use crate::core::ig_external_ref::{igExternalReferenceSystem, igReferenceResolverContext};
 use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_fs::Endian;
@@ -258,9 +258,9 @@ impl Fixup {
                             .global_set
                             .resolve_reference(&dependency_handle_name, &mut ref_ctx);
                         if reference.is_none() {
-                            reference = Some(dependency_handle.read().unwrap().get_object_alias())
+                            reference = dependency_handle.write().unwrap().get_object_alias(ig_object_stream_manager)
                         }
-                        ctx.named_external_list.push(reference.unwrap());
+                        ctx.named_external_list.push(reference.unwrap_or(Arc::new(RwLock::new(igNull))));
                     }
                 }
             }
@@ -338,14 +338,17 @@ fn instantiate_and_append_objects(
     handle: &mut Cursor<Vec<u8>>,
     endian: Endian,
 ) {
-    for vtable in &ctx.runtime_fields.vtables {
+    let vtables = ctx.runtime_fields.vtables.clone();
+    
+    for vtable in vtables {
+        let obj = instantiate_object(ctx, handle, endian.clone(), &vtable);
         ctx.offset_object_list
-            .insert(*vtable, instantiate_object(ctx, handle, endian.clone(), vtable));
+            .insert(vtable, obj);
     }
 }
 
 fn instantiate_object(
-    ctx: &IgzLoaderContext,
+    ctx: &mut IgzLoaderContext,
     handle: &mut Cursor<Vec<u8>>,
     endian: Endian,
     offset: &u64,
@@ -721,7 +724,7 @@ impl igIGZLoader {
                 );
             }
 
-            igIGZLoader::read_objects(&mut handle, fd.endianness.clone(), imm, &mut shared_state);
+            igIGZLoader::read_objects(imm, ig_object_stream_manager, &mut handle, fd.endianness.clone(), &mut shared_state);
         } else {
             error!("Failed to load igz {}. File could not be read.", file_path);
             panic!("Alchemy Error! Check the logs.")
@@ -880,14 +883,17 @@ impl igIGZLoader {
     }
 
     fn read_objects(
+        imm: &mut igMetadataManager,
+        object_stream_manager: &igObjectStreamManager,
         handle: &mut Cursor<Vec<u8>>,
         endian: Endian,
-        imm: &mut igMetadataManager,
         ctx: &mut IgzLoaderContext,
     ) {
-        for (offset, object) in &ctx.offset_object_list {
-            handle.set_position(ctx.deserialize_offset(*offset));
-            imm.read_igz_fields(handle, endian.clone(), ctx, object.clone())
+        let offset_object_list = ctx.offset_object_list.clone();
+        
+        for (offset, object) in offset_object_list {
+            handle.set_position(ctx.deserialize_offset(offset));
+            imm.read_igz_fields(object_stream_manager, handle, endian.clone(), ctx, object.clone())
         }
     }
 }

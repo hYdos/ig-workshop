@@ -1,5 +1,5 @@
 use crate::core::ig_fs::Endian;
-use crate::core::ig_objects::igAny;
+use crate::core::ig_objects::{igAny, igObjectStreamManager};
 use crate::core::load::ig_igb_loader::IgbLoaderContext;
 use crate::core::load::ig_igx_loader::IgxLoaderContext;
 use crate::core::load::ig_igz_loader::IgzLoaderContext;
@@ -27,9 +27,10 @@ impl igMetaField for igMemoryRefMetaField {
         &self,
         registry: &igMetafieldRegistry,
         metadata_manager: &igMetadataManager,
+        object_stream_manager: &igObjectStreamManager,
         handle: &mut Cursor<Vec<u8>>,
         endian: Endian,
-        ctx: &IgzLoaderContext,
+        ctx: &mut IgzLoaderContext,
     ) -> Option<igAny> {
         #[cfg(debug_assertions)]
         debug!("Internal meta object type={}", self.0._type);
@@ -63,6 +64,7 @@ impl igMetaField for igMemoryRefMetaField {
                     memory.data.push(inner_meta_field.value_from_igz(
                         registry,
                         metadata_manager,
+                        object_stream_manager,
                         handle,
                         endian.clone(),
                         ctx,
@@ -78,6 +80,7 @@ impl igMetaField for igMemoryRefMetaField {
         &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _object_stream_manager: &igObjectStreamManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgzSaverContext,
@@ -89,6 +92,7 @@ impl igMetaField for igMemoryRefMetaField {
         &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _object_stream_manager: &igObjectStreamManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgxLoaderContext,
@@ -100,6 +104,7 @@ impl igMetaField for igMemoryRefMetaField {
         &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _object_stream_manager: &igObjectStreamManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgxSaverContext,
@@ -111,6 +116,7 @@ impl igMetaField for igMemoryRefMetaField {
         &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _object_stream_manager: &igObjectStreamManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbLoaderContext,
@@ -122,6 +128,7 @@ impl igMetaField for igMemoryRefMetaField {
         &self,
         _registry: &igMetafieldRegistry,
         _metadata_manager: &igMetadataManager,
+        _object_stream_manager: &igObjectStreamManager,
         _handle: &mut Cursor<Vec<u8>>,
         _endian: Endian,
         _ctx: &mut IgbSaverContext,

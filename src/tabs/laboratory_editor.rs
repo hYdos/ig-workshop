@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use log::{error, info};
 use ig_library::core::ig_custom::igStringRefList;
+use ig_library::util::ig_hash::hash;
 
 /// Tab specifically designed for usage with games made in Vicarious Visions Laboratory.
 pub struct VVLaboratoryEditor {
@@ -148,7 +149,21 @@ impl VVLaboratoryEditor {
 
                         package.lang_file_list.push(igz)
                     },
-                    _ => error!("Unsupported data type {}", file_data_type)
+                    _ => {
+                        error!("Unsupported data type {}", file_data_type);
+                        // if file_name.ends_with(".igz") {
+                        //     error!("Loading {} anyways", file_name);
+                        //     ig_object_stream_manager
+                        //         .load(
+                        //             ig_file_context,
+                        //             ig_registry,
+                        //             imm,
+                        //             ig_ext_ref_system,
+                        //             file_name.to_string(),
+                        //         )
+                        //         .unwrap();
+                        // }
+                    }
                 }
             }
         }
@@ -225,6 +240,11 @@ impl VVLaboratoryEditor {
         builder.dir(package.name.hash + 14, "Fonts");
         builder.close_dir();
         builder.dir(package.name.hash + 15, "Lang Files");
+        for lang_file in &package.lang_file_list {
+            if let Ok(lang_file) = lang_file.read() {
+                builder.leaf(lang_file.name.hash, WidgetText::from(lang_file.name.string.clone().unwrap().replace("strings/", "")))
+            }
+        }
         builder.close_dir();
         builder.dir(package.name.hash + 16, "Spawn Meshes");
         builder.close_dir();

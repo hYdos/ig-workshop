@@ -2,7 +2,7 @@ use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_custom::{igNameList, igObjectList, igStringRefList};
 use crate::core::ig_fs::Endian;
 use crate::core::ig_memory::igMemoryPool;
-use crate::core::ig_objects::{igAny, ObjectExt};
+use crate::core::ig_objects::{igAny, igObjectStreamManager, ObjectExt};
 use crate::core::load::ig_igz_loader::IgzLoaderContext;
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 use crate::core::meta::ig_xml_metadata::{ArcMetaEnum, ArcMetaField, ArkMetaObjectField, MetaObject, RawArkMetaObjectField};
@@ -48,9 +48,10 @@ impl igMetadataManager {
     /// Takes in igz context and sets the fields of the passed in ig_object. called from ig_igz_loader.
     pub(crate) fn read_igz_fields(
         &mut self,
+        object_stream_manager: &igObjectStreamManager,
         handle: &mut Cursor<Vec<u8>>,
         endian: Endian,
-        ctx: &IgzLoaderContext,
+        ctx: &mut IgzLoaderContext,
         ig_object: Arc<RwLock<dyn __internalObjectBase>>,
     ) {
         let object_offset = handle.position();
@@ -69,7 +70,7 @@ impl igMetadataManager {
                     debug!("Setting up igz field(name={}, type={})", name, field._type);
                     handle.set_position(object_offset + field.offset as u64);
                     let metafield = self.meta_field_registry.get(field.clone(), self, self.platform.clone());
-                    let value = metafield.value_from_igz(&self.meta_field_registry, &self, handle, endian.clone(), ctx);
+                    let value = metafield.value_from_igz(&self.meta_field_registry, &self, object_stream_manager, handle, endian.clone(), ctx);
                     if let Ok(mut guard) = ig_object.write() {
                         match guard.set_field(name.as_ref(), value) {
                             Ok(_) => {}
@@ -275,11 +276,11 @@ pub struct igMetaFieldInfo {
 
 /// Type designed for ergonomics and to keep speed up
 #[derive(Clone, Debug)]
-struct FieldStorage {
+pub struct FieldStorage {
     /// All field will be present in this map. Use the offset of a field to look it up
     offset_lookup: HashMap<u16, Arc<igMetaFieldInfo>>,
     /// NOT all field will be present in this map. Any field not using a name will not be present
-    name_lookup: HashMap<Arc<str>, Arc<igMetaFieldInfo>>,
+    pub name_lookup: HashMap<Arc<str>, Arc<igMetaFieldInfo>>,
 }
 
 impl FieldStorage {
@@ -310,13 +311,13 @@ type InternalMetaObjectConstructor = fn(
 #[derive(Clone, Debug)]
 pub struct igMetaObject {
     pub name: Arc<str>,
-    constructor: InternalMetaObjectConstructor,
+    pub constructor: InternalMetaObjectConstructor,
     #[allow(
         dead_code
     )] // FIXME: the metadata system (at some point in the future) needs to fall back on a parent implementation instead of igGenericObject if possible.
     /// The (optional if we are the root metaobject __internalObjectBase) name of the parent igMetaObject we inherit from
-    parent: Option<Arc<str>>,
-    field_storage: FieldStorage,
+    pub parent: Option<Arc<str>>,
+    pub field_storage: FieldStorage,
 }
 
 /// Describes all possible errors returned from the function [igMetaObject::instantiate]

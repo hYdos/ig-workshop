@@ -9,6 +9,46 @@ use log::{error, warn};
 use std::any::Any;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 
+/// This type is a placeholder in places where we need an igObject, but one failed to load. If you see this type, you can basically guarantee you can't edit the igz containing it without causing issues.
+#[derive(Clone, Debug)]
+pub(crate) struct igNull;
+
+impl __internalObjectBase for igNull {
+    fn object_name(&self) -> Arc<str> {
+        Arc::from("igNull")
+    }
+
+    fn meta_type(&self, metadata_manager: &mut igMetadataManager) -> Arc<RwLock<igMetaObject>> {
+        panic!("tried to call meta_type but igNull doesn't exist")
+    }
+
+    fn internal_pool(&self) -> &igMemoryPool {
+        &igMemoryPool::Default
+    }
+
+    fn set_pool(&mut self, pool: igMemoryPool) {}
+
+    fn set_field(&mut self, name: &str, value: Option<igAny>) -> Result<(), SetObjectFieldError> {
+        Ok(())
+    }
+
+    fn get_non_null_field(&self, name: &str) -> Result<igAny, FieldDoesntExist> {
+        Err(FieldDoesntExist)
+    }
+
+    fn get_field(&self, name: &str) -> Result<Option<igAny>, FieldDoesntExist> {
+        Err(FieldDoesntExist)
+    }
+
+    fn as_any(&self) -> &(dyn Any + Send + Sync) {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut (dyn Any + Send + Sync) {
+        self
+    }
+}
+
 #[derive(Clone)]
 pub struct igDataList<T> {
     pub list: Arc<RwLock<Vec<T>>>,

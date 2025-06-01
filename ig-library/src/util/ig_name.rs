@@ -1,3 +1,4 @@
+use crate::core::ig_objects::igObjectStreamManager;
 use crate::core::ig_fs::Endian;
 use crate::core::ig_objects::igAny;
 use crate::core::load::ig_igb_loader::IgbLoaderContext;
