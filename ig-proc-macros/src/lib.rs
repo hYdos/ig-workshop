@@ -67,7 +67,7 @@ pub fn igStruct(_attr: TokenStream, item: TokenStream) -> TokenStream {
         pub struct #meta_struct_name;
 
         impl igMetaField for #meta_struct_name {
-            fn type_id(&self) -> std::any::TypeId {
+            fn type_of(&self) -> std::any::TypeId {
                 std::any::TypeId::of::<#struct_name>()
             }
 

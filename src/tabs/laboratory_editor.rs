@@ -1,13 +1,12 @@
 use crate::window::{LoadedGame, WorkshopTabImpl, WorkshopTabViewer};
 use egui::{include_image, Button, CentralPanel, Label, SidePanel, TextEdit, Ui, Vec2, Widget, WidgetText};
 use egui_ltreeview::{NodeBuilder, TreeView, TreeViewBuilder};
-use ig_library::core::ig_objects::{igObject, igObjectDirectory, ObjectExt};
+use ig_library::core::ig_objects::{igObjectDirectory, ObjectExt};
 use ig_library::util::ig_name::igName;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use log::{error, info};
+use log::{error};
 use ig_library::core::ig_custom::igStringRefList;
-use ig_library::util::ig_hash::hash;
 
 /// Tab specifically designed for usage with games made in Vicarious Visions Laboratory.
 pub struct VVLaboratoryEditor {
@@ -319,8 +318,9 @@ impl WorkshopTabImpl for VVLaboratoryEditor {
                     });
                 });
             });
+
         CentralPanel::default().show_inside(ui, |ui| {
-            ui.label(format!("Content of {:?}", self.game.cfg._game));
+            ui.label(format!("Content of {:?} (VV Editor)", self.game.cfg._game));
         });
     }
 }

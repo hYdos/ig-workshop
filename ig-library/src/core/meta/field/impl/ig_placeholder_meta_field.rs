@@ -7,7 +7,7 @@ use crate::core::meta::field::ig_metafields::igMetaField;
 use crate::core::save::ig_igb_saver::{IgbSaverContext, IgbSaverError};
 use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
-use log::{error, warn};
+use log::{error, trace, warn};
 use std::any::TypeId;
 use std::io::{Cursor, Read};
 use std::sync::{Arc, RwLock};
@@ -21,7 +21,7 @@ pub struct igPlaceholderMetafield {
 }
 
 impl igMetaField for igPlaceholderMetafield {
-    fn type_id(&self) -> TypeId {
+    fn type_of(&self) -> TypeId {
         TypeId::of::<Vec<u8>>()
     }
 
@@ -34,7 +34,7 @@ impl igMetaField for igPlaceholderMetafield {
         _endian: Endian,
         _ctx: &mut IgzLoaderContext,
     ) -> Option<igAny> {
-        warn!("{} has no implementation. Using igPlaceholderMetafield. Harass hydos to implement this or make a PR!", self.missing_impl_name);
+        trace!("{} has no implementation. Using igPlaceholderMetafield", self.missing_impl_name);
         let mut fake_buffer = Vec::with_capacity(self.size as usize);
         handle.read_exact(&mut fake_buffer).unwrap();
         Some(Arc::new(RwLock::new(fake_buffer)))

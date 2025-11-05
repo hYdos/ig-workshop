@@ -1,10 +1,4 @@
 use crate::core::ig_ark_core::EGame::*;
-use crate::core::meta::ig_metadata_manager::{igMetaFieldInfo, igMetadataManager};
-use crate::core::meta::ig_xml_metadata::load_xml_metadata;
-use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
-use std::sync::Arc;
-use serde::Serialize;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::meta::field::r#impl::ig_bit_field_meta_field::igBitFieldMetaField;
 use crate::core::meta::field::r#impl::ig_bool_meta_field::igBoolMetaField;
@@ -19,18 +13,30 @@ use crate::core::meta::field::r#impl::ig_string_meta_field::igStringMetaField;
 use crate::core::meta::field::r#impl::ig_unsigned_int_meta_field::igUnsignedIntMetaField;
 use crate::core::meta::field::r#impl::ig_unsigned_long_meta_field::igUnsignedLongMetaField;
 use crate::core::meta::field::r#impl::ig_unsigned_short_meta_field::igUnsignedShortMetaField;
+use crate::core::meta::ig_metadata_manager::{igMetaFieldInfo, igMetadataManager};
+use crate::core::meta::ig_xml_metadata::load_xml_metadata;
 use crate::util::ig_name::igNameMetaField;
+use serde::Serialize;
+use std::fmt::{Display, Formatter};
+use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Contains reflection metadata information. Stands for Application Runtime Kernel.
 pub struct igArkCore {
-    pub metadata_manager: igMetadataManager
+    pub metadata_manager: igMetadataManager,
 }
 
 impl igArkCore {
     pub fn new(game: EGame, platform: IG_CORE_PLATFORM) -> Self {
         let metadata_path = PathBuf::from(format!("ArkCore/{:?}/", game));
-        let xml_metadata = load_xml_metadata(&metadata_path).unwrap_or_else(|_| panic!("Failed to find metadata at path {}", metadata_path.display()));
-        let mut metadata_manager = igMetadataManager::new(xml_metadata.0, xml_metadata.1, xml_metadata.2, platform);
+        let xml_metadata = load_xml_metadata(&metadata_path).unwrap_or_else(|_| {
+            panic!(
+                "Failed to find metadata at path {}",
+                metadata_path.display()
+            )
+        });
+        let mut metadata_manager =
+            igMetadataManager::new(xml_metadata.0, xml_metadata.1, xml_metadata.2, platform);
         register_metafields(&mut metadata_manager);
         igArkCore { metadata_manager }
     }
@@ -38,40 +44,76 @@ impl igArkCore {
 
 /// Registers all built in meta fields to the [core::meta::field::ig_metafield_registry::igMetafieldRegistry]
 fn register_metafields(imm: &mut igMetadataManager) {
-    imm.meta_field_registry.register::<igEnumMetaField>(Arc::from("igStaticMetaField"), Arc::new(igStaticMetaField));
-    imm.meta_field_registry.register::<igEnumMetaField>(Arc::from("igEnumMetaField"), Arc::new(igEnumMetaField));
-    imm.meta_field_registry.register::<igBoolMetaField>(Arc::from("igBoolMetaField"), Arc::new(igBoolMetaField));
-    imm.meta_field_registry.register::<igRawRefMetaField>(Arc::from("igRawRefMetaField"), Arc::new(igRawRefMetaField));
-    imm.meta_field_registry.register::<igUnsignedIntMetaField>(Arc::from("igUnsignedIntMetaField"), Arc::new(igUnsignedIntMetaField));
-    imm.meta_field_registry.register::<igUnsignedShortMetaField>(Arc::from("igUnsignedShortMetaField"), Arc::new(igUnsignedShortMetaField));
-    imm.meta_field_registry.register::<igUnsignedLongMetaField>(Arc::from("igUnsignedLongMetaField"), Arc::new(igUnsignedLongMetaField));
-    imm.meta_field_registry.register::<igIntMetaField>(Arc::from("igIntMetaField"), Arc::new(igIntMetaField));
-    imm.meta_field_registry.register::<igStringMetaField>(Arc::from("igStringMetaField"), Arc::new(igStringMetaField));
-    imm.meta_field_registry.register::<igNameMetaField>(Arc::from("igNameMetaField"), Arc::new(igNameMetaField));
-    imm.meta_field_registry.register::<igSizeTypeMetaField>(Arc::from("igSizeTypeMetaField"), Arc::new(igSizeTypeMetaField));
-    imm.meta_field_registry.register::<igObjectRefMetaField>(Arc::from("igObjectRefMetaField"), Arc::new(igObjectRefMetaField));
-    imm.meta_field_registry.register_complex::<igMemoryRefMetaField>(Arc::from("igMemoryRefMetaField"), |ark_field, metaobject, imm, _metafield_registry, platform| {
-        let raw_internal_metafield = &ark_field.ark_info.read().unwrap().clone().ig_memory_ref_info.unwrap();
-        // TODO: i need a better system for this. so many types here it really is ugly but the oop side of this makes it hard to work through
-        let updated_internal_metafield = igMetaFieldInfo {
-            ark_info: raw_internal_metafield.clone(),
-            _type: raw_internal_metafield.read().unwrap().clone()._type,
-            name: raw_internal_metafield.read().unwrap().clone().name,
-            size: imm.calculate_size(&raw_internal_metafield.read().unwrap(), platform),
-            alignment: raw_internal_metafield.read().unwrap().required_alignment.unwrap_or_else(|| 4),
-            offset: raw_internal_metafield.read().unwrap().clone().offset, // should always be 0 but just in case.
-        };
-        Arc::new(igMemoryRefMetaField(Arc::new(updated_internal_metafield)))
-    });
+    imm.meta_field_registry
+        .register::<igEnumMetaField>(Arc::from("igStaticMetaField"), Arc::new(igStaticMetaField));
+    imm.meta_field_registry
+        .register::<igEnumMetaField>(Arc::from("igEnumMetaField"), Arc::new(igEnumMetaField));
+    imm.meta_field_registry
+        .register::<igBoolMetaField>(Arc::from("igBoolMetaField"), Arc::new(igBoolMetaField));
+    imm.meta_field_registry
+        .register::<igRawRefMetaField>(Arc::from("igRawRefMetaField"), Arc::new(igRawRefMetaField));
+    imm.meta_field_registry.register::<igUnsignedIntMetaField>(
+        Arc::from("igUnsignedIntMetaField"),
+        Arc::new(igUnsignedIntMetaField),
+    );
+    imm.meta_field_registry
+        .register::<igUnsignedShortMetaField>(
+            Arc::from("igUnsignedShortMetaField"),
+            Arc::new(igUnsignedShortMetaField),
+        );
+    imm.meta_field_registry.register::<igUnsignedLongMetaField>(
+        Arc::from("igUnsignedLongMetaField"),
+        Arc::new(igUnsignedLongMetaField),
+    );
+    imm.meta_field_registry
+        .register::<igIntMetaField>(Arc::from("igIntMetaField"), Arc::new(igIntMetaField));
+    imm.meta_field_registry
+        .register::<igStringMetaField>(Arc::from("igStringMetaField"), Arc::new(igStringMetaField));
+    imm.meta_field_registry
+        .register::<igNameMetaField>(Arc::from("igNameMetaField"), Arc::new(igNameMetaField));
+    imm.meta_field_registry.register::<igSizeTypeMetaField>(
+        Arc::from("igSizeTypeMetaField"),
+        Arc::new(igSizeTypeMetaField),
+    );
+    imm.meta_field_registry.register::<igObjectRefMetaField>(
+        Arc::from("igObjectRefMetaField"),
+        Arc::new(igObjectRefMetaField),
+    );
+    imm.meta_field_registry
+        .register_complex::<igMemoryRefMetaField>(
+            Arc::from("igMemoryRefMetaField"),
+            |ark_field, metaobject, imm, _metafield_registry, platform| {
+                let raw_internal_metafield = &ark_field
+                    .ark_info
+                    .read()
+                    .unwrap()
+                    .clone()
+                    .ig_memory_ref_info
+                    .unwrap();
+                // TODO: i need a better system for this. so many types here it really is ugly but the oop side of this makes it hard to work through
+                let updated_internal_metafield = igMetaFieldInfo {
+                    ark_info: raw_internal_metafield.clone(),
+                    _type: raw_internal_metafield.read().unwrap().clone()._type,
+                    name: raw_internal_metafield.read().unwrap().clone().name,
+                    size: imm.calculate_size(&raw_internal_metafield.read().unwrap(), platform),
+                    alignment: raw_internal_metafield
+                        .read()
+                        .unwrap()
+                        .required_alignment
+                        .unwrap_or_else(|| 4),
+                    offset: raw_internal_metafield.read().unwrap().clone().offset, // should always be 0 but just in case.
+                };
+                Arc::new(igMemoryRefMetaField(Arc::new(updated_internal_metafield)))
+            },
+        );
     // FIXME: this is actually so painful.
-    // imm.meta_field_registry.register_complex::<igBitFieldMetaField>(Arc::from("igBitFieldMetaField"), |ark_field, metaobject, imm, _metafield_registry, platform| {
-    //     let bitshift_info = &ark_field.ark_info.read().unwrap().clone().ig_bit_shift_info.unwrap();
-    //     let storage_location = bitshift_info.read().unwrap().clone().storage_field;
-    //     let target_field = metaobject.field_storage.name_lookup.get(storage_location.as_str()).cloned().expect(&format!("Cannot find field {storage_location} in metaobject"));
-    //
-    //     let target_field_reader = imm.meta_field_registry.get_simple(&target_field.ark_info.read().unwrap());
-    //     Arc::new(igBitFieldMetaField(bitshift_info.clone(), target_field_reader))
-    // });
+    imm.meta_field_registry.register_complex::<igBitFieldMetaField>(Arc::from("igBitFieldMetaField"), |ark_field, metaobject, imm, _metafield_registry, _platform| {
+        let bitshift_info = &ark_field.ark_info.read().unwrap().clone().ig_bit_shift_info.unwrap();
+        let storage_location = bitshift_info.read().unwrap().clone().storage_field;
+        let target_field = metaobject.field_storage.name_lookup.get(storage_location.as_str()).cloned().expect(&format!("Cannot find field {storage_location} in metaobject {}. Fields (by name): {:#?}, Fields (by offset): {:#?}", metaobject.name, metaobject.field_storage.name_lookup, metaobject.field_storage.offset_lookup));
+        let target_field_reader = imm.meta_field_registry.get_simple(&target_field.ark_info.read().unwrap());
+        Arc::new(igBitFieldMetaField(bitshift_info.clone(), target_field_reader))
+    });
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -140,7 +182,9 @@ impl Display for EGame {
             EV_EnigmaRisingTide => f.write_str("Enigma Rising Tide"),
             EV_CrashNitroKart => f.write_str("Crash Nitro Kart"),
             EV_SpiderMan2 => f.write_str("Spider-Man 2"),
-            EV_LupinSenseiColumbusNoIsanWaAkeNiSomaru => f.write_str("Lupin Sansei: Columbus no Isan wa Akenisomaru"),
+            EV_LupinSenseiColumbusNoIsanWaAkeNiSomaru => {
+                f.write_str("Lupin Sansei: Columbus no Isan wa Akenisomaru")
+            }
             EV_YuGiOhTheDawnOfDestiny => f.write_str("Yu-Gi-Oh! The Dawn of Destiny"),
             EV_GraffitiKingdom => f.write_str("Graffiti Kingdom"),
             EV_XMenLegends => f.write_str("X-Men Legends"),
@@ -158,7 +202,9 @@ impl Display for EGame {
             EV_TonyHawksProvingGround => f.write_str("Tony Hawk's Proving Ground"),
             EV_ShrekTheThird => f.write_str("Shrek the Third"),
             EV_BeautfilKatamari => f.write_str("Beautiful Katamari"),
-            EV_LupinSenseiLupinNiWaShiOZenigataNiWaKoiO => f.write_str("Lupin Sansei: Lupin ni wa Shi o, Zenigata ni wa Koi o"),
+            EV_LupinSenseiLupinNiWaShiOZenigataNiWaKoiO => {
+                f.write_str("Lupin Sansei: Lupin ni wa Shi o, Zenigata ni wa Koi o")
+            }
             EV_SpiderMan3_DS => f.write_str("SpiderMan 3 (DS)"),
             EV_WanganMidnightMaximumTune3 => f.write_str("Wangan Midnight: Maximum Tune 3"),
             EV_BackyardBasketball2007 => f.write_str("Backyard Basketball 2007"),
@@ -201,7 +247,9 @@ impl TryFrom<String> for EGame {
             "EV_EnigmaRisingTide" => Ok(EV_EnigmaRisingTide),
             "EV_CrashNitroKart" => Ok(EV_CrashNitroKart),
             "EV_SpiderMan2" => Ok(EV_SpiderMan2),
-            "EV_LupinSenseiColumbusNoIsanWaAkeNiSomaru" => Ok(EV_LupinSenseiColumbusNoIsanWaAkeNiSomaru),
+            "EV_LupinSenseiColumbusNoIsanWaAkeNiSomaru" => {
+                Ok(EV_LupinSenseiColumbusNoIsanWaAkeNiSomaru)
+            }
             "EV_YuGiOhTheDawnOfDestiny" => Ok(EV_YuGiOhTheDawnOfDestiny),
             "EV_GraffitiKingdom" => Ok(EV_GraffitiKingdom),
             "EV_XMenLegends" => Ok(EV_XMenLegends),
@@ -219,13 +267,17 @@ impl TryFrom<String> for EGame {
             "EV_TonyHawksProvingGround" => Ok(EV_TonyHawksProvingGround),
             "EV_ShrekTheThird" => Ok(EV_ShrekTheThird),
             "EV_BeautfilKatamari" => Ok(EV_BeautfilKatamari),
-            "EV_LupinSenseiLupinNiWaShiOZenigataNiWaKoiO" => Ok(EV_LupinSenseiLupinNiWaShiOZenigataNiWaKoiO),
+            "EV_LupinSenseiLupinNiWaShiOZenigataNiWaKoiO" => {
+                Ok(EV_LupinSenseiLupinNiWaShiOZenigataNiWaKoiO)
+            }
             "EV_SpiderMan3_DS" => Ok(EV_SpiderMan3_DS),
             "EV_WanganMidnightMaximumTune3" => Ok(EV_WanganMidnightMaximumTune3),
             "EV_BackyardBasketball2007" => Ok(EV_BackyardBasketball2007),
             "EV_SpiderMan3_HC" => Ok(EV_SpiderMan3_HC),
             "EV_OperationDarkness" => Ok(EV_OperationDarkness),
-            "EV_MadagascarTMEscape2AfricaTMTheGameTM" => Ok(EV_MadagascarTMEscape2AfricaTMTheGameTM),
+            "EV_MadagascarTMEscape2AfricaTMTheGameTM" => {
+                Ok(EV_MadagascarTMEscape2AfricaTMTheGameTM)
+            }
             "EV_SkylandersSpyrosAdventure" => Ok(EV_SkylandersSpyrosAdventure),
             "EV_SkylandersSpyrosAdventure_3DS" => Ok(EV_SkylandersSpyrosAdventure_3DS),
             "EV_HatsuneMikuProjectDiva" => Ok(EV_HatsuneMikuProjectDiva),

@@ -12,7 +12,7 @@ use std::io::Cursor;
 
 /// Implementation of a meta field that allows for serialization/deserialization of the type.
 pub trait igMetaField: Send + Sync {
-    fn type_id(&self) -> std::any::TypeId;
+    fn type_of(&self) -> std::any::TypeId;
 
     /// Takes a value in an igz and will convert it into <T>. Will return [None] when the read value is "null"
     fn value_from_igz(

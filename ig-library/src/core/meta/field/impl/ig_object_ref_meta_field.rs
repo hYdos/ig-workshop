@@ -18,7 +18,7 @@ use crate::core::meta::field::r#impl::ig_size_type_meta_field::igSizeTypeMetaFie
 pub struct igObjectRefMetaField;
 
 impl igMetaField for igObjectRefMetaField {
-    fn type_id(&self) -> TypeId {
+    fn type_of(&self) -> TypeId {
         TypeId::of::<igObject>()
     }
 

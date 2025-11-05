@@ -17,7 +17,7 @@ use crate::util::byteorder_fixes::read_u8;
 pub(crate) struct igStaticMetaField;
 
 impl igMetaField for igStaticMetaField {
-    fn type_id(&self) -> TypeId {
+    fn type_of(&self) -> TypeId {
         TypeId::of::<igObject>()
     }
 

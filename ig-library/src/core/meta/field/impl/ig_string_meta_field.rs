@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock};
 pub struct igStringMetaField;
 
 impl igMetaField for igStringMetaField {
-    fn type_id(&self) -> TypeId {
+    fn type_of(&self) -> TypeId {
         TypeId::of::<Arc<str>>()
     }
 

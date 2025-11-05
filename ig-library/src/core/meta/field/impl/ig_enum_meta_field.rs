@@ -18,7 +18,7 @@ pub(crate) struct igEnumMetaField;
 
 // TODO: sort out how I will handle this
 impl igMetaField for igEnumMetaField {
-    fn type_id(&self) -> TypeId {
+    fn type_of(&self) -> TypeId {
         TypeId::of::<u32>()
     }
 

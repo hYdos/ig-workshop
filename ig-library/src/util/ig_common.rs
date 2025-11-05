@@ -1,12 +1,14 @@
 use crate::client::client::CClient;
-use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_ark_core::igArkCore;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM::*;
-use crate::core::ig_file_context::igFileContext;
+use crate::core::ig_external_ref::igExternalReferenceSystem;
+use crate::core::ig_file_context::{get_native_path, igFileContext};
 use crate::core::ig_handle::igObjectHandleManager;
-use crate::core::ig_objects::igObjectStreamManager;
+use crate::core::ig_objects::{igObject, igObjectDirectory, igObjectStreamManager};
 use crate::core::ig_registry::igRegistry;
+use std::sync::{Arc, RwLock};
+use crate::util::ig_hash::hash_lower;
 
 /// Used as a placeholder where no value is used but one is needed
 pub struct igNoValue;
@@ -23,7 +25,11 @@ pub struct igAlchemy {
 }
 
 impl igAlchemy {
-    pub fn new(ig_file_context: igFileContext, ig_registry: igRegistry, ig_ark_core: igArkCore) -> igAlchemy {
+    pub fn new(
+        ig_file_context: igFileContext,
+        ig_registry: igRegistry,
+        ig_ark_core: igArkCore,
+    ) -> igAlchemy {
         igAlchemy {
             ark_core: ig_ark_core,
             file_context: ig_file_context,
@@ -33,6 +39,34 @@ impl igAlchemy {
             client: CClient::init(&ig_registry),
             registry: ig_registry,
         }
+    }
+
+    pub fn get_if_loaded(&self, path: String) -> Option<Arc<RwLock<igObjectDirectory>>> {
+        let file_path = get_native_path(path);
+        let file_path_hash = hash_lower(&file_path);
+        
+        if self.object_stream_manager.path_to_directory_lookup.contains_key(&file_path_hash) {
+            return Some(self.object_stream_manager.path_to_directory_lookup[&file_path_hash].clone())
+        }
+        
+        None
+    }
+
+    pub fn load(&mut self, path: String) -> Result<Arc<RwLock<igObjectDirectory>>, String> {
+        let file_context = &self.file_context;
+        let registry = &self.registry;
+        let metadata_manager = &mut self.ark_core.metadata_manager;
+        let ext_ref_system = &mut self.ig_ext_ref_system;
+        let obj_handle_mgr = &mut self.ig_object_handle_manager;
+
+        self.object_stream_manager.load(
+            file_context,
+            registry,
+            metadata_manager,
+            ext_ref_system,
+            obj_handle_mgr,
+            path,
+        )
     }
 }
 

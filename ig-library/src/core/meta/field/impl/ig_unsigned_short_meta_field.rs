@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock};
 pub(crate) struct igUnsignedShortMetaField;
 
 impl igMetaField for igUnsignedShortMetaField {
-    fn type_id(&self) -> TypeId {
+    fn type_of(&self) -> TypeId {
         TypeId::of::<u16>()
     }
 

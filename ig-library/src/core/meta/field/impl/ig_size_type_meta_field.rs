@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock};
 pub struct igSizeTypeMetaField;
 
 impl igMetaField for igSizeTypeMetaField {
-    fn type_id(&self) -> TypeId {
+    fn type_of(&self) -> TypeId {
         TypeId::of::<u64>()
     }
 

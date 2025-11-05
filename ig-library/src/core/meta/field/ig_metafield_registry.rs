@@ -2,7 +2,7 @@ use crate::core::meta::field::ig_metafields::igMetaField;
 use crate::core::meta::field::r#impl::ig_placeholder_meta_field::igPlaceholderMetafield;
 use crate::core::meta::ig_metadata_manager::{igMetaFieldInfo, igMetaObject, igMetadataManager};
 use crate::core::meta::ig_xml_metadata::RawArkMetaObjectField;
-use log::debug;
+use log::{debug, trace, warn};
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -52,7 +52,7 @@ impl igMetafieldRegistry {
             None => match self.complex.get(type_name) {
                 Some(v) => v(field.clone(), metaobject, imm, self, platform).clone(),
                 None => {
-                    debug!(
+                    warn!(
                         "instantiated a new igPlaceholderMetafield. No implementation for {}",
                         field._type
                     );

@@ -31,6 +31,7 @@ use std::string::ToString;
 use std::sync::{Arc, Mutex};
 use std::thread::Builder;
 use std::time::Instant;
+use crate::tabs::tfb_editor::TfbToolEditor;
 
 fn main() {
     #[cfg(debug_assertions)]
@@ -102,7 +103,7 @@ pub fn load_game_data(
                         cfg: game_cfg.clone(),
                         ig_alchemy,
                     }),
-                    BuildTool::TfbTool => VVLaboratoryEditor::new(LoadedGame {
+                    BuildTool::TfbTool => TfbToolEditor::new(LoadedGame {
                         cfg: game_cfg.clone(),
                         ig_alchemy,
                     }),

@@ -19,7 +19,7 @@ use log::{debug, trace};
 pub(crate) struct igMemoryRefMetaField(pub Arc<igMetaFieldInfo>);
 
 impl igMetaField for igMemoryRefMetaField {
-    fn type_id(&self) -> TypeId {
+    fn type_of(&self) -> TypeId {
         TypeId::of::<igMemory<igAny>>()
     }
 

@@ -278,8 +278,8 @@ pub struct igMetaFieldInfo {
 #[derive(Clone, Debug)]
 pub struct FieldStorage {
     /// All field will be present in this map. Use the offset of a field to look it up
-    offset_lookup: HashMap<u16, Arc<igMetaFieldInfo>>,
-    /// NOT all field will be present in this map. Any field not using a name will not be present
+    pub(crate) offset_lookup: HashMap<u16, Arc<igMetaFieldInfo>>,
+    /// NOT all fields will be present in this map. Any field not using a name will not be present
     pub name_lookup: HashMap<Arc<str>, Arc<igMetaFieldInfo>>,
 }
 
@@ -289,7 +289,6 @@ impl FieldStorage {
         let mut name_lookup = HashMap::new();
 
         for x in fields {
-            offset_lookup.insert(x.offset, x.clone());
             if let Some(name) = &x.name {
                 name_lookup.insert(name.clone(), x.clone());
             }

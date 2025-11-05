@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock};
 pub(crate) struct igRawRefMetaField;
 
 impl igMetaField for igRawRefMetaField {
-    fn type_id(&self) -> TypeId {
+    fn type_of(&self) -> TypeId {
         TypeId::of::<u64>()
     }
 
