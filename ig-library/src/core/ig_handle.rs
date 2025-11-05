@@ -65,11 +65,11 @@ impl igHandle {
                 self.namespace
                     .string
                     .clone()
-                    .unwrap_or_else(move || "(null)".to_string()),
+                    .unwrap_or_else(|| format!("{:x}", self.namespace.hash)),
                 self.alias
                     .string
                     .clone()
-                    .unwrap_or_else(move || "(null)".to_string())
+                    .unwrap_or_else(|| format!("{:x}", self.alias.hash))
             );
             None
         }

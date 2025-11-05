@@ -15,7 +15,7 @@ use ig_library::client::precache::load_init_script;
 use ig_library::core::ig_ark_core::{EGame, igArkCore};
 use ig_library::core::ig_core_platform::IG_CORE_PLATFORM;
 use ig_library::core::ig_file_context::igFileContext;
-use ig_library::core::ig_registry::igRegistry;
+use ig_library::core::ig_registry::{BuildTool, igRegistry};
 use ig_library::util::ig_common::igAlchemy;
 use image::{ImageFormat, ImageReader};
 use log::{LevelFilter, error, info};
@@ -95,16 +95,19 @@ pub fn load_game_data(
 
             load_init_script(game_cfg.clone()._game, false, &mut ig_alchemy);
 
-            let new_leaf = VVLaboratoryEditor::new(LoadedGame {
-                cfg: game_cfg.clone(),
-                ig_alchemy,
-            });
-
-            // I'm going to be honest I'm not a fan of this method.
-            // however, with how complex these games are we need to save performance (by not recreating tabs) as much as possible
-            // basically turning this into a forward-ish rendered gui instead of immediate mode in a way
+            // TODO: use plugin system to determine what to use here to open the game. community members might want their own editors in a way for what they are doing, e.g. a special editor for ssa wiiu english
             if let Ok(mut dock_guard) = dock_state.lock() {
-                dock_guard.push_to_focused_leaf(new_leaf);
+                dock_guard.push_to_focused_leaf(match ig_alchemy.registry.build_tool {
+                    BuildTool::AlchemyLaboratory => VVLaboratoryEditor::new(LoadedGame {
+                        cfg: game_cfg.clone(),
+                        ig_alchemy,
+                    }),
+                    BuildTool::TfbTool => VVLaboratoryEditor::new(LoadedGame {
+                        cfg: game_cfg.clone(),
+                        ig_alchemy,
+                    }),
+                    BuildTool::None => todo!("no build tool. cannot edit files from this game"),
+                });
             } else {
                 panic!("We somehow failed the Mutex lock on the UI :(")
             }

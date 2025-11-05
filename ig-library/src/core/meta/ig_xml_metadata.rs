@@ -1,10 +1,11 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use log::info;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::ptr::read;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -73,8 +74,8 @@ pub struct VectorInfo {
 pub struct TfbXmlScriptBinding {
     /// The name(alias)
     pub name: Arc<str>,
-    /// The igObject type that interfaces with tfbScript
-    pub object_type: Arc<str>
+    /// the igObject type used to represent the static field
+    pub object_type: Arc<str>,
 }
 
 #[derive(Clone, Debug)]
@@ -105,24 +106,24 @@ pub struct RawArkMetaObjectField {
 
 #[derive(Debug, Clone)]
 pub struct MetaObject {
-    /// The type of meta object. for the most part, this will always be "igMetaObject" and I don't believe it has a real use.
+    /// The type of metaobject. For the most part, this will always be "igMetaObject" and I don't believe it has a real use
     pub _type: String,
     /// Name associated
     pub ref_name: Arc<str>,
-    /// The parent of the current object's _type. As far as I know this is present on every object apart from __internalObjectBase
+    /// The parent of the current object's _type. As far as I know, this is present on every object apart from __internalObjectBase
     pub base_type: Option<String>,
     /// Present when base_type is present and extends an object extending "igObjectList" (seen in tfb script) or "igObjectList" itself
     pub object_list_type: Option<String>,
     /// Present when base_type is present and extends an object extending "igHashTable" or "igHashTable" itself
     pub hash_table_info: Option<HashTableInfo>,
-    /// New field added by the current meta object
+    /// New field added by the current metaobject
     pub new_fields: Vec<ArkMetaObjectField>,
-    /// Fields from the parent that are replaced by new ones.
+    /// Fields from the parent that are replaced by new ones
     pub overriden_fields: Vec<ArkMetaObjectField>,
     /// Present when base_type is present and extends an object extending "igCompoundMetaField" or "igCompoundMetaField" itself
     pub compound_fields: Vec<ArkMetaObjectField>,
-    /// Represents tfbScript bindings to the current object. tfbScript bindings describe how an igObject can be interfaced with from tfbScript and what igObject type's to associate with specific values
-    pub tfb_script_binding: Option<Vec<TfbXmlScriptBinding>>
+    /// Represents tfbScript bindings to the current object. TFBScript bindings represent static fields present in the engine that TFBScript can interact with. For example, `System.fps` or `System.Game Configuration` are some of the static fields available
+    pub tfb_script_binding: Vec<TfbXmlScriptBinding>,
 }
 
 pub fn load_xml_metadata(
@@ -187,17 +188,19 @@ fn load_meta_fields(path: &PathBuf) -> Result<Vec<ArcMetaField>, String> {
                     }
                 }
 
-                platform_info_buffer.insert(platform.unwrap(), PlatformSizingInfo {
-                    align: align.unwrap(),
-                    size: size.unwrap(),
-                });
+                platform_info_buffer.insert(
+                    platform.unwrap(),
+                    PlatformSizingInfo {
+                        align: align.unwrap(),
+                        size: size.unwrap(),
+                    },
+                );
             }
             Ok(Event::Start(e)) => match e.name().as_ref() {
                 b"metafield" => {
                     for result in e.attributes() {
                         let attrib = result.unwrap();
-                        current_meta_field_name =
-                            Some(Arc::from(attrib.unescape_value().unwrap()));
+                        current_meta_field_name = Some(Arc::from(attrib.unescape_value().unwrap()));
                     }
                 }
                 b"platforminfo" => {}
@@ -274,8 +277,7 @@ fn load_meta_enums(path: &PathBuf) -> Result<Vec<ArcMetaEnum>, String> {
                 b"metaenum" => {
                     for result in e.attributes() {
                         let attrib = result.unwrap();
-                        current_meta_enum_name =
-                            Some(Arc::from(attrib.unescape_value().unwrap()));
+                        current_meta_enum_name = Some(Arc::from(attrib.unescape_value().unwrap()));
                     }
                 }
                 _ => (),
@@ -329,7 +331,7 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
                     if let Some(old_meta_obj) = current_meta_object.clone() {
                         meta_objects.push(old_meta_obj.borrow().to_owned());
                     }
-                    
+
                     current_meta_object = None;
                     current_meta_field = None;
                 }
@@ -344,10 +346,7 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
                     &mut field_type,
                     &e,
                 )?,
-                b"binding" => on_tfbscript_binding(
-                    &mut current_meta_object,
-                    &e
-                )?,
+                b"binding" => on_tfbscript_binding(&mut current_meta_object, &e)?,
                 _ => {}
             },
             Ok(Event::Start(e)) => on_metafield_tag(
@@ -369,16 +368,40 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
 
 fn on_tfbscript_binding(
     current_meta_object: &mut Option<Arc<RefCell<MetaObject>>>,
-    _e: &BytesStart,
+    e: &BytesStart,
 ) -> Result<(), String> {
     let cloned_obj = current_meta_object.clone().unwrap();
     let mutable_obj = &mut cloned_obj.borrow_mut();
-    if mutable_obj.tfb_script_binding.is_none() {
-        mutable_obj.tfb_script_binding = Some(Vec::new());
+
+    let mut _type = None;
+    let mut name = None;
+
+    for result in e.attributes() {
+        let attrib = result.unwrap();
+        match attrib.key.local_name().as_ref() {
+            b"type" => {
+                _type = Some(String::from(attrib.unescape_value().unwrap()));
+            }
+            b"name" => {
+                name = Some(String::from(attrib.unescape_value().unwrap()));
+            }
+            _ => {
+                return Err(format!(
+                    "tfb bindings: unknown attribute \"{}\" present. Are we out of date?",
+                    String::from_utf8_lossy(attrib.key.local_name().as_ref())
+                ))
+            }
+        }
     }
-    
-    // e.attributes()
-    
+
+    assert_eq!(_type.is_none(), false);
+    assert_eq!(name.is_none(), false);
+    mutable_obj
+        .tfb_script_binding
+        .push(TfbXmlScriptBinding {
+            name: Arc::from(name.unwrap()),
+            object_type: Arc::from(_type.unwrap()),
+        });
     Ok(())
 }
 
@@ -423,7 +446,7 @@ fn on_metafield_tag(
                 compound_fields: Vec::new(),
                 object_list_type: None,
                 hash_table_info: None,
-                tfb_script_binding: None,
+                tfb_script_binding: Vec::new(),
             })))
         }
         b"objectlist" => {
@@ -488,11 +511,10 @@ fn on_metafield_tag(
                 match current_type.as_ref() {
                     "igPropertyFieldMetaField" => {
                         let child_metafield = process_new_metafield(&e);
-                        current_meta_field_ref.write().unwrap().ig_property_info = Some(
-                            child_metafield
-                                .clone()
-                                .expect("Failed to process child field of igPropertyFieldMetaField"),
-                        );
+                        current_meta_field_ref.write().unwrap().ig_property_info =
+                            Some(child_metafield.clone().expect(
+                                "Failed to process child field of igPropertyFieldMetaField",
+                            ));
 
                         // TODO: de-duplicate this
                         if current_meta_field.is_some() {
