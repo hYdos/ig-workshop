@@ -792,7 +792,7 @@ pub fn load_init_script(game: EGame, is_weakly_loaded: bool, ig_alchemy: &mut ig
                     line
                 );
             }
-        } else {
+        } else if !line.starts_with("//") {
             let path = parse_file_path(line, &ig_alchemy.registry);
             if path.is_none() {
                 error!(

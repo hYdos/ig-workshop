@@ -6,21 +6,21 @@ use crate::core::load::ig_igz_loader::IgzLoaderContext;
 use crate::core::memory::igMemory;
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 use crate::core::meta::field::ig_metafields::igMetaField;
-use crate::core::meta::ig_metadata_manager::{igMetaFieldInfo, igMetadataManager};
+use crate::core::meta::ig_metadata_manager::igMetadataManager;
+use crate::core::meta::ig_xml_metadata::BitShiftInfo;
 use crate::core::save::ig_igb_saver::{IgbSaverContext, IgbSaverError};
 use crate::core::save::ig_igx_saver::{IgxSaverContext, IgxSaverError};
 use crate::core::save::ig_igz_saver::{IgzSaverContext, IgzSaverError};
-use crate::util::byteorder_fixes::{read_ptr, read_struct_array_u8_ref};
+use crate::util::byteorder_fixes::read_u8;
 use std::any::TypeId;
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
-use log::{debug, trace};
 
-pub(crate) struct igMemoryRefMetaField(pub Arc<igMetaFieldInfo>);
+pub(crate) struct igBitFieldMetaField(pub Arc<RwLock<BitShiftInfo>>, pub Arc<dyn igMetaField>);
 
-impl igMetaField for igMemoryRefMetaField {
+impl igMetaField for igBitFieldMetaField {
     fn type_id(&self) -> TypeId {
-        TypeId::of::<igMemory<igAny>>()
+        self.1.type_id()
     }
 
     fn value_from_igz(
@@ -32,48 +32,37 @@ impl igMetaField for igMemoryRefMetaField {
         endian: Endian,
         ctx: &mut IgzLoaderContext,
     ) -> Option<igAny> {
-        #[cfg(debug_assertions)]
-        trace!("Internal meta object type={}", self.0._type);
-        let start = handle.position();
-        let flags = read_ptr(handle, ctx.platform.clone(), endian.clone()).unwrap();
-        let raw = read_ptr(handle, ctx.platform.clone(), endian.clone()).unwrap();
+        let bit_info = self.0.read().unwrap();
+        let mut storage = *self
+            .1
+            .value_from_igz(
+                registry,
+                metadata_manager,
+                object_stream_manager,
+                handle,
+                endian.clone(),
+                ctx,
+            )?
+            .read()
+            .unwrap()
+            .downcast_ref::<u64>()
+            .expect("Unable to downcast value to u64");
+        storage = (storage >> bit_info.shift) & (u64::MAX >> (64 - bit_info.bits));
 
-        let offset = ctx.deserialize_offset(raw);
-        let mut memory: igMemory<igAny> = igMemory::new(); // We don't know the type inside the memory, we didn't create it. However, we know the metafield so we know what is supposed to be here, making it safe in the end.
-
-        // TODO: make 2 constructors for igMemory: one takes a pool and the other a set of flags. This fits in with rust's structuring where nothing should be used until initialized and guarantees better safety
-        if ctx.runtime_fields.pool_ids.binary_search(&start).is_ok() {
-            memory.pool = ctx.loaded_pools[(flags & 0xFFFFFF) as usize];
-        } else {
-            memory.set_flags(flags, self.0.alignment as usize, self.0.size as usize, ctx.platform.clone());
-            memory.pool = ctx.get_pool_from_serialized_offset(raw);
-
-            let guard = self.0.ark_info.read().unwrap();
-            // Optimized u8 slice copy
-            if guard._type.as_ref() == "igUnsignedCharMetaField" {
-                handle.set_position(offset);
-                let slice = read_struct_array_u8_ref(handle, endian.clone(), memory.data.len()).unwrap();
-                for x in slice {
-                    handle.set_position(offset);
-                    memory.data.push(Arc::new(RwLock::new(x)));
-                }
-            } else {
-                let inner_meta_field = registry.get_simple(&self.0.ark_info.read().unwrap());
-                for i in 0..memory.data.capacity() {
-                    handle.set_position(offset + (self.0.size as u64) * (i as u64));
-                    memory.data.push(inner_meta_field.value_from_igz(
-                        registry,
-                        metadata_manager,
-                        object_stream_manager,
-                        handle,
-                        endian.clone(),
-                        ctx,
-                    )?)
-                }
+        match self.type_id() {
+            t if t == TypeId::of::<bool>() => Some(Arc::new(RwLock::new(storage != 0))),
+            t if t == TypeId::of::<u8>() => Some(Arc::new(RwLock::new(storage as u8))),
+            t if t == TypeId::of::<u16>() => Some(Arc::new(RwLock::new(storage as u16))),
+            t if t == TypeId::of::<u32>() => Some(Arc::new(RwLock::new(storage as u32))),
+            t if t == TypeId::of::<u64>() => Some(Arc::new(RwLock::new(storage))),
+            t if t == TypeId::of::<i8>() => Some(Arc::new(RwLock::new(storage as i8))),
+            t if t == TypeId::of::<i16>() => Some(Arc::new(RwLock::new(storage as i16))),
+            t if t == TypeId::of::<i32>() => Some(Arc::new(RwLock::new(storage as i32))),
+            t if t == TypeId::of::<i64>() => Some(Arc::new(RwLock::new(storage as i64))),
+            _ => {
+                todo!("Missing type handling for igBitFieldMetaField")
             }
         }
-
-        Some(Arc::new(RwLock::new(memory)))
     }
 
     fn value_into_igz(

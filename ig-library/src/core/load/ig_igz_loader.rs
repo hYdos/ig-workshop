@@ -612,7 +612,7 @@ impl igIGZLoader {
     ) {
         let mut fd = ig_file_context.open(ig_registry, file_path, 0);
         if let Some(mut handle) = fd._handle {
-            // if file_path == "packages/generated/shaders/shaders_cafe_pkg.igz" {
+            // if file_path == "permanent/bootstrap.bld/level.bld" {
             //     use std::io::Read;
             //     use byteorder::WriteBytesExt;
             //     let mut file = std::fs::File::create("file.igz").unwrap();

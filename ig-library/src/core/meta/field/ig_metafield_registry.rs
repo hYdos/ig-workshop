@@ -1,6 +1,6 @@
 use crate::core::meta::field::ig_metafields::igMetaField;
 use crate::core::meta::field::r#impl::ig_placeholder_meta_field::igPlaceholderMetafield;
-use crate::core::meta::ig_metadata_manager::{igMetaFieldInfo, igMetadataManager};
+use crate::core::meta::ig_metadata_manager::{igMetaFieldInfo, igMetaObject, igMetadataManager};
 use crate::core::meta::ig_xml_metadata::RawArkMetaObjectField;
 use log::debug;
 use std::any::Any;
@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 
 /// Used when you need more complex information in the meta enum
-type ComplexMetaFieldFactory = fn(Arc<igMetaFieldInfo>, &igMetadataManager, &igMetafieldRegistry, IG_CORE_PLATFORM) -> Arc<dyn igMetaField>;
+type ComplexMetaFieldFactory = fn(Arc<igMetaFieldInfo>, &igMetaObject, &igMetadataManager, &igMetafieldRegistry, IG_CORE_PLATFORM) -> Arc<dyn igMetaField>;
 
 /// Deals with registering implementations of MetaField and retrieving these later on
 pub struct igMetafieldRegistry {
@@ -44,13 +44,13 @@ impl igMetafieldRegistry {
         self.complex.insert(name, _impl);
     }
 
-    pub fn get(&self, field: Arc<igMetaFieldInfo>, imm: &igMetadataManager, platform: IG_CORE_PLATFORM) -> Arc<dyn igMetaField> {
+    pub fn get(&self, field: Arc<igMetaFieldInfo>, metaobject: &igMetaObject, imm: &igMetadataManager, platform: IG_CORE_PLATFORM) -> Arc<dyn igMetaField> {
         let type_name = &field._type.clone();
 
         match self.basic.get(type_name) {
             Some(v) => v.clone(),
             None => match self.complex.get(type_name) {
-                Some(v) => v(field.clone(), imm, self, platform).clone(),
+                Some(v) => v(field.clone(), metaobject, imm, self, platform).clone(),
                 None => {
                     debug!(
                         "instantiated a new igPlaceholderMetafield. No implementation for {}",

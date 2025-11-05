@@ -6,11 +6,19 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use serde::Serialize;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
+use crate::core::meta::field::r#impl::ig_bit_field_meta_field::igBitFieldMetaField;
+use crate::core::meta::field::r#impl::ig_bool_meta_field::igBoolMetaField;
+use crate::core::meta::field::r#impl::ig_enum_meta_field::igEnumMetaField;
 use crate::core::meta::field::r#impl::ig_int_meta_field::igIntMetaField;
 use crate::core::meta::field::r#impl::ig_memory_ref_meta_field::igMemoryRefMetaField;
 use crate::core::meta::field::r#impl::ig_object_ref_meta_field::igObjectRefMetaField;
+use crate::core::meta::field::r#impl::ig_raw_ref_meta_field::igRawRefMetaField;
 use crate::core::meta::field::r#impl::ig_size_type_meta_field::igSizeTypeMetaField;
+use crate::core::meta::field::r#impl::ig_static_meta_field::igStaticMetaField;
 use crate::core::meta::field::r#impl::ig_string_meta_field::igStringMetaField;
+use crate::core::meta::field::r#impl::ig_unsigned_int_meta_field::igUnsignedIntMetaField;
+use crate::core::meta::field::r#impl::ig_unsigned_long_meta_field::igUnsignedLongMetaField;
+use crate::core::meta::field::r#impl::ig_unsigned_short_meta_field::igUnsignedShortMetaField;
 use crate::util::ig_name::igNameMetaField;
 
 /// Contains reflection metadata information. Stands for Application Runtime Kernel.
@@ -30,12 +38,19 @@ impl igArkCore {
 
 /// Registers all built in meta fields to the [core::meta::field::ig_metafield_registry::igMetafieldRegistry]
 fn register_metafields(imm: &mut igMetadataManager) {
+    imm.meta_field_registry.register::<igEnumMetaField>(Arc::from("igStaticMetaField"), Arc::new(igStaticMetaField));
+    imm.meta_field_registry.register::<igEnumMetaField>(Arc::from("igEnumMetaField"), Arc::new(igEnumMetaField));
+    imm.meta_field_registry.register::<igBoolMetaField>(Arc::from("igBoolMetaField"), Arc::new(igBoolMetaField));
+    imm.meta_field_registry.register::<igRawRefMetaField>(Arc::from("igRawRefMetaField"), Arc::new(igRawRefMetaField));
+    imm.meta_field_registry.register::<igUnsignedIntMetaField>(Arc::from("igUnsignedIntMetaField"), Arc::new(igUnsignedIntMetaField));
+    imm.meta_field_registry.register::<igUnsignedShortMetaField>(Arc::from("igUnsignedShortMetaField"), Arc::new(igUnsignedShortMetaField));
+    imm.meta_field_registry.register::<igUnsignedLongMetaField>(Arc::from("igUnsignedLongMetaField"), Arc::new(igUnsignedLongMetaField));
     imm.meta_field_registry.register::<igIntMetaField>(Arc::from("igIntMetaField"), Arc::new(igIntMetaField));
     imm.meta_field_registry.register::<igStringMetaField>(Arc::from("igStringMetaField"), Arc::new(igStringMetaField));
     imm.meta_field_registry.register::<igNameMetaField>(Arc::from("igNameMetaField"), Arc::new(igNameMetaField));
     imm.meta_field_registry.register::<igSizeTypeMetaField>(Arc::from("igSizeTypeMetaField"), Arc::new(igSizeTypeMetaField));
     imm.meta_field_registry.register::<igObjectRefMetaField>(Arc::from("igObjectRefMetaField"), Arc::new(igObjectRefMetaField));
-    imm.meta_field_registry.register_complex::<igMemoryRefMetaField>(Arc::from("igMemoryRefMetaField"), |ark_field, imm, _metafield_registry, platform| {
+    imm.meta_field_registry.register_complex::<igMemoryRefMetaField>(Arc::from("igMemoryRefMetaField"), |ark_field, metaobject, imm, _metafield_registry, platform| {
         let raw_internal_metafield = &ark_field.ark_info.read().unwrap().clone().ig_memory_ref_info.unwrap();
         // TODO: i need a better system for this. so many types here it really is ugly but the oop side of this makes it hard to work through
         let updated_internal_metafield = igMetaFieldInfo {
@@ -48,6 +63,15 @@ fn register_metafields(imm: &mut igMetadataManager) {
         };
         Arc::new(igMemoryRefMetaField(Arc::new(updated_internal_metafield)))
     });
+    // FIXME: this is actually so painful.
+    // imm.meta_field_registry.register_complex::<igBitFieldMetaField>(Arc::from("igBitFieldMetaField"), |ark_field, metaobject, imm, _metafield_registry, platform| {
+    //     let bitshift_info = &ark_field.ark_info.read().unwrap().clone().ig_bit_shift_info.unwrap();
+    //     let storage_location = bitshift_info.read().unwrap().clone().storage_field;
+    //     let target_field = metaobject.field_storage.name_lookup.get(storage_location.as_str()).cloned().expect(&format!("Cannot find field {storage_location} in metaobject"));
+    //
+    //     let target_field_reader = imm.meta_field_registry.get_simple(&target_field.ark_info.read().unwrap());
+    //     Arc::new(igBitFieldMetaField(bitshift_info.clone(), target_field_reader))
+    // });
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]

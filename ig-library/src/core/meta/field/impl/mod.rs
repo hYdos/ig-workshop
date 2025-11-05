@@ -1,6 +1,14 @@
-pub(crate) mod ig_placeholder_meta_field;
-pub(crate) mod ig_string_meta_field;
+pub(crate) mod ig_bit_field_meta_field;
+pub(crate) mod ig_bool_meta_field;
+pub(crate) mod ig_enum_meta_field;
+pub(crate) mod ig_int_meta_field;
 pub(crate) mod ig_memory_ref_meta_field;
 pub(crate) mod ig_object_ref_meta_field;
+pub(crate) mod ig_placeholder_meta_field;
+pub(crate) mod ig_raw_ref_meta_field;
 pub(crate) mod ig_size_type_meta_field;
-pub(crate) mod ig_int_meta_field;
+pub(crate) mod ig_static_meta_field;
+pub(crate) mod ig_string_meta_field;
+pub(crate) mod ig_unsigned_int_meta_field;
+pub(crate) mod ig_unsigned_long_meta_field;
+pub(crate) mod ig_unsigned_short_meta_field;

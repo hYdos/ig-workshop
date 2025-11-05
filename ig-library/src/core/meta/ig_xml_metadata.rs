@@ -52,11 +52,11 @@ pub struct BitShiftInfo {
     pub bits: u8,
     /// The name of the field to store the result at
     pub storage_field: String,
-    /// The type of the new data created with the bits. Once data is finalized this will always be present
+    /// The type of the new data created with the bits. Once data is finalized, this will always be present
     pub _type: Option<ArkMetaObjectField>,
 }
 
-/// Stores the meta object inside a igPropertyFieldMetaField
+/// Stores the metaobject inside a igPropertyFieldMetaField
 type PropertyInfo = ArkMetaObjectField;
 
 pub type ArkMetaObjectField = Arc<RwLock<RawArkMetaObjectField>>;

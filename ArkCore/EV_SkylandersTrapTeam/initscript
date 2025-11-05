@@ -2,10 +2,9 @@
 TfbTool
 
 [full_package]
-app:/item/legal.bld
-
-app:/permanent/bootstrap.bld
+app:/item/3d_font_msg_english.bld
+// app:/permanent/bootstrap.bld
 app:/misc/bootstrap_lang.bld
 app:/item/legal.bld
-app:/permanent/global.bld
+// app:/permanent/global.bld
 app:/character/init_setup.bld

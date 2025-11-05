@@ -6,7 +6,7 @@ use crate::core::ig_objects::{igAny, igObjectStreamManager, ObjectExt};
 use crate::core::load::ig_igz_loader::IgzLoaderContext;
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 use crate::core::meta::ig_xml_metadata::{ArcMetaEnum, ArcMetaField, ArkMetaObjectField, MetaObject, RawArkMetaObjectField};
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use phf::phf_map;
 use std::any::Any;
 use std::collections::HashMap;
@@ -57,7 +57,7 @@ impl igMetadataManager {
         let object_offset = handle.position();
         let meta = ig_object.read().unwrap().meta_type(self);
         let meta = meta.read().unwrap();
-        debug!("igObject(name={}) fields are being set", meta.name);
+        trace!("igObject(name={}) fields are being set", meta.name);
         let fields = &meta.field_storage.name_lookup;
 
         for (name, field) in fields {
@@ -67,9 +67,9 @@ impl igMetadataManager {
                 }
                 &_ => {
                     #[cfg(debug_assertions)]
-                    debug!("Setting up igz field(name={}, type={})", name, field._type);
+                    trace!("Setting up igz field(name={}, type={})", name, field._type);
                     handle.set_position(object_offset + field.offset as u64);
-                    let metafield = self.meta_field_registry.get(field.clone(), self, self.platform.clone());
+                    let metafield = self.meta_field_registry.get(field.clone(), &meta.clone(), self, self.platform.clone());
                     let value = metafield.value_from_igz(&self.meta_field_registry, &self, object_stream_manager, handle, endian.clone(), ctx);
                     if let Ok(mut guard) = ig_object.write() {
                         match guard.set_field(name.as_ref(), value) {
@@ -307,7 +307,7 @@ type InternalMetaObjectConstructor = fn(
     igMemoryPool,
 ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError>;
 
-/// Represents the data needed to instantiate an instance of the meta object stored.
+/// Represents the data needed to instantiate an instance of the metaobject stored.
 #[derive(Clone, Debug)]
 pub struct igMetaObject {
     pub name: Arc<str>,
@@ -323,9 +323,9 @@ pub struct igMetaObject {
 /// Describes all possible errors returned from the function [igMetaObject::instantiate]
 #[derive(Debug, Display)]
 pub enum igMetaInstantiationError {
-    /// Returned when the construction succeeded but the default field failed to be set.
+    /// Returned when the construction succeeded, but the default field failed to be set.
     SetupDefaultFieldsError,
-    /// Returned when the construction succeeded but the type constructed does not match the expected return type.
+    /// Returned when the construction succeeded, but the type constructed does not match the expected return type.
     TypeMismatchError(Arc<str>),
 }
 
