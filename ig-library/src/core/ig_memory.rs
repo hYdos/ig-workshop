@@ -100,7 +100,8 @@ pub enum igMemoryPool {
     VramA,
     VramB,
     VramStaging,
-    Text // Tfb Specific?
+    Text,
+    Collision
 }
 
 impl FromStr for igMemoryPool {
@@ -162,6 +163,7 @@ impl FromStr for igMemoryPool {
             "MEM2" => Ok(igMemoryPool::Default),
             "VRAMBottomUp" => Ok(igMemoryPool::Default),
             "Text" => Ok(igMemoryPool::Text),
+            "Collision" => Ok(igMemoryPool::Collision),
             &_ => Err(()),
         }
     }
