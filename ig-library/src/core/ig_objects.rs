@@ -125,15 +125,37 @@ impl igObjectStreamManager {
         path: String,
         namespace: igName,
     ) -> Result<Arc<RwLock<igObjectDirectory>>, String> {
-        let file_path = get_native_path(path);
-        let file_path_hash = hash_lower(&file_path);
+        let file_path = get_native_path(path.clone());
+
+        self.load_with_namespace_and_name(
+            ig_file_context,
+            ig_registry,
+            ig_metadata_manager,
+            ig_ext_ref_system,
+            ig_object_handle_manager,
+            namespace,
+            &file_path
+        )
+    }
+
+    pub fn load_with_namespace_and_name(
+        &mut self,
+        ig_file_context: &igFileContext,
+        ig_registry: &igRegistry,
+        ig_metadata_manager: &mut igMetadataManager,
+        ig_ext_ref_system: &mut igExternalReferenceSystem,
+        ig_object_handle_manager: &mut igObjectHandleManager,
+        namespace: igName,
+        file_path: &str,
+    ) -> Result<Arc<RwLock<igObjectDirectory>>, String> {
+        let file_path_hash = hash_lower(file_path);
 
         if self.path_to_directory_lookup.contains_key(&file_path_hash) {
             Ok(self.path_to_directory_lookup[&file_path_hash].clone())
         } else {
-            let dir = Arc::new(RwLock::new(igObjectDirectory::new(&file_path, namespace)));
+            let dir = Arc::new(RwLock::new(igObjectDirectory::new(file_path, namespace)));
             self.push_dir(dir.clone());
-            let loader_result = ig_loader::get_loader(&file_path);
+            let loader_result = ig_loader::get_loader(file_path);
             if let Some(loader) = loader_result {
                 let loader_guard = loader.read().unwrap();
                 let mut dir_guard = dir.write().unwrap();
@@ -145,7 +167,7 @@ impl igObjectStreamManager {
                     ig_object_handle_manager,
                     ig_metadata_manager,
                     &mut dir_guard,
-                    &file_path,
+                    file_path,
                 );
                 // todo!("igObjectHandleManager.Singleton.AddDirectory(objDir);");
             } else {

@@ -8,7 +8,7 @@ pub mod gfx;
 /// Intended for code/the user of alchemy to add their code under the client (c prefix) for cleanliness. In the end only used by Alchemy Laboratory so this is alchemy laboratory specific code mostly.
 pub mod client;
 /// Tfb specific code used in their version of the engine
-pub mod tfb_game;
+pub mod tfb;
 
 pub mod util;
 

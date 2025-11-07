@@ -113,12 +113,16 @@ impl igStorageDevice for igStdLibStorageDevice {
                 }
             }
             Err(e) => {
-                if !self.get_combined_path(work_item).ends_with("level.bld") {
-                    // This processor will always fail when trying to get the path for a level.bld since this processor thinks it's a directory when it's not
+                let work_path = self.get_combined_path(work_item);
+                // This processor will always fail when trying to get the path for a level.bld (or other tfb igz's) since this processor thinks it's a directory when it's not
+                // if we see two periods in the same path assume its a TFB Tool Path
+                if work_path.find('.').is_some() && work_path.find('.') == work_path.rfind(".") {
                     panic!("Failed to find case insensitive path: {}", e)
                 }
             },
-            Ok(None) => todo!()
+            Ok(None) => {
+                work_item._status = kStatusInvalidPath;
+            }
         }
     }
 

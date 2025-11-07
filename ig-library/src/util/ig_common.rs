@@ -8,6 +8,7 @@ use crate::core::ig_handle::igObjectHandleManager;
 use crate::core::ig_objects::{igObject, igObjectDirectory, igObjectStreamManager};
 use crate::core::ig_registry::igRegistry;
 use std::sync::{Arc, RwLock};
+use crate::tfb::tfb_game::tfbApplication;
 use crate::util::ig_hash::hash_lower;
 
 /// Used as a placeholder where no value is used but one is needed
@@ -21,7 +22,10 @@ pub struct igAlchemy {
     pub object_stream_manager: igObjectStreamManager,
     pub ig_ext_ref_system: igExternalReferenceSystem,
     pub ig_object_handle_manager: igObjectHandleManager,
+    /// Alchemy Laboratory Implementation
     pub client: CClient,
+    /// TFBTool Implementation
+    pub tfb_env: tfbApplication
 }
 
 impl igAlchemy {
@@ -38,6 +42,7 @@ impl igAlchemy {
             ig_object_handle_manager: igObjectHandleManager::new(),
             client: CClient::init(&ig_registry),
             registry: ig_registry,
+            tfb_env: tfbApplication::open(),
         }
     }
 

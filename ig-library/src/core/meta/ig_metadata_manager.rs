@@ -455,7 +455,7 @@ impl igMetadataManager {
         self.meta_fields[&object._type].platform_info[&platform].size as u32
     }
 
-    /// Loops through all available field and builds up a list of field for the current meta object taking into account overridden field.
+    /// Loops through all available field and builds up a list of field for the current metaobject taking into account overridden field.
     fn get_current_fields(
         &mut self,
         platform: IG_CORE_PLATFORM,

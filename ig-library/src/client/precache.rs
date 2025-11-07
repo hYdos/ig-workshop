@@ -2,12 +2,15 @@ use crate::client::archive::CArchive;
 use crate::client::cdn::CContentDeployment;
 use crate::client::client::CClient;
 use crate::core::ig_ark_core::EGame;
+use crate::core::ig_custom::{igDataList, igStringRefList};
 use crate::core::ig_external_ref::igExternalReferenceSystem;
 use crate::core::ig_file_context::{get_file_name, igFileContext};
+use crate::core::ig_handle::igObjectHandleManager;
 use crate::core::ig_memory::EMemoryPoolID;
 use crate::core::ig_objects::{igObjectStreamManager, ObjectExt};
 use crate::core::ig_registry::{igRegistry, BuildTool};
 use crate::core::meta::ig_metadata_manager::igMetadataManager;
+use crate::tfb::tfb_game::streamContext;
 use crate::util::ig_common::{get_platform_string, igAlchemy};
 use log::{debug, error, info};
 use once_cell::sync::Lazy;
@@ -17,8 +20,6 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::Arc;
 use strum::IntoEnumIterator;
-use crate::core::ig_custom::{igDataList, igStringRefList};
-use crate::core::ig_handle::igObjectHandleManager;
 
 pub trait CResourcePreCacher: Send + Sync {
     fn precache(
@@ -53,7 +54,6 @@ impl CResourcePreCacher for COtherPackagePreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -77,7 +77,6 @@ impl CResourcePreCacher for CCharacterDataPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -101,7 +100,6 @@ impl CResourcePreCacher for CSkinPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -125,7 +123,6 @@ impl CResourcePreCacher for CHavokAnimDBPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -149,7 +146,6 @@ impl CResourcePreCacher for CHavokPhysicsSystemPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -173,7 +169,6 @@ impl CResourcePreCacher for CTexturePreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -197,7 +192,6 @@ impl CResourcePreCacher for CVfxPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -221,7 +215,6 @@ impl CResourcePreCacher for CShaderPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -245,7 +238,6 @@ impl CResourcePreCacher for CMotionPathPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -269,7 +261,6 @@ impl CResourcePreCacher for CIgFilePreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -293,7 +284,6 @@ impl CResourcePreCacher for CMaterialPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -317,7 +307,6 @@ impl CResourcePreCacher for CEntityPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -341,7 +330,6 @@ impl CResourcePreCacher for CGuiProjectPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -365,7 +353,6 @@ impl CResourcePreCacher for CFontPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -389,7 +376,6 @@ impl CResourcePreCacher for CLanguageFilePreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -413,7 +399,6 @@ impl CResourcePreCacher for CModelPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -437,7 +422,6 @@ impl CResourcePreCacher for CBehaviorPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -461,7 +445,6 @@ impl CResourcePreCacher for CBehaviorGraphDataPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -485,7 +468,6 @@ impl CResourcePreCacher for CBehaviorEventPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -509,7 +491,6 @@ impl CResourcePreCacher for CBehaviorAssetPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -533,7 +514,6 @@ impl CResourcePreCacher for CNavMeshPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -557,7 +537,6 @@ impl CResourcePreCacher for CScriptPreCacher {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_metadata_manager: &mut igMetadataManager,
     ) {
-
     }
 
     fn recache(&self) {
@@ -642,90 +621,66 @@ impl CPrecacheManager {
         package_name: String,
         pool_id: EMemoryPoolID,
     ) {
-        match ig_registry.build_tool {
-            BuildTool::AlchemyLaboratory => {
-                let mut package_path = package_name.to_lowercase();
+        let mut package_path = package_name.to_lowercase();
 
-                if !package_path.starts_with("packages") {
-                    package_path = format!("packages/{}", package_path);
-                }
+        if !package_path.starts_with("packages") {
+            package_path = format!("packages/{}", package_path);
+        }
 
-                if !package_path.ends_with("_pkg.igz") {
-                    package_path = format!("{}_pkg.igz", package_path);
-                }
+        if !package_path.ends_with("_pkg.igz") {
+            package_path = format!("{}_pkg.igz", package_path);
+        }
 
-                if self.package_cached(&package_path, pool_id) {
-                    return;
-                }
+        if self.package_cached(&package_path, pool_id) {
+            return;
+        }
 
-                // igCauldron removed the extension here however it never has one so ???
-                archive_loader
-                    .open(
-                        cdn,
-                        ig_file_context,
-                        ig_registry,
-                        get_file_name(&package_path.trim_end_matches("_pkg.igz")).unwrap(),
-                        0,
-                    )
-                    .unwrap();
+        // igCauldron removed the extension here however it never has one so ???
+        archive_loader
+            .open(
+                cdn,
+                ig_file_context,
+                ig_registry,
+                get_file_name(&package_path.trim_end_matches("_pkg.igz")).unwrap(),
+                0,
+            )
+            .unwrap();
 
-                let pkg_dir = ig_object_stream_manager
-                    .load(
-                        ig_file_context,
-                        ig_registry,
-                        ig_metadata_manager,
-                        ig_ext_ref_system,
-                        ig_object_handle_manager,
-                        package_path.clone(),
-                    )
-                    .unwrap();
+        let pkg_dir = ig_object_stream_manager
+            .load(
+                ig_file_context,
+                ig_registry,
+                ig_metadata_manager,
+                ig_ext_ref_system,
+                ig_object_handle_manager,
+                package_path.clone(),
+            )
+            .unwrap();
 
-                let guard = pkg_dir.read().unwrap();
-                let ig_object_list = guard.object_list.read().unwrap();
-                let objects = &ig_object_list.list.read().unwrap();
-                let ig_string_ref_list = objects[0].clone().downcast::<igStringRefList>().unwrap();
-                let ig_string_ref_guard = ig_string_ref_list.read().unwrap();
-                let data = ig_string_ref_guard.list.read().unwrap();
-                for i in (0..data.len()).step_by(2) {
-                    let package_name = &package_path;
-                    let file_data_type = &data[i];
-                    let file_name = data[i + 1].clone();
+        let guard = pkg_dir.read().unwrap();
+        let ig_object_list = guard.object_list.read().unwrap();
+        let objects = &ig_object_list.list.read().unwrap();
+        let ig_string_ref_list = objects[0].clone().downcast::<igStringRefList>().unwrap();
+        let ig_string_ref_guard = ig_string_ref_list.read().unwrap();
+        let data = ig_string_ref_guard.list.read().unwrap();
+        for i in (0..data.len()).step_by(2) {
+            let package_name = &package_path;
+            let file_data_type = &data[i];
+            let file_name = data[i + 1].clone();
 
-                    if let Some(precacher) = self.resource_pre_cacher_lookup.get(file_data_type) {
-                        debug!("Precache type = {}, value = {}", file_data_type, file_name);
-                        precacher.precache(
-                            archive_loader,
-                            cdn,
-                            ig_registry,
-                            ig_file_context,
-                            ig_object_stream_manager,
-                            ig_ext_ref_system,
-                            ig_metadata_manager
-                        );
-                    } else {
-                        // error!("file type {} has no registered loader", file_data_type);
-                    }
-                }
-
-            }
-            BuildTool::TfbTool => {
-                // TODO: move to where tfb handles loading stuff
-                ig_file_context.load_archive(ig_registry, &package_name);
-
-                let _pkg_dir = ig_object_stream_manager
-                    .load(
-                        ig_file_context,
-                        ig_registry,
-                        ig_metadata_manager,
-                        ig_ext_ref_system,
-                        ig_object_handle_manager,
-                        format!("{}/level.bld", package_name),
-                    )
-                    .unwrap();
-            }
-
-            BuildTool::None => {
-                error!("No build tool selected. Cannot precache package")
+            if let Some(precacher) = self.resource_pre_cacher_lookup.get(file_data_type) {
+                debug!("Precache type = {}, value = {}", file_data_type, file_name);
+                precacher.precache(
+                    archive_loader,
+                    cdn,
+                    ig_registry,
+                    ig_file_context,
+                    ig_object_stream_manager,
+                    ig_ext_ref_system,
+                    ig_metadata_manager,
+                );
+            } else {
+                // error!("file type {} has no registered loader", file_data_type);
             }
         }
     }
@@ -788,8 +743,7 @@ pub fn load_init_script(game: EGame, is_weakly_loaded: bool, ig_alchemy: &mut ig
             if task == LoaderTask::Unknown {
                 error!(
                     "Invalid initscript. Unknown task type on line {}. \n {} \n",
-                    line_number,
-                    line
+                    line_number, line
                 );
             }
         } else if !line.starts_with("//") {
@@ -891,20 +845,35 @@ fn process_task(
         LoaderTask::LooseIga => {
             ig_file_context.load_archive(ig_registry, &line);
         }
-        LoaderTask::FullPackage => {
-            precache_manager.precache_package(
-                &client.archive_loader,
-                &client.content_deployment,
-                ig_registry,
-                ig_file_context,
-                ig_object_stream_manager,
-                ig_ext_ref_system,
-                ig_object_handle_manager,
-                ig_metadata_manager,
-                line,
-                EMemoryPoolID::MP_DEFAULT,
-            );
-        }
+        LoaderTask::FullPackage => match ig_registry.build_tool {
+            BuildTool::AlchemyLaboratory => {
+                precache_manager.precache_package(
+                    &client.archive_loader,
+                    &client.content_deployment,
+                    ig_registry,
+                    ig_file_context,
+                    ig_object_stream_manager,
+                    ig_ext_ref_system,
+                    ig_object_handle_manager,
+                    ig_metadata_manager,
+                    line,
+                    EMemoryPoolID::MP_DEFAULT,
+                );
+            }
+            BuildTool::TfbTool => {
+                streamContext::load(
+                    ig_file_context,
+                    ig_registry,
+                    ig_object_stream_manager,
+                    ig_metadata_manager,
+                    ig_ext_ref_system,
+                    ig_object_handle_manager,
+                    &line,
+                )
+                .expect("FullPackage load failed");
+            }
+            BuildTool::None => todo!(),
+        },
         LoaderTask::LoosePackage => {
             let full_path = format!("app:/archives/{}.pak", line);
             ig_file_context.load_archive(ig_registry, &full_path);

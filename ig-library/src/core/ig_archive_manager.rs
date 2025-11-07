@@ -25,24 +25,20 @@ impl igArchiveManager {
 
     /// Loads an archive from the given path.
     pub fn load_archive(
-        archive_manager: Arc<RwLock<igArchiveManager>>,
+        &mut self,
         ig_file_context: &igFileContext,
         ig_registry: &igRegistry,
         path: &str,
-    ) -> Arc<igArchive> {
-        if let Ok(archive_manager) = archive_manager.read() {
-            if let Some(archive) = archive_manager.try_get_archive(path) {
-                return archive
-            }
+    ) -> Result<Arc<igArchive>, String> {
+        if let Some(archive) = self.try_get_archive(path) {
+            return Ok(archive)
         }
 
-        let arc = Arc::new(igArchive::open(ig_file_context, ig_registry, path).unwrap());
+        let arc = Arc::new(igArchive::open(ig_file_context, ig_registry, path)?);
 
-        if let Ok(archive_manager) = archive_manager.write() {
-            archive_manager._archive_list.push(arc.clone());
-        }
+        self._archive_list.push(arc.clone());
 
-        arc
+        Ok(arc)
     }
 
     pub fn try_get_archive(&self, path: &str) -> Option<Arc<igArchive>> {

@@ -473,7 +473,7 @@ impl TryFrom<u8> for Fixup {
 
 impl igObjectLoader for igIGZObjectLoader {
     fn can_read(&self, file_name: &str) -> bool {
-        file_name.ends_with(".igz") || file_name.ends_with(".bld") || file_name.ends_with(".lng")
+        file_name.ends_with(".igz") || file_name.ends_with(".bld") || file_name.ends_with(".lng") || file_name.ends_with(".pak")
     }
 
     fn get_name(&self) -> &'static str {

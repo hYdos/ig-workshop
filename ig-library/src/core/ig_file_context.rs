@@ -162,8 +162,8 @@ impl igFileContext {
         work_item._file
     }
 
-    pub fn load_archive(&self, ig_registry: &igRegistry, path: &str) -> Arc<igArchive> {
-        igArchiveManager::load_archive(self.archive_manager.clone(), self, ig_registry, path)
+    pub fn load_archive(&self, ig_registry: &igRegistry, path: &str) -> Result<Arc<igArchive>, String> {
+        igArchiveManager::load_archive(&mut self.archive_manager.write().unwrap(), self, ig_registry, path)
     }
 
     pub fn new(game_path: String, update_folder: Option<&str>) -> Self {
