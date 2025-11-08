@@ -6,5 +6,5 @@ app:/item/legal.bld
 
 //// app:/permanent/bootstrap.bld
 //app:/misc/bootstrap_lang.bld
-//// app:/permanent/global.bld
+app:/permanent/global.bld
 //app:/character/init_setup.bld

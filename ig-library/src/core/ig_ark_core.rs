@@ -107,13 +107,13 @@ fn register_metafields(imm: &mut igMetadataManager) {
             },
         );
     // FIXME: this is actually so painful.
-    imm.meta_field_registry.register_complex::<igBitFieldMetaField>(Arc::from("igBitFieldMetaField"), |ark_field, metaobject, imm, _metafield_registry, _platform| {
-        let bitshift_info = &ark_field.ark_info.read().unwrap().clone().ig_bit_shift_info.unwrap();
-        let storage_location = bitshift_info.read().unwrap().clone().storage_field;
-        let target_field = metaobject.field_storage.name_lookup.get(storage_location.as_str()).cloned().expect(&format!("Cannot find field {storage_location} in metaobject {}. Fields (by name): {:#?}, Fields (by offset): {:#?}", metaobject.name, metaobject.field_storage.name_lookup, metaobject.field_storage.offset_lookup));
-        let target_field_reader = imm.meta_field_registry.get_simple(&target_field.ark_info.read().unwrap());
-        Arc::new(igBitFieldMetaField(bitshift_info.clone(), target_field_reader))
-    });
+    // imm.meta_field_registry.register_complex::<igBitFieldMetaField>(Arc::from("igBitFieldMetaField"), |ark_field, metaobject, imm, _metafield_registry, _platform| {
+    //     let bitshift_info = &ark_field.ark_info.read().unwrap().clone().ig_bit_shift_info.unwrap();
+    //     let storage_location = bitshift_info.read().unwrap().clone().storage_field;
+    //     let target_field = metaobject.field_storage.name_lookup.get(storage_location.as_str()).cloned().expect(&format!("Cannot find field {storage_location} in metaobject {}. Fields (by name): {:#?}, Fields (by offset): {:#?}", metaobject.name, metaobject.field_storage.name_lookup, metaobject.field_storage.offset_lookup));
+    //     let target_field_reader = imm.meta_field_registry.get_simple(&target_field.ark_info.read().unwrap());
+    //     Arc::new(igBitFieldMetaField(bitshift_info.clone(), target_field_reader))
+    // });
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]

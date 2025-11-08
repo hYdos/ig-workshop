@@ -275,6 +275,7 @@ impl Fixup {
             Fixup::RUNTIME_OFFSETS => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
                 ctx.runtime_fields.offsets = unpack_compressed_ints(ctx, &vec, count, true);
+                ctx.runtime_fields.offsets.sort();
             }
             Fixup::RUNTIME_POOL_IDS => {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
@@ -632,7 +633,7 @@ impl igIGZLoader {
     ) {
         let mut fd = ig_file_context.open(ig_registry, file_path, 0);
         if let Some(mut handle) = fd._handle {
-            // if file_path == "item/legal.bld/level.bld" {
+            // if file_path == "permanent/global.bld/level.bld" {
             //     use std::io::Read;
             //     use byteorder::WriteBytesExt;
             //     let mut file = std::fs::File::create("file.igz").unwrap();
@@ -900,6 +901,7 @@ impl igIGZLoader {
 
         for (offset, object) in offset_object_list {
             handle.set_position(ctx.deserialize_offset(offset));
+
             imm.read_igz_fields(
                 object_stream_manager,
                 handle,

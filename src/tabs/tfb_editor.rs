@@ -321,6 +321,19 @@ impl TfbIgzEditor<'_> {
 
     fn render_field_value(&self, ui: &mut Ui, info: &Arc<igMetaFieldInfo>, value: &igAny) {
         match info._type.as_ref() {
+            "igStringMetaField" => {
+                ui.add(
+                    Label::new(WidgetText::from(format!(
+                        "{}",
+                        value
+                            .read()
+                            .unwrap()
+                            .downcast_ref::<Arc<str>>()
+                            .unwrap()
+                    )))
+                        .selectable(false),
+                );
+            }
             "igIntMetaField" => {
                 ui.add(
                     Label::new(WidgetText::from(format!(
