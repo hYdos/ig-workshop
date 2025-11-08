@@ -89,7 +89,12 @@ fn render_folder(
                     .default_open(false)
                     .activatable(true)
                     .label_ui(|ui| {
-                        ui.add(Label::new(WidgetText::from(file[..file.rfind('.').unwrap()].to_string())).selectable(false));
+                        ui.add(
+                            Label::new(WidgetText::from(
+                                file[..file.rfind('.').unwrap()].to_string(),
+                            ))
+                            .selectable(false),
+                        );
                     }),
             );
         }
@@ -156,7 +161,8 @@ impl TfbToolEditor {
                 immediate_resource_path, reason
             )));
         }
-        let immediate_resource = immediate_resource.map_err(|reason| TfbAssetLoadError::ArchiveLoadError(reason))?;
+        let immediate_resource =
+            immediate_resource.map_err(|reason| TfbAssetLoadError::ArchiveLoadError(reason))?;
 
         let mut level = None;
         let mut language_igzs = HashMap::new();
@@ -181,14 +187,17 @@ impl TfbToolEditor {
             if file._name.eq("level.bld") {
                 level = Some(igz);
             } else if file._name.ends_with(".pak") {
-                language_igzs.insert(Arc::from(file._name.clone().replace(".pak", "").as_ref()), igz);
+                language_igzs.insert(
+                    Arc::from(file._name.clone().replace(".pak", "").as_ref()),
+                    igz,
+                );
             } else {
                 // TODO
             }
         }
 
         Ok(TfbGameFileData {
-            display_name: path[path.rfind('/').unwrap() + 1..].to_string(),
+            display_name: path[path.rfind('/').unwrap() + 1..path.rfind('.').unwrap()].to_string(),
             immediate_data: level.unwrap(),
             language_data: RwLock::new(language_igzs),
             streamed_data: None,
@@ -200,11 +209,45 @@ impl TfbToolEditor {
 enum TfbAssetLoadError {
     IgzLoadError(String),
     ArchiveLoadError(String),
-    IoError(String)
+    IoError(String),
 }
 
-struct TfbIgzEditor {
+struct TfbIgzEditor {}
 
+impl TfbIgzEditor {
+    fn render_igz(&self, builder: &mut TreeViewBuilder<u32>, igz: &Arc<RwLock<igObjectDirectory>>) {
+        if let Ok(object_dir) = igz.read() {
+            let object_list = object_dir.object_list.read().unwrap();
+            for i in 0..object_list.len() {
+                let id = format!("immediate_resources/{i}");
+                let object = object_list.get(i).unwrap();
+                let object = object.read().unwrap();
+                let name = match object.get_field("_name") {
+                    Ok(Some(name)) => name
+                        .read()
+                        .unwrap()
+                        .downcast_ref::<Arc<str>>()
+                        .unwrap()
+                        .to_string(),
+                    _ => {
+                        format!("igObject {}", i)
+                    }
+                };
+                let name = format!("{name} ({})", object.object_name());
+
+                builder.node(
+                    NodeBuilder::dir(hash(&id))
+                        .default_open(false)
+                        .activatable(true)
+                        .label_ui(|ui| {
+                            ui.add(Label::new(WidgetText::from(&name)).selectable(false));
+                        }),
+                );
+
+                builder.close_dir();
+            }
+        }
+    }
 }
 
 impl TabViewer for TfbIgzEditor {
@@ -215,7 +258,65 @@ impl TabViewer for TfbIgzEditor {
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
+        TreeView::new(ui.make_persistent_id(tab.display_name.clone())).show(ui, |mut builder| {
+            builder.node(
+                NodeBuilder::dir(hash("immediate_resources"))
+                    .default_open(false)
+                    .activatable(true)
+                    .label_ui(|ui| {
+                        ui.add(
+                            Label::new(WidgetText::from("Level Data (level.bld)"))
+                                .selectable(false),
+                        );
+                    }),
+            );
+            self.render_igz(&mut builder, &tab.immediate_data);
+            builder.close_dir();
 
+            builder.node(
+                NodeBuilder::dir(hash("language_resources"))
+                    .default_open(false)
+                    .activatable(true)
+                    .label_ui(|ui| {
+                        ui.add(
+                            Label::new(WidgetText::from("Language Data (e.g ENGLISH.pak)"))
+                                .selectable(false),
+                        );
+                    }),
+            );
+            let language_map = tab.language_data.read().unwrap();
+            for key in language_map.keys() {
+                builder.node(
+                    NodeBuilder::dir(hash(&format!("language_resources/{key}")))
+                        .default_open(false)
+                        .activatable(true)
+                        .label_ui(|ui| {
+                            ui.add(
+                                Label::new(WidgetText::from(key.as_ref()))
+                                    .selectable(false),
+                            );
+                        }),
+                );
+
+                let igz = language_map.get(key).unwrap();
+                self.render_igz(&mut builder, &igz);
+                builder.close_dir();
+            }
+            builder.close_dir();
+
+            builder.node(
+                NodeBuilder::dir(hash("streamed_resources"))
+                    .default_open(false)
+                    .activatable(true)
+                    .label_ui(|ui| {
+                        ui.add(
+                            Label::new(WidgetText::from("Streamed Data (.arc resources)"))
+                                .selectable(false),
+                        );
+                    }),
+            );
+            builder.close_dir();
+        });
     }
 }
 
@@ -245,10 +346,8 @@ impl WorkshopTabImpl for TfbToolEditor {
                                         for file in game_files {
                                             if !file.ends_with(".arc") {
                                                 if hash(file).eq(&id) {
-                                                    self.selected_node = Some(format!(
-                                                        "{}/{}",
-                                                        folder, file
-                                                    ));
+                                                    self.selected_node =
+                                                        Some(format!("{}/{}", folder, file));
                                                 }
                                             }
                                         }
@@ -262,15 +361,23 @@ impl WorkshopTabImpl for TfbToolEditor {
             });
 
         CentralPanel::default().show_inside(ui, |ui| {
+            let id = ui.make_persistent_id("igz_file_dock");
+            let mut style = Style::from_egui(ui.style().as_ref());
+            style.dock_area_padding = None;
 
             DockArea::new(&mut self.dock_state)
-                .style(Style::from_egui(ui.style().as_ref()))
+                .id(id)
+                .window_bounds(ui.max_rect())
+                .style(style)
                 .show_inside(ui, &mut TfbIgzEditor {});
 
             let selected_node = self.selected_node.clone();
 
             if let Some(selected_node) = selected_node {
-                if !self.loaded_files.contains_key::<str>(selected_node.as_ref()) {
+                if !self
+                    .loaded_files
+                    .contains_key::<str>(selected_node.as_ref())
+                {
                     println!("Loading IGZ {selected_node}");
                     match self.get_or_load(&selected_node) {
                         Ok(data) => {
