@@ -26,6 +26,7 @@ pub fn debug_decode_hash(h: u32) -> String {
         HashMap::from([
             (hash("System"), "System"),
             (hash("level.bld"), "level.bld"),
+            (hash("global.bld"), "global.bld"),
             (hash("Game Constants"), "Game Constants"),
         ])
     });

@@ -14,7 +14,7 @@ use crate::core::meta::ig_metadata_manager::{igMetaInstantiationError, igMetadat
 use crate::util::byteorder_fixes::{
     read_ptr, read_string, read_struct_array_u8, read_u32, read_u64,
 };
-use crate::util::ig_hash::{hash, hash_lower};
+use crate::util::ig_hash::{debug_decode_hash, hash, hash_lower};
 use crate::util::ig_name::igName;
 use log::{debug, error, info};
 use std::collections::HashMap;
@@ -168,7 +168,7 @@ impl Fixup {
                             }
                         }
                     } else {
-                        error!("EXID Fixup load failed: Failed to find namespace {:x}, referenced in {}", dependency_name.namespace.hash, dir.path);
+                        error!("EXID Fixup load failed: Failed to find namespace {}, referenced in {}", debug_decode_hash(dependency_name.namespace.hash), dir.path);
                         ctx.external_list.push(ig_handle_manager.lookup_handle_name(&dependency_name))
                     }
                 }
