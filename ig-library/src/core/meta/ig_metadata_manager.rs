@@ -61,6 +61,7 @@ impl igMetadataManager {
         let meta = ig_object.read().unwrap().meta_type(self);
         let meta = meta.read().unwrap();
         debug!("igObject(name={}) fields are being set", meta.name);
+        // debug!("{:#?}", meta);
         let fields = &meta.field_storage.name_lookup;
 
         for (name, field) in fields {

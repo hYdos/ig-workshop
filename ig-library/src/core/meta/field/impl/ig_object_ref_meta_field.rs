@@ -61,10 +61,6 @@ impl igMetaField for igObjectRefMetaField {
             };
         }
         if raw != 0 {
-            println!("{}", ctx.runtime_fields.externals.binary_search(&973848).is_ok());
-            println!("{}", ctx.runtime_fields.named_externals.binary_search(&973848).is_ok());
-            println!("{}", ctx.runtime_fields.offsets.binary_search(&973848).is_ok());
-
             // the value should not be null, but we couldn't determine what it actually was.
             error!("Failed to read igObjectRefMetaField properly");
             panic!("Alchemy Error! Check the logs.");
