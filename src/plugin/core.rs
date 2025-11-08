@@ -7,6 +7,10 @@ lazy_static! {
     static ref OBJECT_INTERFACES: Mutex<Vec<Box<dyn igObjectInterface>>> = Mutex::new(vec![]);
 }
 
+pub(crate) fn get_object_interfaces() -> &'static Mutex<Vec<Box<dyn igObjectInterface>>> {
+    &OBJECT_INTERFACES
+}
+
 /// Adds a new editor to the list of editors currently loaded.
 extern "C" fn register_editor() {}
 

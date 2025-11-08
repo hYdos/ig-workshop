@@ -118,11 +118,17 @@ pub struct MetaObject {
     /// New field added by the current metaobject
     pub new_fields: Vec<ArkMetaObjectField>,
     /// Fields from the parent that are replaced by new ones
-    pub overriden_fields: Vec<ArkMetaObjectField>,
+    pub overridden_fields: Vec<ArkMetaObjectField>,
     /// Present when base_type is present and extends an object extending "igCompoundMetaField" or "igCompoundMetaField" itself
     pub compound_fields: Vec<ArkMetaObjectField>,
     /// Represents tfbScript bindings to the current object. TFBScript bindings represent static fields present in the engine that TFBScript can interact with. For example, `System.fps` or `System.Game Configuration` are some of the static fields available
-    pub tfb_script_binding: Vec<TfbXmlScriptBinding>,
+    pub tfb_script_binding: Option<TfbScriptBindings>,
+}
+
+#[derive(Clone, Debug)]
+pub struct TfbScriptBindings {
+    pub namespace: String,
+    pub bindings: Vec<TfbXmlScriptBinding>,
 }
 
 pub fn load_xml_metadata(
@@ -365,6 +371,34 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
     Ok(meta_objects)
 }
 
+fn on_tfbscript_present(
+    current_meta_object: &mut Option<Arc<RefCell<MetaObject>>>,
+    e: &BytesStart,
+) -> Result<(), String> {
+    let cloned_obj = current_meta_object.clone().unwrap();
+    let mutable_obj = &mut cloned_obj.borrow_mut();
+
+    for result in e.attributes() {
+        let attrib = result.unwrap();
+        match attrib.key.local_name().as_ref() {
+            b"name" => {
+                mutable_obj.tfb_script_binding = Some(TfbScriptBindings {
+                    namespace: String::from(attrib.unescape_value().unwrap()).to_lowercase(),
+                    bindings: vec![],
+                })
+            }
+            _ => {
+                return Err(format!(
+                    "tfb bindings (header) : unknown attribute \"{}\" present. Are we out of date?",
+                    String::from_utf8_lossy(attrib.key.local_name().as_ref())
+                ))
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn on_tfbscript_binding(
     current_meta_object: &mut Option<Arc<RefCell<MetaObject>>>,
     e: &BytesStart,
@@ -386,21 +420,23 @@ fn on_tfbscript_binding(
             }
             _ => {
                 return Err(format!(
-                    "tfb bindings: unknown attribute \"{}\" present. Are we out of date?",
+                    "tfb bindings (binding) : unknown attribute \"{}\" present. Are we out of date?",
                     String::from_utf8_lossy(attrib.key.local_name().as_ref())
                 ))
             }
         }
     }
 
-    assert_eq!(_type.is_none(), false);
-    assert_eq!(name.is_none(), false);
-    mutable_obj
-        .tfb_script_binding
-        .push(TfbXmlScriptBinding {
-            name: Arc::from(name.unwrap()),
-            object_type: Arc::from(_type.unwrap()),
-        });
+    assert!(_type.is_some());
+    assert!(name.is_some());
+    assert!(mutable_obj.tfb_script_binding.is_some());
+    let mut bindings = mutable_obj.tfb_script_binding.clone().unwrap();
+    bindings.bindings.push(TfbXmlScriptBinding {
+        name: Arc::from(name.unwrap().to_lowercase()),
+        object_type: Arc::from(_type.unwrap()),
+    });
+    mutable_obj.tfb_script_binding = Some(bindings);
+
     Ok(())
 }
 
@@ -411,6 +447,7 @@ fn on_metafield_tag(
     e: &BytesStart,
 ) -> Result<(), String> {
     match e.local_name().as_ref() {
+        b"tfbBindings" => on_tfbscript_present(current_meta_object, &e)?,
         b"metaobject" => {
             let mut _type: Option<String> = None;
             let mut ref_name: Option<Arc<str>> = None;
@@ -441,11 +478,11 @@ fn on_metafield_tag(
                 ref_name: ref_name.unwrap(),
                 base_type,
                 new_fields: Vec::new(),
-                overriden_fields: Vec::new(),
+                overridden_fields: Vec::new(),
                 compound_fields: Vec::new(),
                 object_list_type: None,
                 hash_table_info: None,
-                tfb_script_binding: Vec::new(),
+                tfb_script_binding: None,
             })))
         }
         b"objectlist" => {
@@ -523,7 +560,7 @@ fn on_metafield_tag(
                             let field_vector = match field_type {
                                 FieldType::NewField => &mut meta_object_borrow.new_fields,
                                 FieldType::OverridenField => {
-                                    &mut meta_object_borrow.overriden_fields
+                                    &mut meta_object_borrow.overridden_fields
                                 }
                                 FieldType::CompoundField => &mut meta_object_borrow.compound_fields,
                             };
@@ -549,7 +586,7 @@ fn on_metafield_tag(
                             let field_vector = match field_type {
                                 FieldType::NewField => &mut meta_object_borrow.new_fields,
                                 FieldType::OverridenField => {
-                                    &mut meta_object_borrow.overriden_fields
+                                    &mut meta_object_borrow.overridden_fields
                                 }
                                 FieldType::CompoundField => &mut meta_object_borrow.compound_fields,
                             };
@@ -581,7 +618,7 @@ fn on_metafield_tag(
                             let field_vector = match field_type {
                                 FieldType::NewField => &mut meta_object_borrow.new_fields,
                                 FieldType::OverridenField => {
-                                    &mut meta_object_borrow.overriden_fields
+                                    &mut meta_object_borrow.overridden_fields
                                 }
                                 FieldType::CompoundField => &mut meta_object_borrow.compound_fields,
                             };
@@ -614,7 +651,7 @@ fn on_metafield_tag(
                             let field_vector = match field_type {
                                 FieldType::NewField => &mut meta_object_borrow.new_fields,
                                 FieldType::OverridenField => {
-                                    &mut meta_object_borrow.overriden_fields
+                                    &mut meta_object_borrow.overridden_fields
                                 }
                                 FieldType::CompoundField => &mut meta_object_borrow.compound_fields,
                             };
@@ -642,7 +679,7 @@ fn on_metafield_tag(
                             let field_vector = match field_type {
                                 FieldType::NewField => &mut meta_object_borrow.new_fields,
                                 FieldType::OverridenField => {
-                                    &mut meta_object_borrow.overriden_fields
+                                    &mut meta_object_borrow.overridden_fields
                                 }
                                 FieldType::CompoundField => &mut meta_object_borrow.compound_fields,
                             };
@@ -660,7 +697,7 @@ fn on_metafield_tag(
                             let field_vector = match field_type {
                                 FieldType::NewField => &mut meta_object_borrow.new_fields,
                                 FieldType::OverridenField => {
-                                    &mut meta_object_borrow.overriden_fields
+                                    &mut meta_object_borrow.overridden_fields
                                 }
                                 FieldType::CompoundField => &mut meta_object_borrow.compound_fields,
                             };
@@ -679,7 +716,7 @@ fn on_metafield_tag(
                 let mut meta_object_borrow = raw_meta_object.borrow_mut();
                 let field_vector = match field_type {
                     FieldType::NewField => &mut meta_object_borrow.new_fields,
-                    FieldType::OverridenField => &mut meta_object_borrow.overriden_fields,
+                    FieldType::OverridenField => &mut meta_object_borrow.overridden_fields,
                     FieldType::CompoundField => &mut meta_object_borrow.compound_fields,
                 };
                 field_vector.push(field);

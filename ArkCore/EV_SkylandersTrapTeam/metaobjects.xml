@@ -5646,6 +5646,7 @@
 			</metafield>
 		</metafields>
 		<tfbBindings name="ScriptStructure">
+            <binding type="ReferenceVariant" name="untyped structure"/>
 		</tfbBindings>
 	</metaobject>
 	<metaobject type="igMetaObject" refname="perViewStateVecMetaField" basetype="igMetaField">

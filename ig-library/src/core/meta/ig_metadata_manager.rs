@@ -2,7 +2,7 @@ use crate::core::ig_core_platform::IG_CORE_PLATFORM;
 use crate::core::ig_custom::{igNameList, igObjectList, igStringRefList};
 use crate::core::ig_fs::Endian;
 use crate::core::ig_memory::igMemoryPool;
-use crate::core::ig_objects::{igAny, igObjectStreamManager, ObjectExt};
+use crate::core::ig_objects::{igAny, igObjectDirectory, igObjectStreamManager, ObjectExt};
 use crate::core::load::ig_igz_loader::IgzLoaderContext;
 use crate::core::meta::field::ig_metafield_registry::igMetafieldRegistry;
 use crate::core::meta::ig_xml_metadata::{ArcMetaEnum, ArcMetaField, ArkMetaObjectField, MetaObject, RawArkMetaObjectField};
@@ -17,6 +17,9 @@ use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use std::todo;
 use strum_macros::Display;
+use crate::core::ig_handle::igObjectHandleManager;
+use crate::util::ig_hash::hash;
+use crate::util::ig_name::igName;
 
 type MetaObjectConstructor = fn(
     ig_meta_object: &igMetaObject,
@@ -99,8 +102,8 @@ impl igMetadataManager {
 }
 
 impl igMetadataManager {
-    /// Loads every single [igMetaObject] possible from the meta object's that have been deserialized from metaobjects.xml. This method has use in scenarios where loading all types ahead of time for testing, runtime (such as igPlayer) applications, or debugging could benefit from not waiting in the middle of their application
-    pub fn load_all(&mut self) {
+    /// Loads every single [igMetaObject] possible from the metaobject's that have been deserialized from metaobjects.xml. This method is used in scenarios where loading all types ahead of time for testing, runtime (such as igPlayer) applications, or debugging could benefit from not waiting in the middle of their application
+    pub fn load_all(&mut self, ig_object_stream_manager: &mut igObjectStreamManager) {
         let start_time = Instant::now();
         let type_names: Vec<String> = self
             .meta_objects
@@ -108,8 +111,29 @@ impl igMetadataManager {
             .map(|x1| x1.to_string()) // Become owners of the strings to stop borrowing from ourselves
             .collect();
 
-        for _type in type_names {
-            let _meta = self.get_or_create_meta(&_type).unwrap();
+        for type_name in &type_names {
+            let _meta = self.get_or_create_meta(&type_name).unwrap();
+        }
+
+        // Load TFBScript bindings in so we can resolve any references loaded from game data before we make them
+        for (name, data) in self.meta_objects.clone() {
+            if let Some(tfb_bindings) = data.tfb_script_binding {
+                let fake_ig_object_list = igObjectDirectory::new_tfb_binding(&tfb_bindings.namespace);
+                // println!("Namespace {}={}={:x}", &tfb_bindings.namespace, hash(&tfb_bindings.namespace), hash(&tfb_bindings.namespace));
+                let meta = self.get_or_create_meta(&name).unwrap();
+
+                let object_list = fake_ig_object_list.object_list.write().unwrap();
+                let name_list = fake_ig_object_list.name_list.write().unwrap();
+                for binding in tfb_bindings.bindings {
+                    // println!("Binding {}={}={:x}", &binding.name, hash(&binding.name), hash(&binding.name));
+                    name_list.push(igName::new(binding.name.to_string()));
+                    object_list.push(meta.read().unwrap().raw_instantiate(igMemoryPool::Default, false).unwrap());
+                }
+                drop(object_list);
+                drop(name_list);
+
+                ig_object_stream_manager.push_tfb_binding(Arc::new(RwLock::new(fake_ig_object_list)));
+            }
         }
 
         let total_time = Instant::now().sub(start_time);
@@ -472,7 +496,7 @@ impl igMetadataManager {
             for parent_field in parent_fields {
                 let mut overriden = false;
 
-                for override_field in &current_object.overriden_fields {
+                for override_field in &current_object.overridden_fields {
                     let override_field = override_field.read().unwrap();
                     if *parent_field.0 == override_field.offset {
                         new_fields.push(Arc::new(igMetaFieldInfo {

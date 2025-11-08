@@ -2,15 +2,17 @@ use crate::window::{LoadedGame, WorkshopTabImpl, WorkshopTabViewer};
 use egui::{CentralPanel, Label, SidePanel, Ui, WidgetText};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use egui_ltreeview::{Action, NodeBuilder, TreeView, TreeViewBuilder};
-use ig_library::core::ig_objects::{igAny, igObjectDirectory};
+use ig_library::core::ig_objects::{igAny, igObjectDirectory, ObjectExt};
 use ig_library::util::ig_common::igAlchemy;
 use ig_library::util::ig_hash::hash;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::{fs, io};
+use ig_library::core::ig_custom::igObjectList;
 use ig_library::core::memory::igMemory;
 use ig_library::core::meta::ig_metadata_manager::igMetaFieldInfo;
+use crate::plugin::core::get_object_interfaces;
 
 pub struct TfbToolEditor {
     game: LoadedGame,
@@ -231,8 +233,8 @@ impl TfbIgzEditor<'_> {
             for i in 0..object_list.len() {
                 let id = format!("{id_prefix}/{i}");
                 let object = object_list.get(i).unwrap();
-                let object = object.read().unwrap();
-                let name = match object.get_field("_name") {
+                let object_guard = object.read().unwrap();
+                let name = match object_guard.get_field("_name") {
                     Ok(Some(name)) => name
                         .read()
                         .unwrap()
@@ -243,46 +245,72 @@ impl TfbIgzEditor<'_> {
                         format!("igObject {}", i)
                     }
                 };
-                let name = format!("{name} ({})", object.object_name());
+                let name = format!("{name} ({})", object_guard.object_name());
 
-                builder.node(
-                    NodeBuilder::dir(hash(&id))
-                        .default_open(false)
-                        .activatable(true)
-                        .label_ui(|ui| {
-                            ui.add(Label::new(WidgetText::from(&name)).selectable(false));
-                        }),
-                );
-
-                let meta = object.meta_type(&mut self.alchemy.ark_core.metadata_manager);
+                let meta = object_guard.meta_type(&mut self.alchemy.ark_core.metadata_manager);
                 if let Ok(meta) = meta.read() {
-                    for (field_name, info) in &meta.field_storage.name_lookup {
-                        let id = format!("immediate_resources/{i}/{field_name}");
-                        let value = object.get_field(field_name).unwrap();
+                    if "igObjectList".eq(meta.name.as_ref()) {
+                        let list = object.clone().downcast::<igObjectList>().unwrap();
+                        if Arc::as_ptr(&object_dir.object_list) != Arc::as_ptr(&list) {
+                            builder.node(
+                                NodeBuilder::dir(hash(&id))
+                                    .default_open(false)
+                                    .activatable(true)
+                                    .label_ui(|ui| {
+                                        ui.add(Label::new(WidgetText::from(&name)).selectable(false));
+                                    }),
+                            );
 
+                            builder.node(
+                                NodeBuilder::leaf(hash(&id) + 69420)
+                                    .default_open(false)
+                                    .activatable(false)
+                                    .label_ui(|ui| {
+                                        ui.add(
+                                            Label::new(WidgetText::from(format!("Big Pain to deal with. Bug me later. Size is {}", list.read().unwrap().len())))
+                                                .selectable(false),
+                                        );
+                                    }),
+                            );
+                        }
+                    } else {
                         builder.node(
-                            NodeBuilder::leaf(hash(&id))
+                            NodeBuilder::dir(hash(&id))
                                 .default_open(false)
-                                .activatable(false)
+                                .activatable(true)
                                 .label_ui(|ui| {
-                                    ui.add(
-                                        Label::new(WidgetText::from(field_name.as_ref()))
-                                            .selectable(false),
-                                    );
-
-                                    match &value {
-                                        None => {
-                                            ui.add(
-                                                Label::new(WidgetText::from("(null)"))
-                                                    .selectable(false),
-                                            );
-                                        }
-                                        Some(value) => {
-                                            self.render_field_value(ui, info, value);
-                                        }
-                                    }
+                                    ui.add(Label::new(WidgetText::from(&name)).selectable(false));
                                 }),
                         );
+
+                        for (field_name, info) in &meta.field_storage.name_lookup {
+                            let id = format!("immediate_resources/{i}/{field_name}");
+                            let value = object_guard.get_field(field_name).unwrap();
+
+                            builder.node(
+                                NodeBuilder::leaf(hash(&id))
+                                    .default_open(false)
+                                    .activatable(false)
+                                    .label_ui(|ui| {
+                                        ui.add(
+                                            Label::new(WidgetText::from(field_name.as_ref()))
+                                                .selectable(false),
+                                        );
+
+                                        match &value {
+                                            None => {
+                                                ui.add(
+                                                    Label::new(WidgetText::from("(null)"))
+                                                        .selectable(false),
+                                                );
+                                            }
+                                            Some(value) => {
+                                                self.render_field_value(ui, info, value);
+                                            }
+                                        }
+                                    }),
+                            );
+                        }
                     }
                 }
 

@@ -7,7 +7,7 @@ use crate::core::load::ig_igz_loader::igIGZObjectLoader;
 use crate::core::load::ig_loader;
 use crate::core::load::ig_loader::igObjectLoader;
 use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetadataManager};
-use crate::util::ig_hash::hash_lower;
+use crate::util::ig_hash::{debug_decode_hash, hash_lower};
 use crate::util::ig_name::igName;
 use log::warn;
 use std::any::{Any, TypeId};
@@ -61,7 +61,6 @@ pub struct igObjectDirectory {
     pub object_list: Arc<RwLock<igObjectList>>,
     /// Only filled when use_name_list is equal to true and length should match the object list
     pub name_list: Arc<RwLock<igNameList>>,
-    pub loader: Arc<RwLock<dyn igObjectLoader>>,
 }
 
 impl Debug for igObjectDirectory {
@@ -79,11 +78,23 @@ impl Debug for igObjectDirectory {
 
 impl igObjectDirectory {
     fn new(path: &str, name: igName) -> Self {
-        Self::with_loader(path, name, Arc::new(RwLock::new(igIGZObjectLoader)))
+        Self::with_loader(path, name)
+    }
+
+    pub fn new_tfb_binding(name: &str) -> Self {
+        igObjectDirectory {
+            path: name.to_string(),
+            name: igName::new(name.to_string()),
+            dependencies: igObjectDirectoryList::new(),
+            use_name_list: true,
+            object_list: Arc::new(RwLock::new(igObjectList::new())),
+            name_list: Arc::new(RwLock::new(igNameList::new())),
+        }
     }
 
     /// Allows specifying a custom file loader. Handy for custom formats or formats that are not igz such as igXml, igBinary, and igAscii
-    fn with_loader(path: &str, name: igName, loader: Arc<RwLock<dyn igObjectLoader>>) -> Self {
+    #[deprecated]
+    fn with_loader(path: &str, name: igName) -> Self {
         igObjectDirectory {
             path: path.to_string(),
             name,
@@ -91,13 +102,13 @@ impl igObjectDirectory {
             use_name_list: false,
             object_list: Arc::new(RwLock::new(igObjectList::new())),
             name_list: Arc::new(RwLock::new(igNameList::new())),
-            loader,
         }
     }
 }
 
 pub struct igObjectStreamManager {
     pub name_to_directory_lookup: HashMap<u32, igObjectDirectoryList>,
+    pub binding_name_to_directory_lookup: HashMap<u32, igObjectDirectoryList>,
     pub path_to_directory_lookup: HashMap<u32, Arc<RwLock<igObjectDirectory>>>,
 }
 
@@ -105,6 +116,7 @@ impl igObjectStreamManager {
     pub fn new() -> igObjectStreamManager {
         igObjectStreamManager {
             name_to_directory_lookup: HashMap::new(),
+            binding_name_to_directory_lookup: Default::default(),
             path_to_directory_lookup: HashMap::new(),
         }
     }
@@ -193,7 +205,43 @@ impl igObjectStreamManager {
         }
     }
 
-    fn push_dir(&mut self, dir: Arc<RwLock<igObjectDirectory>>) {
+    pub fn is_tfb_binding(&self, namespace: igName, name: igName) -> bool {
+        let hash = namespace.hash;
+
+        if let Some(directory) = self.binding_name_to_directory_lookup.get(&hash) {
+            let dir_list = directory.list.read().unwrap();
+            let dir = dir_list.get(0).unwrap();
+            let dir_guard = dir.read().unwrap();
+            let name_list = dir_guard.name_list.read().unwrap();
+
+            // for i in 0..name_list.len() {
+            //     if name_list.get(i).unwrap().hash == name.hash {
+            //         return true;
+            //     }
+            // }
+            // TODO: TfbBindings are broken. until then, we have to be less sure on what is a TFBScript binding
+            return true;
+        }
+
+        false
+    }
+
+    pub fn push_tfb_binding(&mut self, dir: Arc<RwLock<igObjectDirectory>>) {
+        let hash = dir.read().unwrap().name.hash;
+
+        if !self.name_to_directory_lookup.contains_key(&hash) {
+            self.name_to_directory_lookup
+                .insert(hash, igObjectDirectoryList::new());
+            self.binding_name_to_directory_lookup
+                .insert(hash, igObjectDirectoryList::new());
+        }
+        let list = self.name_to_directory_lookup.get_mut(&hash).unwrap();
+        list.push(dir.clone());
+        let list = self.binding_name_to_directory_lookup.get_mut(&hash).unwrap();
+        list.push(dir.clone());
+    }
+
+    pub fn push_dir(&mut self, dir: Arc<RwLock<igObjectDirectory>>) {
         let hash = dir.read().unwrap().name.hash;
         let file_path = dir.read().unwrap().path.clone();
 

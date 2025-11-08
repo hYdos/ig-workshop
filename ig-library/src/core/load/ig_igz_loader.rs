@@ -142,6 +142,9 @@ impl Fixup {
                     if dependency_name.namespace.hash.eq(&hash("level.bld")) {
                         ctx.external_list
                             .push(ig_handle_manager.lookup_handle_name(&dependency_name))
+                    } else if ig_object_stream_manager.is_tfb_binding(dependency_name.namespace.clone(), dependency_name.name.clone()) {
+                        ctx.external_list
+                            .push(ig_handle_manager.lookup_handle_name(&dependency_name))
                     } else {
                         if let Some(list) = ig_object_stream_manager
                             .name_to_directory_lookup
@@ -629,7 +632,7 @@ impl igIGZLoader {
     ) {
         let mut fd = ig_file_context.open(ig_registry, file_path, 0);
         if let Some(mut handle) = fd._handle {
-            // if file_path == "permanent/bootstrap.bld/level.bld" {
+            // if file_path == "item/legal.bld/level.bld" {
             //     use std::io::Read;
             //     use byteorder::WriteBytesExt;
             //     let mut file = std::fs::File::create("file.igz").unwrap();

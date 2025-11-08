@@ -91,9 +91,7 @@ pub fn load_game_data(
                 igArkCore::new(game_cfg.clone()._game, platform),
             );
 
-            // Try out caching all metadata at the start only in debug to catch issues
-            #[cfg(debug_assertions)]
-            ig_alchemy.ark_core.metadata_manager.load_all();
+            ig_alchemy.ark_core.metadata_manager.load_all(&mut ig_alchemy.object_stream_manager);
 
             load_init_script(game_cfg.clone()._game, false, &mut ig_alchemy);
 

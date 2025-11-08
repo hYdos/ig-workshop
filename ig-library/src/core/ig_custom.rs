@@ -198,9 +198,16 @@ impl<T: Send + Sync + 'static + Clone> __internalObjectBase for igDataList<T> {
         match field_name {
             "_name" => {
                 Ok(self.instance_name.clone())
+            },
+            "_capacity" => {
+                Ok(Some(Arc::new(RwLock::new(self.list.read().unwrap().capacity()))))
+            },
+            "_data" => {
+                error!("getting field _data from igDataList is not implemented");
+                Err(FieldDoesntExist)
             }
             _ => {
-                warn!("Tried getting unknown field name for {}", field_name);
+                warn!("Tried getting unknown field {}", field_name);
                 Err(FieldDoesntExist)
             }
         }
