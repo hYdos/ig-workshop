@@ -1,15 +1,16 @@
-﻿
-/// Defines a visual editor you can write which can be used instead of the built-in defaults.
-#[repr(C)]
-pub struct EditorPlugin {
-    pub display_name: String,
+﻿use std::sync::Mutex;
+use lazy_static::lazy_static;
+use crate::ig_object::ig_object_viewer::igObjectInterface;
 
+lazy_static! {
+    static ref EDITORS: Mutex<Vec<u8>> = Mutex::new(vec![]);
+    static ref OBJECT_INTERFACES: Mutex<Vec<Box<dyn igObjectInterface>>> = Mutex::new(vec![]);
 }
-
-pub(crate) struct PluginData {
-    pub editors: Vec<EditorPlugin>
-}
-
 
 /// Adds a new editor to the list of editors currently loaded.
 extern "C" fn register_editor() {}
+
+/// Adds a new igObject interface to the list of loaded interfaces.
+extern "C" fn register_object_interface(interface: Box<dyn igObjectInterface>) {
+    OBJECT_INTERFACES.lock().unwrap().push(interface);
+}

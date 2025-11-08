@@ -12,6 +12,7 @@ use crate::util::ig_name::igName;
 use log::warn;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
+use std::fmt::{Debug, Formatter, Write};
 use std::mem;
 use std::sync::{Arc, RwLock};
 
@@ -61,6 +62,19 @@ pub struct igObjectDirectory {
     /// Only filled when use_name_list is equal to true and length should match the object list
     pub name_list: Arc<RwLock<igNameList>>,
     pub loader: Arc<RwLock<dyn igObjectLoader>>,
+}
+
+impl Debug for igObjectDirectory {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("igObjectDirectory")
+            .field("path", &self.path)
+            .field("name (hash)", &self.name.hash)
+            .field("name (string)", &self.name.string)
+            .field("using name list", &self.use_name_list)
+            // .field("object_list", &self.object_list)
+            .field("name_list", &self.name_list)
+            .finish()
+    }
 }
 
 impl igObjectDirectory {
@@ -169,7 +183,8 @@ impl igObjectStreamManager {
                     &mut dir_guard,
                     file_path,
                 );
-                // todo!("igObjectHandleManager.Singleton.AddDirectory(objDir);");
+                drop(dir_guard);
+                ig_object_handle_manager.add_directory(dir.clone());
             } else {
                 warn!("No loader found for file {}", file_path);
             }

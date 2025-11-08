@@ -168,7 +168,7 @@ impl Fixup {
                             }
                         }
                     } else {
-                        error!("EXID Fixup load failed: Failed to find namespace {:#01}, referenced in {}", dependency_name.namespace.hash, dir.path);
+                        error!("EXID Fixup load failed: Failed to find namespace {:x}, referenced in {}", dependency_name.namespace.hash, dir.path);
                         ctx.external_list.push(ig_handle_manager.lookup_handle_name(&dependency_name))
                     }
                 }
@@ -578,6 +578,8 @@ pub struct IgzLoaderContext {
     pub runtime_fields: RuntimeFields,
     /// TODO: comment
     pub offset_object_list: HashMap<u64, igObject>,
+    /// Utility added by ig-workshop to handle TFB handles. In TFBTool games, references to the igz's own level.bld can be made meaning you must be able to reference your own igObjectDirectory
+    pub igz_path: String,
 }
 
 impl IgzLoaderContext {
@@ -666,6 +668,7 @@ impl igIGZLoader {
                 thumbnails: vec![],
                 runtime_fields: RuntimeFields::new(),
                 offset_object_list: HashMap::new(),
+                igz_path: file_path.to_string(),
             };
 
             igIGZLoader::parse_sections(&mut handle, fd.endianness.clone(), &mut shared_state);

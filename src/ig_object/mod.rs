@@ -1,1 +1,1 @@
-mod ig_object_viewer;
+pub mod ig_object_viewer;

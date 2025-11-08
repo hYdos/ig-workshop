@@ -2,12 +2,15 @@ use crate::window::{LoadedGame, WorkshopTabImpl, WorkshopTabViewer};
 use egui::{CentralPanel, Label, SidePanel, Ui, WidgetText};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use egui_ltreeview::{Action, NodeBuilder, TreeView, TreeViewBuilder};
-use ig_library::core::ig_objects::igObjectDirectory;
+use ig_library::core::ig_objects::{igAny, igObjectDirectory};
+use ig_library::util::ig_common::igAlchemy;
 use ig_library::util::ig_hash::hash;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::{fs, io};
+use ig_library::core::memory::igMemory;
+use ig_library::core::meta::ig_metadata_manager::igMetaFieldInfo;
 
 pub struct TfbToolEditor {
     game: LoadedGame,
@@ -212,14 +215,21 @@ enum TfbAssetLoadError {
     IoError(String),
 }
 
-struct TfbIgzEditor {}
+struct TfbIgzEditor<'a> {
+    alchemy: &'a mut igAlchemy,
+}
 
-impl TfbIgzEditor {
-    fn render_igz(&self, builder: &mut TreeViewBuilder<u32>, igz: &Arc<RwLock<igObjectDirectory>>) {
+impl TfbIgzEditor<'_> {
+    fn render_igz(
+        &mut self,
+        id_prefix: &str,
+        builder: &mut TreeViewBuilder<u32>,
+        igz: &Arc<RwLock<igObjectDirectory>>,
+    ) {
         if let Ok(object_dir) = igz.read() {
             let object_list = object_dir.object_list.read().unwrap();
             for i in 0..object_list.len() {
-                let id = format!("immediate_resources/{i}");
+                let id = format!("{id_prefix}/{i}");
                 let object = object_list.get(i).unwrap();
                 let object = object.read().unwrap();
                 let name = match object.get_field("_name") {
@@ -244,13 +254,86 @@ impl TfbIgzEditor {
                         }),
                 );
 
+                let meta = object.meta_type(&mut self.alchemy.ark_core.metadata_manager);
+                if let Ok(meta) = meta.read() {
+                    for (field_name, info) in &meta.field_storage.name_lookup {
+                        let id = format!("immediate_resources/{i}/{field_name}");
+                        let value = object.get_field(field_name).unwrap();
+
+                        builder.node(
+                            NodeBuilder::leaf(hash(&id))
+                                .default_open(false)
+                                .activatable(false)
+                                .label_ui(|ui| {
+                                    ui.add(
+                                        Label::new(WidgetText::from(field_name.as_ref()))
+                                            .selectable(false),
+                                    );
+
+                                    match &value {
+                                        None => {
+                                            ui.add(
+                                                Label::new(WidgetText::from("(null)"))
+                                                    .selectable(false),
+                                            );
+                                        }
+                                        Some(value) => {
+                                            self.render_field_value(ui, info, value);
+                                        }
+                                    }
+                                }),
+                        );
+                    }
+                }
+
                 builder.close_dir();
+            }
+        }
+    }
+
+    fn render_field_value(&self, ui: &mut Ui, info: &Arc<igMetaFieldInfo>, value: &igAny) {
+        match info._type.as_ref() {
+            "igIntMetaField" => {
+                ui.add(
+                    Label::new(WidgetText::from(format!(
+                        "{}",
+                        value
+                            .read()
+                            .unwrap()
+                            .downcast_ref::<i32>()
+                            .unwrap()
+                    )))
+                        .selectable(false),
+                );
+            },
+            // "igMemoryRefMetaField" => {
+            //     // let ig_memory = value.read().unwrap().downcast_ref::<igMemory<igAny>>().unwrap();
+            //     // ig_memory.
+            //     // let memory_ref_info = info.ark_info.read().unwrap().clone().ig_memory_ref_info.unwrap();
+            //     // let guard = memory_ref_info.read().unwrap();
+            //     // self.render_field_value(ui, Arc::new(igMetaFieldInfo {
+            //     //     ark_info: memory_ref_info,
+            //     //     _type: guard._type.clone(),
+            //     //     name: guard.name.clone(),
+            //     //     size: 0,
+            //     //     alignment: 0,
+            //     //     offset: 0,
+            //     // }), value)
+            // }
+            _ => {
+                ui.add(
+                    Label::new(WidgetText::from(format!(
+                        "no implementation for {}",
+                        info._type
+                    )))
+                        .selectable(false),
+                );
             }
         }
     }
 }
 
-impl TabViewer for TfbIgzEditor {
+impl TabViewer for TfbIgzEditor<'_> {
     type Tab = Arc<TfbGameFileData>;
 
     fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
@@ -270,7 +353,7 @@ impl TabViewer for TfbIgzEditor {
                         );
                     }),
             );
-            self.render_igz(&mut builder, &tab.immediate_data);
+            self.render_igz("immediate_resources", &mut builder, &tab.immediate_data);
             builder.close_dir();
 
             builder.node(
@@ -286,20 +369,18 @@ impl TabViewer for TfbIgzEditor {
             );
             let language_map = tab.language_data.read().unwrap();
             for key in language_map.keys() {
+                let id = format!("language_resources/{key}");
                 builder.node(
-                    NodeBuilder::dir(hash(&format!("language_resources/{key}")))
+                    NodeBuilder::dir(hash(&id))
                         .default_open(false)
                         .activatable(true)
                         .label_ui(|ui| {
-                            ui.add(
-                                Label::new(WidgetText::from(key.as_ref()))
-                                    .selectable(false),
-                            );
+                            ui.add(Label::new(WidgetText::from(key.as_ref())).selectable(false));
                         }),
                 );
 
                 let igz = language_map.get(key).unwrap();
-                self.render_igz(&mut builder, &igz);
+                self.render_igz(&id, &mut builder, &igz);
                 builder.close_dir();
             }
             builder.close_dir();
@@ -369,7 +450,12 @@ impl WorkshopTabImpl for TfbToolEditor {
                 .id(id)
                 .window_bounds(ui.max_rect())
                 .style(style)
-                .show_inside(ui, &mut TfbIgzEditor {});
+                .show_inside(
+                    ui,
+                    &mut TfbIgzEditor {
+                        alchemy: &mut self.game.ig_alchemy,
+                    },
+                );
 
             let selected_node = self.selected_node.clone();
 

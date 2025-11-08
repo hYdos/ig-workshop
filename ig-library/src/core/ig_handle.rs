@@ -1,9 +1,10 @@
 use crate::core::ig_custom::igStringRefList;
-use crate::core::ig_objects::{igObject, igObjectStreamManager};
+use crate::core::ig_objects::{igObject, igObjectDirectory, igObjectStreamManager};
 use crate::util::ig_name::igName;
 use log::error;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use crate::util::ig_hash::debug_decode_hash;
 
 pub struct igHandleName {
     pub name: igName,
@@ -61,15 +62,15 @@ impl igHandle {
             None
         } else {
             error!(
-                "get_object_alias failed to load {}.{}",
+                "get_object_alias failed to load {}::{}",
                 self.namespace
                     .string
                     .clone()
-                    .unwrap_or_else(|| format!("{:x}", self.namespace.hash)),
+                    .unwrap_or_else(|| debug_decode_hash(self.namespace.hash)),
                 self.alias
                     .string
                     .clone()
-                    .unwrap_or_else(|| format!("{:x}", self.alias.hash))
+                    .unwrap_or_else(|| debug_decode_hash(self.alias.hash))
             );
             None
         }
@@ -79,7 +80,7 @@ impl igHandle {
 pub struct igObjectHandleManager {
     system_namespaces: igStringRefList,
     handle_list: Vec<u32>,
-    object_to_handle_map: HashMap<igObject, igHandle>,
+    object_to_handle_map: HashMap<usize, igHandle>,
     handle_map: HashMap<u64, igHandle>,
 }
 
@@ -93,8 +94,31 @@ impl igObjectHandleManager {
         }
     }
 
+    pub fn add_directory(&mut self, dir: Arc<RwLock<igObjectDirectory>>) {
+        if let Ok(dir) = dir.read() {
+            if !dir.use_name_list {
+                return;
+            }
+
+            if self.handle_list.contains(&dir.name.hash) {
+                return;
+            }
+
+            self.handle_list.push(dir.name.hash);
+
+            let object_list = dir.object_list.read().unwrap();
+            let name_list = dir.name_list.read().unwrap();
+            for i in 0..object_list.len() {
+                let handle = self.lookup_handle(dir.name.clone(), name_list.get(i).unwrap()).clone();
+                let lookup_obj = object_list.get(i).unwrap();
+                self.object_to_handle_map.insert(Arc::as_ptr(&lookup_obj) as *const () as usize, handle);
+            }
+        }
+    }
+
     pub fn lookup_handle_name(&mut self, name: &igHandleName) -> igHandle {
-        self.lookup_handle(name.namespace.clone(), name.name.clone()).clone()
+        self.lookup_handle(name.namespace.clone(), name.name.clone())
+            .clone()
     }
 
     fn get_handle_key(ns: &igName, name: &igName) -> u64 {

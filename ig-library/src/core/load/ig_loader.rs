@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use crate::core::ig_file_context::igFileContext;
 use crate::core::ig_objects::{igObjectDirectory, igObjectStreamManager};
 use crate::core::ig_registry::igRegistry;

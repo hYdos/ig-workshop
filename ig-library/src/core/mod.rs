@@ -15,4 +15,5 @@ pub mod load;
 pub mod ig_handle;
 pub mod ig_external_ref;
 pub mod save;
-mod memory;
+// TODO: merge into ig_memory
+pub mod memory;

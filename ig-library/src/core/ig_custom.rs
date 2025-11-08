@@ -49,7 +49,7 @@ impl __internalObjectBase for igNull {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct igDataList<T> {
     pub list: Arc<RwLock<Vec<T>>>,
     object_name: Arc<str>,

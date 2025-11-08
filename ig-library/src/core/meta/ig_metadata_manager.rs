@@ -131,6 +131,7 @@ pub enum SetObjectFieldError {
 }
 
 /// Only possible error generatable from [__internalObjectBase::get_field]
+#[derive(Debug)]
 pub struct FieldDoesntExist;
 
 /// Represents an object that can be converted from igz or other data into a igObject

@@ -55,6 +55,7 @@ impl igMetaField for igObjectRefMetaField {
             return if let Some(obj) = ctx.external_list[(raw & 0x7FFFFFFF) as usize].get_object_alias(object_stream_manager) {
                 Some(Arc::new(RwLock::new(obj)))
             } else {
+                // println!("{:#?}", object_stream_manager.name_to_directory_lookup);
                 None
             };
         }

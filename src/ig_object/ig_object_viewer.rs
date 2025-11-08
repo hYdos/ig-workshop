@@ -4,7 +4,7 @@ use crate::tabs::tfb_editor::TfbToolEditor;
 
 /// Responsible for making an igObject viewable and/or editable. Full control of the UI is present here, meaning you can do anything you would like. However, if you want bigger changes (e.g., a level editor/viewer), you will need to make your own editor instead of igObjectViewer
 #[allow(non_camel_case_types)]
-trait igObjectInterface {
+pub trait igObjectInterface: Send + Sync {
     /// This is the first function run to determine if this viewer is the right fit for the object. This method should be very efficient as it will be run once per frame
     fn should_display(&mut self, object: igObject) -> bool;
 
