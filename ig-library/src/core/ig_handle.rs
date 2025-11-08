@@ -4,7 +4,8 @@ use crate::util::ig_name::igName;
 use log::error;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use crate::util::ig_hash::debug_decode_hash;
+use crate::core::load::ig_igz_loader::IgzLoaderContext;
+use crate::util::ig_hash::{debug_decode_hash, hash};
 
 pub struct igHandleName {
     pub name: igName,
@@ -36,9 +37,19 @@ impl igHandle {
     pub fn get_object_alias(
         &mut self,
         object_stream_manager: &igObjectStreamManager,
+        current_level_bld: &mut igObjectDirectory, // Present for TFB support only
     ) -> Option<igObject> {
         if self.object.is_some() {
             return self.object.clone();
+        }
+
+        if self.namespace.hash.eq(&hash("level.bld")) {
+            return if self.alias.hash.eq(&1) {
+                Some(current_level_bld.object_list.clone())
+            } else {
+                let list_index = self.alias.hash - 2; // start index from 0
+                current_level_bld.object_list.read().unwrap().get(list_index as usize)
+            }
         }
 
         let name_to_dir = &object_stream_manager.name_to_directory_lookup;

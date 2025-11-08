@@ -16,7 +16,7 @@ use crate::util::byteorder_fixes::{
 };
 use crate::util::ig_hash::{debug_decode_hash, hash, hash_lower};
 use crate::util::ig_name::igName;
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::io::Seek;
@@ -60,7 +60,6 @@ impl Fixup {
         length: u32,
         start: u32,
         count: u32,
-        dir: &mut igObjectDirectory,
         ig_file_context: &igFileContext,
         ig_registry: &igRegistry,
         ig_object_stream_manager: &mut igObjectStreamManager,
@@ -88,7 +87,7 @@ impl Fixup {
                             &path,
                             name,
                         ) {
-                            dir.dependencies.push(dependency)
+                            ctx.dir.dependencies.push(dependency)
                         } else {
                             error!("Failed to find dependency {}", path);
                         }
@@ -101,7 +100,7 @@ impl Fixup {
                     let vtbl_name = read_string(handle).unwrap();
                     ctx.vtbl_list
                         .push(imm.get_or_create_meta(&vtbl_name).unwrap());
-                    debug!("IGZ contains igObject of type {}", vtbl_name);
+                    trace!("IGZ contains igObject of type {}", vtbl_name);
 
                     let bits: i32 = if ctx.version > 7 { 2 } else { 1 };
                     handle
@@ -138,38 +137,49 @@ impl Fixup {
                     );
 
                     let mut obj = None;
-                    if let Some(list) = ig_object_stream_manager
-                        .name_to_directory_lookup
-                        .get(&dependency_name.namespace.hash)
-                    {
-                        for dependant_dir in list.iter() {
-                            if let Ok(dependent_dir) = dependant_dir.try_read() {
-                                if dependent_dir.use_name_list {
-                                    let name_list = dependent_dir.name_list.read().unwrap();
-                                    for i in 0..name_list.len() {
-                                        let name = &name_list.query()[i];
-                                        if name.hash == dependency_name.namespace.hash {
-                                            obj = Some(
-                                                dependent_dir.object_list.read().unwrap().query()
-                                                    [i]
-                                                    .clone(),
-                                            );
+
+                    // on TFBTool, we can reference level.bld meaning we are referencing ourselves. let's make sure we can handle that properly
+                    if dependency_name.namespace.hash.eq(&hash("level.bld")) {
+                        ctx.external_list
+                            .push(ig_handle_manager.lookup_handle_name(&dependency_name))
+                    } else {
+                        if let Some(list) = ig_object_stream_manager
+                            .name_to_directory_lookup
+                            .get(&dependency_name.namespace.hash)
+                        {
+                            for dependant_dir in list.iter() {
+                                if let Ok(dependent_dir) = dependant_dir.try_read() {
+                                    if dependent_dir.use_name_list {
+                                        let name_list = dependent_dir.name_list.read().unwrap();
+                                        for i in 0..name_list.len() {
+                                            let name = &name_list.query()[i];
+                                            if name.hash == dependency_name.namespace.hash {
+                                                obj = Some(
+                                                    dependent_dir
+                                                        .object_list
+                                                        .read()
+                                                        .unwrap()
+                                                        .query()[i]
+                                                        .clone(),
+                                                );
+                                                break;
+                                            }
+                                        }
+
+                                        if obj.is_some() {
                                             break;
                                         }
                                     }
-
-                                    if obj.is_some() {
-                                        break;
-                                    }
+                                } else {
+                                    error!("Failed to get read lock on igObjectDirectory");
+                                    panic!("Alchemy Error! Check the logs.")
                                 }
-                            } else {
-                                error!("Failed to get read lock on igObjectDirectory");
-                                panic!("Alchemy Error! Check the logs.")
                             }
+                        } else {
+                            error!("EXID Fixup load failed: Failed to find namespace {}, referenced in {}", debug_decode_hash(dependency_name.namespace.hash), ctx.dir.path);
+                            ctx.external_list
+                                .push(ig_handle_manager.lookup_handle_name(&dependency_name))
                         }
-                    } else {
-                        error!("EXID Fixup load failed: Failed to find namespace {}, referenced in {}", debug_decode_hash(dependency_name.namespace.hash), dir.path);
-                        ctx.external_list.push(ig_handle_manager.lookup_handle_name(&dependency_name))
                     }
                 }
             }
@@ -184,7 +194,7 @@ impl Fixup {
                     );
 
                     let mut obj = None;
-                    if let Some(dependant_dir) = dir.dependencies.iter().find(|dependency| {
+                    if let Some(dependant_dir) = ctx.dir.dependencies.iter().find(|dependency| {
                         let guard = dependency.read().unwrap();
                         guard.name.hash == dependency_handle_name.namespace.hash
                     }) {
@@ -222,14 +232,18 @@ impl Fixup {
                             data: None,
                             ig_metadata_manager: imm,
                         };
-                        
+
                         let mut reference = ig_ext_ref_system
                             .global_set
                             .resolve_reference(&dependency_handle_name, &mut ref_ctx);
                         if reference.is_none() {
-                            reference = dependency_handle.write().unwrap().get_object_alias(ig_object_stream_manager)
+                            reference = dependency_handle
+                                .write()
+                                .unwrap()
+                                .get_object_alias(ig_object_stream_manager, ctx.dir)
                         }
-                        ctx.named_external_list.push(reference.unwrap_or(Arc::new(RwLock::new(igNull))));
+                        ctx.named_external_list
+                            .push(reference.unwrap_or(Arc::new(RwLock::new(igNull))));
                     }
                 }
             }
@@ -241,7 +255,8 @@ impl Fixup {
                 }
             }
             Fixup::RUNTIME_V_TABLES => {
-                let vec = read_struct_array_u8(handle, endian.clone(), (length - start) as usize).unwrap();
+                let vec = read_struct_array_u8(handle, endian.clone(), (length - start) as usize)
+                    .unwrap();
                 ctx.runtime_fields.vtables = unpack_compressed_ints(ctx, &vec, count, false);
                 instantiate_and_append_objects(ctx, handle, endian.clone());
             }
@@ -249,7 +264,7 @@ impl Fixup {
                 let vec = read_struct_array_u8(handle, endian, (length - start) as usize).unwrap();
                 ctx.runtime_fields.object_lists = unpack_compressed_ints(ctx, &vec, count, false);
                 let ig_object_list_idx = ctx.runtime_fields.object_lists[0];
-                dir.object_list = ctx.offset_object_list[&ig_object_list_idx]
+                ctx.dir.object_list = ctx.offset_object_list[&ig_object_list_idx]
                     .clone()
                     .cast_to()
                     .unwrap()
@@ -288,15 +303,15 @@ impl Fixup {
                 ctx.runtime_fields.handles = unpack_compressed_ints(ctx, &vec, count, true);
             }
             Fixup::OPTION_NAMED_LIST => {
-                dir.use_name_list = true;
+                ctx.dir.use_name_list = true;
                 let name_list_idx = read_u32(handle, endian).unwrap() as u64;
                 // pull out the generic object (trait-object)
                 let generic_obj: Arc<RwLock<dyn __internalObjectBase>> =
                     ctx.offset_object_list[&name_list_idx].clone();
 
                 // assign into your field
-                dir.name_list = generic_obj.cast_to().unwrap();
-            },
+                ctx.dir.name_list = generic_obj.cast_to().unwrap();
+            }
             Fixup::METADATA_SIZES => {}
         }
     }
@@ -308,11 +323,10 @@ fn instantiate_and_append_objects(
     endian: Endian,
 ) {
     let vtables = ctx.runtime_fields.vtables.clone();
-    
+
     for vtable in vtables {
         let obj = instantiate_object(ctx, handle, endian.clone(), &vtable);
-        ctx.offset_object_list
-            .insert(vtable, obj);
+        ctx.offset_object_list.insert(vtable, obj);
     }
 }
 
@@ -333,9 +347,7 @@ fn instantiate_object(
         .raw_instantiate(get_mem_pool_from_serialized_offset(ctx, *offset), false);
 
     match return_value {
-        Ok(value) => {
-            value
-        }
+        Ok(value) => value,
         Err(igMetaInstantiationError::TypeMismatchError(expected_type)) => {
             error!(
                 "Instantiation when loading IGZ failed the real type returned was {}",
@@ -473,7 +485,10 @@ impl TryFrom<u8> for Fixup {
 
 impl igObjectLoader for igIGZObjectLoader {
     fn can_read(&self, file_name: &str) -> bool {
-        file_name.ends_with(".igz") || file_name.ends_with(".bld") || file_name.ends_with(".lng") || file_name.ends_with(".pak")
+        file_name.ends_with(".igz")
+            || file_name.ends_with(".bld")
+            || file_name.ends_with(".lng")
+            || file_name.ends_with(".pak")
     }
 
     fn get_name(&self) -> &'static str {
@@ -543,14 +558,14 @@ impl RuntimeFields {
 }
 
 /// Internal type to store while jumping around to other methods. Also shared with loading metafields
-pub struct IgzLoaderContext {
+pub struct IgzLoaderContext<'a> {
     /// igz version
     pub version: u32,
     /// unsure on what this is for
     pub meta_object_version: u32,
     /// platform the igz targets
     pub platform: IG_CORE_PLATFORM,
-    /// The amount of sections present in an igz
+    /// The number of sections present in an igz
     pub section_count: u32,
     /// amount of fixups present
     pub fixup_count: u32,
@@ -579,10 +594,10 @@ pub struct IgzLoaderContext {
     /// TODO: comment
     pub offset_object_list: HashMap<u64, igObject>,
     /// Utility added by ig-workshop to handle TFB handles. In TFBTool games, references to the igz's own level.bld can be made meaning you must be able to reference your own igObjectDirectory
-    pub igz_path: String,
+    pub dir: &'a mut igObjectDirectory,
 }
 
-impl IgzLoaderContext {
+impl IgzLoaderContext<'_> {
     pub fn deserialize_offset(&self, offset: u64) -> u64 {
         if self.version <= 6 {
             self.loaded_pointers[(offset >> 0x18) as usize] as u64 + (offset & 0x00FFFFFF)
@@ -668,7 +683,7 @@ impl igIGZLoader {
                 thumbnails: vec![],
                 runtime_fields: RuntimeFields::new(),
                 offset_object_list: HashMap::new(),
-                igz_path: file_path.to_string(),
+                dir
             };
 
             igIGZLoader::parse_sections(&mut handle, fd.endianness.clone(), &mut shared_state);
@@ -683,7 +698,6 @@ impl igIGZLoader {
                     ig_ext_ref_system,
                     ig_object_handle_manager,
                     imm,
-                    dir,
                 );
             } else {
                 igIGZLoader::process_legacy_fixup_sections(
@@ -696,11 +710,16 @@ impl igIGZLoader {
                     ig_ext_ref_system,
                     ig_object_handle_manager,
                     imm,
-                    dir,
                 );
             }
 
-            igIGZLoader::read_objects(imm, ig_object_stream_manager, &mut handle, fd.endianness.clone(), &mut shared_state);
+            igIGZLoader::read_objects(
+                imm,
+                ig_object_stream_manager,
+                &mut handle,
+                fd.endianness.clone(),
+                &mut shared_state,
+            );
         } else {
             error!("Failed to load igz {}. File could not be read.", file_path);
             panic!("Alchemy Error! Check the logs.")
@@ -713,7 +732,11 @@ impl igIGZLoader {
         shared_state: &mut IgzLoaderContext,
     ) {
         for i in 0..0x20 {
-            handle.seek(SeekFrom::Start(get_chunk_descriptor_start(shared_state.version) + 0x10 * i)).unwrap();
+            handle
+                .seek(SeekFrom::Start(
+                    get_chunk_descriptor_start(shared_state.version) + 0x10 * i,
+                ))
+                .unwrap();
             let mem_pool_name_ptr = read_u32(handle, endian.clone()).unwrap();
             let offset;
 
@@ -733,7 +756,9 @@ impl igIGZLoader {
             }
 
             handle
-                .seek(SeekFrom::Start((get_attribute_location(shared_state.version) + mem_pool_name_ptr) as u64))
+                .seek(SeekFrom::Start(
+                    (get_attribute_location(shared_state.version) + mem_pool_name_ptr) as u64,
+                ))
                 .unwrap();
             let memory_pool_name = read_string(handle).unwrap();
             if memory_pool_name.is_empty() {
@@ -762,9 +787,8 @@ impl igIGZLoader {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_object_handle_manager: &mut igObjectHandleManager,
         imm: &mut igMetadataManager,
-        dir: &mut igObjectDirectory,
     ) {
-        // if you really care you might(not confirmed to be correct but seems to be) be able to find this value at fixup[0]'s offset + 0xC (u32)
+        // if you really care, you might (not confirmed to be correct but seems to be) be able to find this value at fixup[0]'s offset + 0xC (u32)
         let mut bytes_processed = 0x1C;
 
         for _i in 0..shared_state.fixup_count {
@@ -779,7 +803,7 @@ impl igIGZLoader {
             handle.set_position((shared_state.fixup_offset + bytes_processed + start) as u64);
 
             if let Ok(fixup) = fixup {
-                debug!("Processing {:?}",fixup);
+                debug!("Processing {:?}", fixup);
                 fixup.fix(
                     handle,
                     endian.clone(),
@@ -787,7 +811,6 @@ impl igIGZLoader {
                     length,
                     start,
                     count,
-                    dir,
                     ig_file_context,
                     ig_registry,
                     ig_object_stream_manager,
@@ -816,7 +839,6 @@ impl igIGZLoader {
         ig_ext_ref_system: &mut igExternalReferenceSystem,
         ig_object_handle_manager: &mut igObjectHandleManager,
         imm: &mut igMetadataManager,
-        dir: &mut igObjectDirectory,
     ) {
         let mut bytes_processed = 0;
 
@@ -846,7 +868,6 @@ impl igIGZLoader {
                     length,
                     start,
                     count,
-                    dir,
                     ig_file_context,
                     ig_registry,
                     ig_object_stream_manager,
@@ -873,10 +894,16 @@ impl igIGZLoader {
         ctx: &mut IgzLoaderContext,
     ) {
         let offset_object_list = ctx.offset_object_list.clone();
-        
+
         for (offset, object) in offset_object_list {
             handle.set_position(ctx.deserialize_offset(offset));
-            imm.read_igz_fields(object_stream_manager, handle, endian.clone(), ctx, object.clone())
+            imm.read_igz_fields(
+                object_stream_manager,
+                handle,
+                endian.clone(),
+                ctx,
+                object.clone(),
+            )
         }
     }
 }
@@ -885,7 +912,7 @@ fn get_chunk_descriptor_start(version: u32) -> u64 {
     match version {
         0x05 | 0x06 => 0xC,
         0x07 | 0x08 | 0x09 => 0x14,
-        _ => todo!("Unsupported igz version {}", version)
+        _ => todo!("Unsupported igz version {}", version),
     }
 }
 
@@ -893,6 +920,6 @@ fn get_attribute_location(version: u32) -> u32 {
     match version {
         0x05 | 0x06 | 0x07 => 0x56C,
         0x08 | 0x09 => 0x224, // FIXME: this could be wrong...
-        _ => todo!("Unsupported igz version {}", version)
+        _ => todo!("Unsupported igz version {}", version),
     }
 }

@@ -52,7 +52,7 @@ impl igMetaField for igObjectRefMetaField {
         }
         let is_exid = ctx.runtime_fields.externals.binary_search(&base_offset).is_ok();
         if is_exid {
-            return if let Some(obj) = ctx.external_list[(raw & 0x7FFFFFFF) as usize].get_object_alias(object_stream_manager) {
+            return if let Some(obj) = ctx.external_list[(raw & 0x7FFFFFFF) as usize].get_object_alias(object_stream_manager, ctx.dir) {
                 Some(Arc::new(RwLock::new(obj)))
             } else {
                 // println!("{:#?}", object_stream_manager.name_to_directory_lookup);

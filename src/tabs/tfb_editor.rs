@@ -480,8 +480,6 @@ impl WorkshopTabImpl for TfbToolEditor {
                         }
                     }
                 }
-            } else {
-                ui.label("Select an archive to begin");
             }
         });
     }

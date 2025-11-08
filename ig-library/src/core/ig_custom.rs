@@ -3,7 +3,10 @@ use crate::core::ig_archive::igArchive;
 use crate::core::ig_memory::igMemoryPool;
 use crate::core::ig_objects::{igAny, igObject, igObjectDirectory, ObjectExt};
 use crate::core::memory::igMemory;
-use crate::core::meta::ig_metadata_manager::{__internalObjectBase, igMetaInstantiationError, igMetaObject, igMetadataManager, FieldDoesntExist, SetObjectFieldError};
+use crate::core::meta::ig_metadata_manager::{
+    __internalObjectBase, igMetaInstantiationError, igMetaObject, igMetadataManager,
+    FieldDoesntExist, SetObjectFieldError,
+};
 use crate::util::ig_name::igName;
 use log::{error, warn};
 use std::any::Any;
@@ -15,11 +18,11 @@ pub(crate) struct igNull;
 
 impl __internalObjectBase for igNull {
     fn object_name(&self) -> Arc<str> {
-        Arc::from("igNull")
+        Arc::from("__internalObjectBase")
     }
 
     fn meta_type(&self, metadata_manager: &mut igMetadataManager) -> Arc<RwLock<igMetaObject>> {
-        panic!("tried to call meta_type but igNull doesn't exist")
+        panic!("tried to call meta_type but __internalObjectBase doesn't exist")
     }
 
     fn internal_pool(&self) -> &igMemoryPool {
@@ -52,6 +55,7 @@ impl __internalObjectBase for igNull {
 #[derive(Clone, Debug)]
 pub struct igDataList<T> {
     pub list: Arc<RwLock<Vec<T>>>,
+    instance_name: Option<igAny>,
     object_name: Arc<str>,
     pool: igMemoryPool,
 }
@@ -80,7 +84,9 @@ where
         if let Some(t) = self.clone().downcast::<T>() {
             Ok(t)
         } else {
-            Err(igMetaInstantiationError::TypeMismatchError(self.read().unwrap().object_name()))
+            Err(igMetaInstantiationError::TypeMismatchError(
+                self.read().unwrap().object_name(),
+            ))
         }
     }
 }
@@ -113,6 +119,7 @@ where
         // 3) build a brand-new igDataList<U> with the same meta+pool
         let new_list = igDataList {
             list: Arc::new(RwLock::new(new_vec)),
+            instance_name: None,
             object_name: old.object_name.clone(),
             pool: old.pool,
         };
@@ -128,7 +135,9 @@ impl<T: Send + Sync + 'static + Clone> __internalObjectBase for igDataList<T> {
     }
 
     fn meta_type(&self, metadata_manager: &mut igMetadataManager) -> Arc<RwLock<igMetaObject>> {
-        metadata_manager.get_or_create_meta(self.object_name.as_ref()).unwrap()
+        metadata_manager
+            .get_or_create_meta(self.object_name.as_ref())
+            .unwrap()
     }
 
     fn internal_pool(&self) -> &igMemoryPool {
@@ -148,14 +157,14 @@ impl<T: Send + Sync + 'static + Clone> __internalObjectBase for igDataList<T> {
                     let mut data_writer = self.list.write().unwrap();
                     for value in memory.data.iter() {
                         let ig_any = value.read().unwrap();
-                        let correct_type_val= ig_any.downcast_ref::<T>().expect("igMemory generic does not match _data. TODO: generate these with macros and have an error message that says what the generic is");
+                        let correct_type_val = ig_any.downcast_ref::<T>().expect("igMemory generic does not match _data. TODO: generate these with macros and have an error message that says what the generic is");
                         data_writer.push(correct_type_val.clone());
                     }
                     return Ok(());
                 }
                 "_count" | "_capacity" => {
                     // we dont care about these. TODO: sanity check compare these against the igMemory's values.
-                },
+                }
                 &_ => {
                     warn!(
                         "igDataList<T> attempted to set unknown field with name {} ",
@@ -169,16 +178,32 @@ impl<T: Send + Sync + 'static + Clone> __internalObjectBase for igDataList<T> {
     }
 
     #[inline]
-    fn get_non_null_field(&self, _name: &str) -> Result<igAny, FieldDoesntExist> {
-        todo!()
+    fn get_non_null_field(&self, field_name: &str) -> Result<igAny, FieldDoesntExist> {
+        match field_name {
+            "_name" => {
+                Ok(self.instance_name.clone().expect("field was null but was requested non-null"))
+            }
+            _ => {
+                warn!("Tried getting unknown field name for {}", field_name);
+                Err(FieldDoesntExist)
+            }
+        }
     }
 
     #[inline]
     fn get_field(
         &self,
-        _name: &str,
+        field_name: &str,
     ) -> Result<Option<Arc<RwLock<(dyn Any + Send + Sync + 'static)>>>, FieldDoesntExist> {
-        todo!()
+        match field_name {
+            "_name" => {
+                Ok(self.instance_name.clone())
+            }
+            _ => {
+                warn!("Tried getting unknown field name for {}", field_name);
+                Err(FieldDoesntExist)
+            }
+        }
     }
 
     fn as_any(&self) -> &(dyn Any + Send + Sync) {
@@ -197,6 +222,7 @@ impl<T: Send + Sync + 'static + Clone> igDataList<T> {
     ) -> Result<Arc<RwLock<dyn __internalObjectBase>>, igMetaInstantiationError> {
         Ok(Arc::new(RwLock::new(igDataList {
             list: Arc::new(RwLock::new(Vec::<T>::new())),
+            instance_name: None,
             object_name: meta.name.clone(),
             pool,
         })))
@@ -207,6 +233,7 @@ impl<T: Clone> igDataList<T> {
     pub fn new() -> Self {
         Self {
             list: Arc::new(RwLock::new(Vec::new())),
+            instance_name: None,
             object_name: Arc::from("INVALID"),
             pool: Default::default(),
         }
@@ -215,6 +242,7 @@ impl<T: Clone> igDataList<T> {
     pub fn new_with_capacity(capacity: usize) -> Self {
         Self {
             list: Arc::new(RwLock::new(Vec::with_capacity(capacity))),
+            instance_name: None,
             object_name: Arc::from("INVALID"),
             pool: Default::default(),
         }
