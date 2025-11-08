@@ -17,8 +17,8 @@ impl igArchiveMountManager {
 
 impl igFileWorkItemProcessor for igArchiveMountManager {
     
-    fn process(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
-        self.send_to_next_processor(this, work_item);
+    fn process(&mut self,  work_item: &mut igFileWorkItem) {
+        self.send_to_next_processor(work_item);
     }
 
     fn set_next_processor(&mut self, new_processor: Arc<RwLock<dyn igFileWorkItemProcessor>>) {
@@ -31,10 +31,10 @@ impl igFileWorkItemProcessor for igArchiveMountManager {
         self.next_processor = Some(new_processor);
     }
 
-    fn send_to_next_processor(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+    fn send_to_next_processor(&self,  work_item: &mut igFileWorkItem) {
         if let Some(processor) = &self.next_processor {
-            let processor_lock = processor.read().unwrap();
-            processor_lock.process(this, work_item);
+            let mut processor_lock = processor.write().unwrap();
+            processor_lock.process(work_item);
         }
     }
 

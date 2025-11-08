@@ -550,12 +550,11 @@ impl igFileWorkItemProcessor for igArchive {
 
     fn send_to_next_processor(
         &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         if let Some(processor) = self.next_processor.clone() {
-            let processor_lock = processor.read().unwrap();
-            processor_lock.process(this, work_item);
+            let mut processor_lock = processor.write().unwrap();
+            processor_lock.process(work_item);
         }
     }
 
@@ -575,7 +574,6 @@ impl igStorageDevice for igArchive {
 
     fn exists(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         if self.has_file(&work_item._path) {
@@ -585,7 +583,7 @@ impl igStorageDevice for igArchive {
         }
     }
 
-    fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+    fn open(&self,  work_item: &mut igFileWorkItem) {
         match work_item.ig_registry.build_tool {
             BuildTool::AlchemyLaboratory => {
                 #[cfg(debug_assertions)]
@@ -604,7 +602,7 @@ impl igStorageDevice for igArchive {
                     work_item._file._path = work_item._path.clone();
                     work_item._file._size = file._length as u64;
                     work_item._file._position = 0;
-                    work_item._file._device = Some(this.clone());
+                    // work_item._file._device = Some(this.clone());
                     work_item._file._handle = Some(self.decompress_as_handle(file));
                     work_item._status = kStatusComplete;
                 } else {
@@ -621,7 +619,7 @@ impl igStorageDevice for igArchive {
                             work_item._file._path = work_item._path.clone();
                             work_item._file._size = file._length as u64;
                             work_item._file._position = 0;
-                            work_item._file._device = Some(this.clone());
+                            // work_item._file._device = Some(this.clone());
                             work_item._file._handle = Some(self.decompress_as_handle(file));
                             work_item._status = kStatusComplete;
                         }
@@ -635,19 +633,17 @@ impl igStorageDevice for igArchive {
 
     fn close(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
     }
 
-    fn read(&self, _this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+    fn read(&self, work_item: &mut igFileWorkItem) {
         work_item._status = kStatusUnsupported
     }
 
     fn write(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -655,7 +651,6 @@ impl igStorageDevice for igArchive {
 
     fn truncate(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -663,7 +658,6 @@ impl igStorageDevice for igArchive {
 
     fn mkdir(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -671,7 +665,6 @@ impl igStorageDevice for igArchive {
 
     fn rmdir(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -679,7 +672,6 @@ impl igStorageDevice for igArchive {
 
     fn get_file_list(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         match &mut work_item._buffer {
@@ -696,7 +688,6 @@ impl igStorageDevice for igArchive {
 
     fn get_file_list_with_sizes(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -704,7 +695,6 @@ impl igStorageDevice for igArchive {
 
     fn unlink(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         if delete(&work_item._path).is_ok() {
@@ -716,7 +706,6 @@ impl igStorageDevice for igArchive {
 
     fn rename(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -724,7 +713,6 @@ impl igStorageDevice for igArchive {
 
     fn prefetch(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -732,7 +720,6 @@ impl igStorageDevice for igArchive {
 
     fn format(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -740,7 +727,6 @@ impl igStorageDevice for igArchive {
 
     fn commit(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -754,12 +740,11 @@ impl igFileWorkItemProcessor for Arc<igArchive> {
 
     fn send_to_next_processor(
         &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         if let Some(processor) = self.next_processor.clone() {
-            let processor_lock = processor.read().unwrap();
-            processor_lock.process(this, work_item);
+            let mut processor_lock = processor.write().unwrap();
+            processor_lock.process(work_item);
         }
     }
 
@@ -779,7 +764,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn exists(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         if self.has_file(&work_item._path) {
@@ -789,7 +773,7 @@ impl igStorageDevice for Arc<igArchive> {
         }
     }
 
-    fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+    fn open(&self,  work_item: &mut igFileWorkItem) {
         match work_item.ig_registry.build_tool {
             BuildTool::AlchemyLaboratory => {
                 #[cfg(debug_assertions)]
@@ -808,7 +792,7 @@ impl igStorageDevice for Arc<igArchive> {
                     work_item._file._path = work_item._path.clone();
                     work_item._file._size = file._length as u64;
                     work_item._file._position = 0;
-                    work_item._file._device = Some(this.clone());
+                    // work_item._file._device = Some(this.clone());
                     work_item._file._handle = Some(self.decompress_as_handle(file));
                     work_item._status = kStatusComplete;
                 } else {
@@ -825,7 +809,7 @@ impl igStorageDevice for Arc<igArchive> {
                             work_item._file._path = work_item._path.clone();
                             work_item._file._size = file._length as u64;
                             work_item._file._position = 0;
-                            work_item._file._device = Some(this.clone());
+                            // work_item._file._device = Some(this.clone());
                             work_item._file._handle = Some(self.decompress_as_handle(file));
                             work_item._status = kStatusComplete;
                             return;
@@ -839,19 +823,17 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn close(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
     }
 
-    fn read(&self, _this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+    fn read(&self, work_item: &mut igFileWorkItem) {
         work_item._status = kStatusUnsupported
     }
 
     fn write(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -859,7 +841,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn truncate(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -867,7 +848,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn mkdir(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -875,7 +855,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn rmdir(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -883,7 +862,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn get_file_list(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         match &mut work_item._buffer {
@@ -900,7 +878,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn get_file_list_with_sizes(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -908,7 +885,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn unlink(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         if delete(&work_item._path).is_ok() {
@@ -920,7 +896,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn rename(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -928,7 +903,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn prefetch(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -936,7 +910,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn format(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -944,7 +917,6 @@ impl igStorageDevice for Arc<igArchive> {
 
     fn commit(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported

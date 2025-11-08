@@ -653,7 +653,7 @@ impl CPrecacheManager {
                 ig_metadata_manager,
                 ig_ext_ref_system,
                 ig_object_handle_manager,
-                package_path.clone(),
+                &package_path,
             )
             .unwrap();
 

@@ -1,23 +1,32 @@
 use crate::window::{LoadedGame, WorkshopTabImpl, WorkshopTabViewer};
 use egui::{CentralPanel, Label, SidePanel, Ui, WidgetText};
+use egui_dock::{DockArea, DockState, Style, TabViewer};
 use egui_ltreeview::{Action, NodeBuilder, TreeView, TreeViewBuilder};
+use ig_library::core::ig_objects::igObjectDirectory;
 use ig_library::util::ig_hash::hash;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::{fs, io};
 
 pub struct TfbToolEditor {
     game: LoadedGame,
     game_files: HashMap<Arc<str>, Vec<String>>,
     selected_node: Option<String>,
+    loaded_files: HashMap<Arc<str>, Arc<TfbGameFileData>>,
+    dock_state: DockState<Arc<TfbGameFileData>>,
 }
 
-// TODO: handle update content overlaying
+pub struct TfbGameFileData {
+    display_name: String,
+    immediate_data: Arc<RwLock<igObjectDirectory>>,
+    language_data: RwLock<HashMap<Arc<str>, Arc<RwLock<igObjectDirectory>>>>,
+    streamed_data: Option<Arc<RwLock<igObjectDirectory>>>,
+}
+
 pub fn load_game_content(content_dir: &str) -> io::Result<HashMap<Arc<str>, Vec<String>>> {
     let mut out: HashMap<Arc<str>, Vec<String>> = HashMap::new();
 
-    // Iterate first-level entries under content/
     for entry in fs::read_dir(content_dir)? {
         let entry = entry?;
         let file_type = entry.file_type()?;
@@ -80,7 +89,7 @@ fn render_folder(
                     .default_open(false)
                     .activatable(true)
                     .label_ui(|ui| {
-                        ui.add(Label::new(WidgetText::from(file)).selectable(false));
+                        ui.add(Label::new(WidgetText::from(file[..file.rfind('.').unwrap()].to_string())).selectable(false));
                     }),
             );
         }
@@ -113,7 +122,100 @@ impl TfbToolEditor {
             game,
             game_files: base_game_data,
             selected_node: None,
+            loaded_files: HashMap::new(),
+            dock_state: DockState::new(vec![]),
         })
+    }
+
+    fn get_or_load(&mut self, path: &str) -> Result<Arc<TfbGameFileData>, TfbAssetLoadError> {
+        if let Some(data) = self.loaded_files.get(path) {
+            Ok(data.clone())
+        } else {
+            let data = self.load(path)?;
+            self.loaded_files.insert(Arc::from(path), Arc::new(data));
+            Ok(self.loaded_files.get(path).unwrap().clone())
+        }
+    }
+
+    fn load(&mut self, path: &str) -> Result<TfbGameFileData, TfbAssetLoadError> {
+        let alchemy = &mut self.game.ig_alchemy;
+        let file_context = &mut alchemy.file_context;
+        let registry = &alchemy.registry;
+        let ig_object_stream_manager = &mut alchemy.object_stream_manager;
+        let ig_metadata_manager = &mut alchemy.ark_core.metadata_manager;
+        let ig_external_reference_system = &mut alchemy.ig_ext_ref_system;
+        let ig_object_handle_manager = &mut alchemy.ig_object_handle_manager;
+
+        let asset_path = path.to_lowercase();
+
+        let immediate_resource_path = &asset_path;
+        let immediate_resource = file_context.load_archive(registry, immediate_resource_path);
+        if let Err(reason) = immediate_resource {
+            return Err(TfbAssetLoadError::IoError(format!(
+                "tfb editor failed to open igArchive '{}' reason: {}",
+                immediate_resource_path, reason
+            )));
+        }
+        let immediate_resource = immediate_resource.map_err(|reason| TfbAssetLoadError::ArchiveLoadError(reason))?;
+
+        let mut level = None;
+        let mut language_igzs = HashMap::new();
+
+        for file in &immediate_resource._files {
+            let igz = ig_object_stream_manager
+                .load(
+                    file_context,
+                    registry,
+                    ig_metadata_manager,
+                    ig_external_reference_system,
+                    ig_object_handle_manager,
+                    &format!("{}/{}", immediate_resource_path, file._name),
+                )
+                .map_err(|reason| {
+                    TfbAssetLoadError::IgzLoadError(format!(
+                        "tfb editor failed to load immediate resources. Reason: {}",
+                        reason
+                    ))
+                })?;
+
+            if file._name.eq("level.bld") {
+                level = Some(igz);
+            } else if file._name.ends_with(".pak") {
+                language_igzs.insert(Arc::from(file._name.clone().replace(".pak", "").as_ref()), igz);
+            } else {
+                // TODO
+            }
+        }
+
+        Ok(TfbGameFileData {
+            display_name: path[path.rfind('/').unwrap() + 1..].to_string(),
+            immediate_data: level.unwrap(),
+            language_data: RwLock::new(language_igzs),
+            streamed_data: None,
+        })
+    }
+}
+
+#[derive(Debug)]
+enum TfbAssetLoadError {
+    IgzLoadError(String),
+    ArchiveLoadError(String),
+    IoError(String)
+}
+
+struct TfbIgzEditor {
+
+}
+
+impl TabViewer for TfbIgzEditor {
+    type Tab = Arc<TfbGameFileData>;
+
+    fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
+        tab.display_name.clone().into()
+    }
+
+    fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
+
     }
 }
 
@@ -144,7 +246,7 @@ impl WorkshopTabImpl for TfbToolEditor {
                                             if !file.ends_with(".arc") {
                                                 if hash(file).eq(&id) {
                                                     self.selected_node = Some(format!(
-                                                        "{}/{}/level.bld",
+                                                        "{}/{}",
                                                         folder, file
                                                     ));
                                                 }
@@ -160,50 +262,28 @@ impl WorkshopTabImpl for TfbToolEditor {
             });
 
         CentralPanel::default().show_inside(ui, |ui| {
-            if let Some(selected_node) = &self.selected_node {
-                if let Some(igz) = self.game.ig_alchemy.get_if_loaded(selected_node.clone()) {
-                    match igz.read() {
-                        Ok(ig_obj_dir) => {
-                            let object_list = ig_obj_dir.object_list.read().unwrap();
-                            let name_list = ig_obj_dir.name_list.read().unwrap();
-                            
-                            if object_list.len() == 0 {
-                                ui.label("Empty IGZ");
-                            }
-                            
-                            for i in 0..object_list.len() {
-                                let name = match ig_obj_dir.use_name_list {
-                                    true => format!(
-                                        "{} (Object {})",
-                                        name_list.get(i).unwrap().string.unwrap(),
-                                        i
-                                    ),
 
-                                    false => {
-                                        let object = object_list.get(i).unwrap();
-                                        let object = object.read().unwrap();
+            DockArea::new(&mut self.dock_state)
+                .style(Style::from_egui(ui.style().as_ref()))
+                .show_inside(ui, &mut TfbIgzEditor {});
 
-                                        if let Ok(Some(name)) = object.get_field("_name") {
-                                            format!(
-                                                "Object {} {} ({})",
-                                                i,
-                                                name.read()
-                                                    .unwrap()
-                                                    .downcast_ref::<Arc<str>>()
-                                                    .unwrap(),
-                                                object.object_name()
-                                            )
-                                        } else {
-                                            format!("Object {}", i)
-                                        }
-                                    }
-                                };
+            let selected_node = self.selected_node.clone();
 
-                                ui.label(name);
-                            }
+            if let Some(selected_node) = selected_node {
+                if !self.loaded_files.contains_key::<str>(selected_node.as_ref()) {
+                    println!("Loading IGZ {selected_node}");
+                    match self.get_or_load(&selected_node) {
+                        Ok(data) => {
+                            self.dock_state.push_to_focused_leaf(data);
                         }
-                        Err(_) => {
-                            ui.label("locking IGZ for reading failed :(");
+                        Err(TfbAssetLoadError::IgzLoadError(reason)) => {
+                            panic!("igz load error {}", reason);
+                        }
+                        Err(TfbAssetLoadError::ArchiveLoadError(reason)) => {
+                            panic!("archive load error {}", reason);
+                        }
+                        Err(TfbAssetLoadError::IoError(reason)) => {
+                            panic!("io error {}", reason);
                         }
                     }
                 }

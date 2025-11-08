@@ -57,7 +57,7 @@ impl streamContext {
                     ig_metadata_manager,
                     ig_external_reference_system,
                     ig_object_handle_manager,
-                    format!("{}/{}", immediate_resource_path, file._name),
+                    &format!("{}/{}", immediate_resource_path, file._name),
                 )
                 .map_err(|reason| {
                     format!(

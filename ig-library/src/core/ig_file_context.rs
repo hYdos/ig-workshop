@@ -145,8 +145,8 @@ impl igFileContext {
             _offset: 0,
             _buffer: Invalid(),
         };
-        let processor_stack = self.processor_stack.lock().unwrap();
-        processor_stack.process(self.processor_stack.clone(), &mut work_item);
+        let mut processor_stack = self.processor_stack.lock().unwrap();
+        processor_stack.process(&mut work_item);
 
         match work_item._status {
             WorkStatus::kStatusComplete => {}
@@ -163,7 +163,15 @@ impl igFileContext {
     }
 
     pub fn load_archive(&self, ig_registry: &igRegistry, path: &str) -> Result<Arc<igArchive>, String> {
-        igArchiveManager::load_archive(&mut self.archive_manager.write().unwrap(), self, ig_registry, path)
+        if let Some(archive) = self.archive_manager.read().unwrap().try_get_archive(path) {
+            return Ok(archive)
+        }
+
+        let arc = Arc::new(igArchive::open(self, ig_registry, path)?);
+
+        self.archive_manager.write().unwrap()._archive_list.push(arc.clone());
+
+        Ok(arc)
     }
 
     pub fn new(game_path: String, update_folder: Option<&str>) -> Self {
@@ -237,8 +245,8 @@ fn interpret_path(alchemy_path: &str) -> String {
     }
 }
 
-pub fn get_native_path(mut path: String) -> String {
-    path = path.replace("\\", "/");
+pub fn get_native_path(mut path: &str) -> String {
+    let mut path = path.replace("\\", "/");
     path = interpret_path(&path);
 
     path

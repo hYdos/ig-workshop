@@ -55,8 +55,7 @@ impl igFileDescriptor {
 
 pub trait igFileWorkItemProcessor: Send + Sync {
     fn process(
-        &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        &mut self,
         _work_item: &mut igFileWorkItem,
     ) {
         panic!("Missing igFileWorkItemProcessor::process implementation")
@@ -66,7 +65,7 @@ pub trait igFileWorkItemProcessor: Send + Sync {
     fn set_next_processor(&mut self, processor: Arc<RwLock<dyn igFileWorkItemProcessor>>);
     fn send_to_next_processor(
         &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+
         work_item: &mut igFileWorkItem,
     );
 
@@ -81,62 +80,62 @@ pub trait igStorageDevice: igFileWorkItemProcessor {
 
     fn process(
         &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+
         work_item: &mut igFileWorkItem,
     ) {
         match work_item.work_type {
-            WorkType::kTypeExists => igStorageDevice::exists(self, this, work_item),
-            WorkType::kTypeOpen => igStorageDevice::open(self, this, work_item),
-            WorkType::kTypeClose => igStorageDevice::close(self, this, work_item),
-            WorkType::kTypeRead => igStorageDevice::read(self, this, work_item),
-            WorkType::kTypeWrite => igStorageDevice::write(self, this, work_item),
-            WorkType::kTypeTruncate => igStorageDevice::truncate(self, this, work_item),
-            WorkType::kTypeMkdir => igStorageDevice::mkdir(self, this, work_item),
-            WorkType::kTypeRmdir => igStorageDevice::rmdir(self, this, work_item),
-            WorkType::kTypeFileList => igStorageDevice::get_file_list(self, this, work_item),
+            WorkType::kTypeExists => igStorageDevice::exists(self, work_item),
+            WorkType::kTypeOpen => igStorageDevice::open(self, work_item),
+            WorkType::kTypeClose => igStorageDevice::close(self, work_item),
+            WorkType::kTypeRead => igStorageDevice::read(self, work_item),
+            WorkType::kTypeWrite => igStorageDevice::write(self, work_item),
+            WorkType::kTypeTruncate => igStorageDevice::truncate(self, work_item),
+            WorkType::kTypeMkdir => igStorageDevice::mkdir(self, work_item),
+            WorkType::kTypeRmdir => igStorageDevice::rmdir(self, work_item),
+            WorkType::kTypeFileList => igStorageDevice::get_file_list(self, work_item),
             WorkType::kTypeFileListWithSizes => {
-                igStorageDevice::get_file_list_with_sizes(self, this, work_item)
+                igStorageDevice::get_file_list_with_sizes(self, work_item)
             }
-            WorkType::kTypeUnlink => igStorageDevice::unlink(self, this, work_item),
-            WorkType::kTypeRename => igStorageDevice::rename(self, this, work_item),
-            WorkType::kTypePrefetch => igStorageDevice::prefetch(self, this, work_item),
-            WorkType::kTypeFormat => igStorageDevice::format(self, this, work_item),
-            WorkType::kTypeCommit => igStorageDevice::commit(self, this, work_item),
+            WorkType::kTypeUnlink => igStorageDevice::unlink(self, work_item),
+            WorkType::kTypeRename => igStorageDevice::rename(self, work_item),
+            WorkType::kTypePrefetch => igStorageDevice::prefetch(self, work_item),
+            WorkType::kTypeFormat => igStorageDevice::format(self, work_item),
+            WorkType::kTypeCommit => igStorageDevice::commit(self, work_item),
             _ => {
                 error!("Work type {:?} recognised", work_item.work_type);
             }
         }
     }
 
-    fn exists(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
-    fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
-    fn close(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
-    fn read(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
-    fn write(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
+    fn exists(&self,  work_item: &mut igFileWorkItem);
+    fn open(&self,  work_item: &mut igFileWorkItem);
+    fn close(&self,  work_item: &mut igFileWorkItem);
+    fn read(&self,  work_item: &mut igFileWorkItem);
+    fn write(&self,  work_item: &mut igFileWorkItem);
     fn truncate(
         &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+
         work_item: &mut igFileWorkItem,
     );
-    fn mkdir(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
-    fn rmdir(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
+    fn mkdir(&self,  work_item: &mut igFileWorkItem);
+    fn rmdir(&self,  work_item: &mut igFileWorkItem);
     fn get_file_list(
         &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+
         work_item: &mut igFileWorkItem,
     );
     fn get_file_list_with_sizes(
         &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+
         work_item: &mut igFileWorkItem,
     );
-    fn unlink(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
-    fn rename(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
+    fn unlink(&self,  work_item: &mut igFileWorkItem);
+    fn rename(&self,  work_item: &mut igFileWorkItem);
     fn prefetch(
         &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+
         work_item: &mut igFileWorkItem,
     );
-    fn format(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
-    fn commit(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem);
+    fn format(&self,  work_item: &mut igFileWorkItem);
+    fn commit(&self,  work_item: &mut igFileWorkItem);
 }

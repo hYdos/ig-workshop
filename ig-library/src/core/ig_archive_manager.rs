@@ -22,25 +22,6 @@ impl igArchiveManager {
         }))
     }
 
-
-    /// Loads an archive from the given path.
-    pub fn load_archive(
-        &mut self,
-        ig_file_context: &igFileContext,
-        ig_registry: &igRegistry,
-        path: &str,
-    ) -> Result<Arc<igArchive>, String> {
-        if let Some(archive) = self.try_get_archive(path) {
-            return Ok(archive)
-        }
-
-        let arc = Arc::new(igArchive::open(ig_file_context, ig_registry, path)?);
-
-        self._archive_list.push(arc.clone());
-
-        Ok(arc)
-    }
-
     pub fn try_get_archive(&self, path: &str) -> Option<Arc<igArchive>> {
         for arc in &self._archive_list {
             if arc._path.to_lowercase() == path.to_lowercase() {
@@ -54,8 +35,8 @@ impl igArchiveManager {
 
 impl igFileWorkItemProcessor for igArchiveManager {
     fn process(
-        &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        &mut self,
+
         work_item: &mut igFileWorkItem,
     ) {
         match work_item.work_type {
@@ -63,30 +44,30 @@ impl igFileWorkItemProcessor for igArchiveManager {
                 let hash = ig_hash::hash(&work_item._path);
                 for patch_archive in &self._patch_archives {
                     if ig_hash::hash(&patch_archive._path) == hash {
-                        igStorageDevice::process(&patch_archive, this.clone(), work_item);
+                        igStorageDevice::process(&patch_archive, work_item);
                         return;
                     }
                 }
                 for archive in &self._archive_list {
                     if ig_hash::hash(&archive._path) == hash {
-                        igStorageDevice::process(&archive, this.clone(), work_item);
+                        igStorageDevice::process(&archive, work_item);
                         return;
                     }
                 }
             }
             WorkType::kTypeInvalid => {
-                self.send_to_next_processor(this, work_item);
+                self.send_to_next_processor(work_item);
                 return;
             }
             _ => {
                 for patch_archive in &self._patch_archives {
-                    igStorageDevice::process(&patch_archive, this.clone(), work_item);
+                    igStorageDevice::process(&patch_archive, work_item);
                     if work_item._status == kStatusComplete {
                         return;
                     }
                 }
                 for archive in &self._archive_list {
-                    igStorageDevice::process(&archive, this.clone(), work_item);
+                    igStorageDevice::process(&archive, work_item);
                     if work_item._status == kStatusComplete {
                         return;
                     }
@@ -94,7 +75,7 @@ impl igFileWorkItemProcessor for igArchiveManager {
             }
         }
 
-        self.send_to_next_processor(this, work_item);
+        self.send_to_next_processor(work_item);
     }
 
     fn set_next_processor(&mut self, new_processor: Arc<RwLock<dyn igFileWorkItemProcessor>>) {
@@ -109,12 +90,12 @@ impl igFileWorkItemProcessor for igArchiveManager {
 
     fn send_to_next_processor(
         &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+
         work_item: &mut igFileWorkItem,
     ) {
         if let Some(processor) = self.next_processor.clone() {
-            let processor_lock = processor.read().unwrap();
-            processor_lock.process(this, work_item);
+            let mut processor_lock = processor.write().unwrap();
+            processor_lock.process(work_item);
         }
     }
 

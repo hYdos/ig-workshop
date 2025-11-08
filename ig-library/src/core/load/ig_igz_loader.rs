@@ -85,7 +85,7 @@ impl Fixup {
                             imm,
                             ig_ext_ref_system,
                             ig_handle_manager,
-                            path.clone(),
+                            &path,
                             name,
                         ) {
                             dir.dependencies.push(dependency)

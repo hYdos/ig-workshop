@@ -46,7 +46,7 @@ impl igAlchemy {
         }
     }
 
-    pub fn get_if_loaded(&self, path: String) -> Option<Arc<RwLock<igObjectDirectory>>> {
+    pub fn get_if_loaded(&self, path: &str) -> Option<Arc<RwLock<igObjectDirectory>>> {
         let file_path = get_native_path(path);
         let file_path_hash = hash_lower(&file_path);
         
@@ -57,7 +57,7 @@ impl igAlchemy {
         None
     }
 
-    pub fn load(&mut self, path: String) -> Result<Arc<RwLock<igObjectDirectory>>, String> {
+    pub fn load(&mut self, path: &str) -> Result<Arc<RwLock<igObjectDirectory>>, String> {
         let file_context = &self.file_context;
         let registry = &self.registry;
         let metadata_manager = &mut self.ark_core.metadata_manager;

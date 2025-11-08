@@ -122,7 +122,7 @@ impl VVLaboratoryEditor {
                     imm,
                     ig_ext_ref_system,
                     ig_object_handle_manager,
-                    format!("packages/generated/{}_pkg.igz", name),
+                    &format!("packages/generated/{}_pkg.igz", name),
                 )
                 .unwrap();
 
@@ -145,7 +145,7 @@ impl VVLaboratoryEditor {
                                 imm,
                                 ig_ext_ref_system,
                                 ig_object_handle_manager,
-                                file_name.to_string(),
+                                file_name.as_ref(),
                             )
                             .unwrap();
 

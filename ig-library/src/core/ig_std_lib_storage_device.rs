@@ -77,7 +77,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn exists(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         let full_path = self.get_combined_path(work_item);
@@ -87,7 +86,7 @@ impl igStorageDevice for igStdLibStorageDevice {
             work_item._status = kStatusInvalidPath
         }
     }
-    fn open(&self, this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+    fn open(&self,  work_item: &mut igFileWorkItem) {
         let path_buf = PathBuf::from(&self.get_combined_path(work_item));
 
         match find_case_insensitive_path(path_buf) {
@@ -97,7 +96,7 @@ impl igStorageDevice for igStdLibStorageDevice {
                     let mut buffer = Vec::new();
                     result.unwrap().read_to_end(&mut buffer).unwrap();
 
-                    work_item._file._device = Some(this);
+                    // work_item._file._device = Some(this);
                     work_item._file._handle = Some(Cursor::new(buffer));
                     work_item._status = kStatusComplete;
                 } else {
@@ -128,7 +127,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn close(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._file._handle = None;
@@ -136,7 +134,7 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     // This implementation is strange (but from igCauldron, so I don't think it's wrong).
     // It seems to write inside the read function, but the write function is unsupported. Got to talk to jasleen about this at some point
-    fn read(&self, _this: Arc<Mutex<dyn igFileWorkItemProcessor>>, work_item: &mut igFileWorkItem) {
+    fn read(&self, work_item: &mut igFileWorkItem) {
         let file_descriptor = &mut work_item._file;
 
         match &work_item._buffer {
@@ -164,7 +162,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn write(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -172,7 +169,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn truncate(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -180,7 +176,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn mkdir(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -188,7 +183,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn rmdir(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         let full_path = self.get_combined_path(work_item);
@@ -202,7 +196,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn get_file_list(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         match &mut work_item._buffer {
@@ -226,7 +219,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn get_file_list_with_sizes(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -234,7 +226,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn unlink(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -242,7 +233,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn rename(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -250,7 +240,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn prefetch(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -258,7 +247,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn format(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -266,7 +254,6 @@ impl igStorageDevice for igStdLibStorageDevice {
 
     fn commit(
         &self,
-        _this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
         work_item: &mut igFileWorkItem,
     ) {
         work_item._status = kStatusUnsupported
@@ -275,16 +262,15 @@ impl igStorageDevice for igStdLibStorageDevice {
 
 impl igFileWorkItemProcessor for igStdLibStorageDevice {
     fn process(
-        &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+        &mut self,
         work_item: &mut igFileWorkItem,
     ) {
-        igStorageDevice::process(self, this.clone(), work_item);
+        igStorageDevice::process(self, work_item);
         if work_item._status == kStatusComplete {
             return;
         }
 
-        self.send_to_next_processor(this, work_item);
+        self.send_to_next_processor(work_item);
     }
 
     fn set_next_processor(&mut self, new_processor: Arc<RwLock<dyn igFileWorkItemProcessor>>) {
@@ -299,12 +285,12 @@ impl igFileWorkItemProcessor for igStdLibStorageDevice {
 
     fn send_to_next_processor(
         &self,
-        this: Arc<Mutex<dyn igFileWorkItemProcessor>>,
+
         work_item: &mut igFileWorkItem,
     ) {
         if let Some(processor) = self.next_processor.clone() {
-            let processor_lock = processor.read().unwrap();
-            processor_lock.process(this, work_item);
+            let mut processor_lock = processor.write().unwrap();
+            processor_lock.process(work_item);
         }
     }
 
