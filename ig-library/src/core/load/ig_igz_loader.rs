@@ -179,7 +179,7 @@ impl Fixup {
                                 }
                             }
                         } else {
-                            error!("EXID Fixup load failed: Failed to find namespace {}, referenced in {}", debug_decode_hash(dependency_name.namespace.hash), ctx.dir.path);
+                            error!("EXID Fixup load failed: Failed to find namespace {}::{}, referenced in {}", debug_decode_hash(dependency_name.namespace.hash), debug_decode_hash(dependency_name.name.hash), ctx.dir.path);
                             ctx.external_list
                                 .push(ig_handle_manager.lookup_handle_name(&dependency_name))
                         }

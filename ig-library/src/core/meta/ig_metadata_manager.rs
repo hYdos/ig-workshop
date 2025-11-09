@@ -60,7 +60,7 @@ impl igMetadataManager {
         let object_offset = handle.position();
         let meta = ig_object.read().unwrap().meta_type(self);
         let meta = meta.read().unwrap();
-        debug!("igObject(name={}) fields are being set", meta.name);
+        trace!("igObject(name={}) fields are being set", meta.name);
         // debug!("{:#?}", meta);
         let fields = &meta.field_storage.name_lookup;
 
@@ -71,7 +71,7 @@ impl igMetadataManager {
                 }
                 &_ => {
                     #[cfg(debug_assertions)]
-                    debug!("Setting up igz field(name={}, type={})", name, field._type);
+                    trace!("Setting up igz field(name={}, type={})", name, field._type);
                     handle.set_position(object_offset + field.offset as u64);
                     let metafield = self.meta_field_registry.get(field.clone(), &meta.clone(), self, self.platform.clone());
                     let value = metafield.value_from_igz(&self.meta_field_registry, &self, object_stream_manager, handle, endian.clone(), ctx);
