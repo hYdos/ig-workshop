@@ -17,3 +17,4 @@ pub mod ig_external_ref;
 pub mod save;
 // TODO: merge into ig_memory
 pub mod memory;
+mod ig_vector;

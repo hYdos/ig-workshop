@@ -20,6 +20,7 @@ use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
+use crate::core::meta::field::r#impl::ig_vector_meta_field::igVectorMetaField;
 
 /// Contains reflection metadata information. Stands for Application Runtime Kernel.
 pub struct igArkCore {
@@ -104,6 +105,34 @@ fn register_metafields(imm: &mut igMetadataManager) {
                     offset: raw_internal_metafield.read().unwrap().clone().offset, // should always be 0 but just in case.
                 };
                 Arc::new(igMemoryRefMetaField(Arc::new(updated_internal_metafield)))
+            },
+        );
+    imm.meta_field_registry
+        .register_complex::<igVectorMetaField>(
+            Arc::from("igVectorMetaField"),
+            |ark_field, metaobject, imm, _metafield_registry, platform| {
+                let raw_internal_metafield = &ark_field
+                    .ark_info
+                    .read()
+                    .unwrap()
+                    .clone()
+                    .ig_vector_info
+                    .unwrap()
+                    .field.unwrap();
+                // TODO: i need a better system for this. so many types here it really is ugly but the oop side of this makes it hard to work through
+                let updated_internal_metafield = igMetaFieldInfo {
+                    ark_info: raw_internal_metafield.clone(),
+                    _type: raw_internal_metafield.read().unwrap().clone()._type,
+                    name: raw_internal_metafield.read().unwrap().clone().name,
+                    size: imm.calculate_size(&raw_internal_metafield.read().unwrap(), platform),
+                    alignment: raw_internal_metafield
+                        .read()
+                        .unwrap()
+                        .required_alignment
+                        .unwrap_or_else(|| 4),
+                    offset: raw_internal_metafield.read().unwrap().clone().offset, // should always be 0 but just in case.
+                };
+                Arc::new(igVectorMetaField(Arc::new(updated_internal_metafield)))
             },
         );
     // FIXME: this is actually so painful.
