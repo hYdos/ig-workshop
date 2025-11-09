@@ -303,7 +303,7 @@ pub struct igMetaFieldInfo {
 /// Type designed for ergonomics and to keep speed up
 #[derive(Clone, Debug)]
 pub struct FieldStorage {
-    /// All field will be present in this map. Use the offset of a field to look it up
+    /// All fields will be present in this map. Use the offset of a field to look it up
     pub(crate) offset_lookup: HashMap<u16, Arc<igMetaFieldInfo>>,
     /// NOT all fields will be present in this map. Any field not using a name will not be present
     pub name_lookup: HashMap<Arc<str>, Arc<igMetaFieldInfo>>,
@@ -311,7 +311,7 @@ pub struct FieldStorage {
 
 impl FieldStorage {
     pub fn new(fields: Vec<Arc<igMetaFieldInfo>>) -> FieldStorage {
-        let mut offset_lookup = HashMap::new();
+        let offset_lookup = HashMap::new();
         let mut name_lookup = HashMap::new();
 
         for x in fields {
@@ -422,7 +422,7 @@ impl __internalObjectBase for igMetaObject {
     }
 
     fn get_field(&self, name: &str) -> Result<Option<igAny>, FieldDoesntExist> {
-        todo!()
+        Ok(None)
     }
 
     fn as_any(&self) -> &(dyn Any + Send + Sync) {
@@ -452,6 +452,10 @@ impl igMetadataManager {
 
     fn create_object_meta(&mut self, type_name: &str) -> igMetaObject {
         let mut parent_meta = None;
+        if !self.meta_objects.contains_key(type_name) {
+            panic!("Missing meta object {type_name}");
+        }
+
         let current_meta = self.meta_objects[type_name].clone();
 
         if let Some(parent) = &current_meta.base_type {
@@ -481,7 +485,7 @@ impl igMetadataManager {
         self.meta_fields[&object._type].platform_info[&platform].size as u32
     }
 
-    /// Loops through all available field and builds up a list of field for the current metaobject taking into account overridden field.
+    /// Loops through all available fields and builds up a list of field for the current metaobject taking into account overridden field.
     fn get_current_fields(
         &mut self,
         platform: IG_CORE_PLATFORM,
@@ -491,15 +495,16 @@ impl igMetadataManager {
         // TODO: handle however compound fields work.
         if let Some(parent) = &parent_ref {
             let parent = self.get_or_create_meta(parent.as_ref()).unwrap();
-            let parent_fields = &parent.read().unwrap().field_storage.offset_lookup;
+            let parent_guard = parent.read().unwrap();
+            let parent_fields = &parent_guard.field_storage;
             let mut new_fields: Vec<Arc<igMetaFieldInfo>> = Vec::new();
 
-            for parent_field in parent_fields {
+            for (parent_field_name, parent_field_info) in &parent_fields.name_lookup {
                 let mut overriden = false;
 
                 for override_field in &current_object.overridden_fields {
                     let override_field = override_field.read().unwrap();
-                    if *parent_field.0 == override_field.offset {
+                    if parent_field_name.as_ref().eq(override_field.name.clone().unwrap().as_ref()) {
                         new_fields.push(Arc::new(igMetaFieldInfo {
                             ark_info: Arc::new(RwLock::new(override_field.clone())),
                             _type: override_field.clone()._type,
@@ -518,7 +523,7 @@ impl igMetadataManager {
                 }
 
                 if !overriden {
-                    new_fields.push(parent_field.1.clone())
+                    new_fields.push(parent_field_info.clone())
                 }
             }
 
@@ -536,6 +541,25 @@ impl igMetadataManager {
                 }));
             }
 
+            if current_object.ref_name.as_ref().eq("ScriptObjectList") {
+                println!("parent is {}", parent_guard.name);
+                for x in &parent_guard.field_storage.name_lookup {
+                    if let Some(name) = x.1.name.clone() {
+                        println!("field name = {}", name);
+                    } else {
+                        println!("field name = (null)");
+                    }
+                }
+
+                println!("{}", current_object.ref_name);
+                for x in &new_fields {
+                    if let Some(name) = x.name.clone() {
+                        println!("field name = {}", name);
+                    } else {
+                        println!("field name = (null)");
+                    }
+                }
+            }
             FieldStorage::new(new_fields)
         } else {
             let mut offset_lookup: HashMap<u16, Arc<igMetaFieldInfo>> = HashMap::new();

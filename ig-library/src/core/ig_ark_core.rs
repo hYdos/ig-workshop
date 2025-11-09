@@ -21,6 +21,7 @@ use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
+use crate::core::meta::field::r#impl::ig_property_field_meta_field::igPropertyFieldMetaField;
 use crate::core::meta::field::r#impl::ig_short_meta_field::igShortMetaField;
 
 /// Contains reflection metadata information. Stands for Application Runtime Kernel.
@@ -47,7 +48,9 @@ impl igArkCore {
 /// Registers all built in meta fields to the [core::meta::field::ig_metafield_registry::igMetafieldRegistry]
 fn register_metafields(imm: &mut igMetadataManager) {
     imm.meta_field_registry
-        .register::<igEnumMetaField>(Arc::from("igStaticMetaField"), Arc::new(igStaticMetaField));
+        .register::<igStaticMetaField>(Arc::from("igStaticMetaField"), Arc::new(igStaticMetaField));
+    imm.meta_field_registry
+        .register::<igPropertyFieldMetaField>(Arc::from("igPropertyFieldMetaField"), Arc::new(igPropertyFieldMetaField));
     imm.meta_field_registry
         .register::<igEnumMetaField>(Arc::from("igEnumMetaField"), Arc::new(igEnumMetaField));
     imm.meta_field_registry

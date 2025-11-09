@@ -15,3 +15,4 @@ pub(crate) mod ig_unsigned_short_meta_field;
 pub(crate) mod ig_vector_meta_field;
 pub(crate) mod ig_float_meta_field;
 pub(crate) mod ig_short_meta_field;
+pub(crate) mod ig_property_field_meta_field;

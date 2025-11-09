@@ -334,11 +334,15 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
             Ok(Event::End(e)) => {
                 if e.local_name().as_ref() == b"metaobject" {
                     if let Some(old_meta_obj) = current_meta_object.clone() {
-                        meta_objects.push(old_meta_obj.borrow().to_owned());
-                    }
+                        let mut object = old_meta_obj.borrow().to_owned();
+                        if let Some(meta_field) = current_meta_field.clone() {
+                            object.new_fields.push(meta_field);
+                        }
+                        current_meta_field = None;
 
-                    current_meta_object = None;
-                    current_meta_field = None;
+                        meta_objects.push(object);
+                        current_meta_object = None;
+                    }
                 }
             }
             Ok(Event::Empty(e)) => match e.local_name().as_ref() {
@@ -352,6 +356,12 @@ fn load_meta_objects(path: &PathBuf) -> Result<Vec<MetaObject>, String> {
                     &e,
                 )?,
                 b"binding" => on_tfbscript_binding(&mut current_meta_object, &e)?,
+                b"objectlist" => on_metafield_tag(
+                    &mut current_meta_object,
+                    &mut current_meta_field,
+                    &mut field_type,
+                    &e,
+                )?,
                 _ => {}
             },
             Ok(Event::Start(e)) => on_metafield_tag(
@@ -446,6 +456,12 @@ fn on_metafield_tag(
     field_type: &mut FieldType,
     e: &BytesStart,
 ) -> Result<(), String> {
+    if let Some(object) = current_meta_object {
+        if object.borrow().to_owned().ref_name.as_ref().eq("ScriptGroupStack") {
+            println!("{}", String::from_utf8_lossy(e.local_name().as_ref()));
+        }
+    }
+
     match e.local_name().as_ref() {
         b"tfbBindings" => on_tfbscript_present(current_meta_object, &e)?,
         b"metaobject" => {
@@ -709,7 +725,7 @@ fn on_metafield_tag(
                 }
             }
 
-            // We aren't a child. we must be new. Save and get rid of the old type
+            // We aren't a child so we must be new. Save and get rid of the old type
             if current_meta_field.is_some() {
                 let field = current_meta_field.clone().unwrap();
                 let raw_meta_object = current_meta_object.clone().unwrap();

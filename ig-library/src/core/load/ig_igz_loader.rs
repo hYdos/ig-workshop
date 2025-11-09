@@ -807,7 +807,7 @@ impl igIGZLoader {
             handle.set_position((shared_state.fixup_offset + bytes_processed + start) as u64);
 
             if let Ok(fixup) = fixup {
-                debug!("Processing {:?}", fixup);
+                trace!("Processing {:?}", fixup);
                 fixup.fix(
                     handle,
                     endian.clone(),
@@ -823,7 +823,7 @@ impl igIGZLoader {
                     shared_state,
                 );
             } else {
-                debug!(
+                trace!(
                     "No fixup exists for the magic value {}",
                     String::from_utf8_lossy(&magic.to_le_bytes())
                 )
@@ -861,7 +861,7 @@ impl igIGZLoader {
             let fixup = Fixup::try_from(magic);
             if let Ok(fixup) = fixup {
                 #[cfg(debug_assertions)]
-                debug!(
+                trace!(
                     "Processing {}",
                     String::from_utf8_lossy(&magic.to_le_bytes())
                 );
@@ -880,7 +880,7 @@ impl igIGZLoader {
                     shared_state,
                 );
             } else {
-                debug!(
+                trace!(
                     "No fixup exists for the magic value {}",
                     String::from_utf8_lossy(&magic.to_le_bytes())
                 )

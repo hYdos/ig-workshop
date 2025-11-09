@@ -2,17 +2,18 @@ use crate::window::{LoadedGame, WorkshopTabImpl, WorkshopTabViewer};
 use egui::{CentralPanel, Label, SidePanel, Ui, WidgetText};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use egui_ltreeview::{Action, NodeBuilder, TreeView, TreeViewBuilder};
-use ig_library::core::ig_objects::{igAny, igObjectDirectory, ObjectExt};
+use ig_library::core::ig_custom::igObjectList;
+use ig_library::core::ig_objects::{ObjectExt, igAny, igObject, igObjectDirectory};
+use ig_library::core::memory::igMemory;
+use ig_library::core::meta::ig_metadata_manager::{
+    igMetaFieldInfo, igMetaObject, igMetadataManager,
+};
 use ig_library::util::ig_common::igAlchemy;
 use ig_library::util::ig_hash::hash;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::{fs, io};
-use ig_library::core::ig_custom::igObjectList;
-use ig_library::core::memory::igMemory;
-use ig_library::core::meta::ig_metadata_manager::igMetaFieldInfo;
-use crate::plugin::core::get_object_interfaces;
 
 pub struct TfbToolEditor {
     game: LoadedGame,
@@ -222,6 +223,126 @@ struct TfbIgzEditor<'a> {
 }
 
 impl TfbIgzEditor<'_> {
+    fn render_ig_object(
+        &mut self,
+        meta: &igMetaObject,
+        builder: &mut TreeViewBuilder<u32>,
+        object: igObject,
+        object_list: Arc<RwLock<igObjectList>>,
+        name: String,
+        id: String,
+        idx: usize,
+    ) {
+        if "igObjectList".eq(meta.name.as_ref()) {
+            let list = object.clone().downcast::<igObjectList>().unwrap();
+            if Arc::as_ptr(&object_list) != Arc::as_ptr(&list) {
+                builder.node(
+                    NodeBuilder::dir(hash(&id))
+                        .default_open(false)
+                        .activatable(true)
+                        .label_ui(|ui| {
+                            ui.add(Label::new(WidgetText::from(&name)).selectable(false));
+                        }),
+                );
+
+                builder.node(
+                    NodeBuilder::leaf(hash(&id) + 69420)
+                        .default_open(false)
+                        .activatable(false)
+                        .label_ui(|ui| {
+                            ui.add(
+                                Label::new(WidgetText::from(format!(
+                                    "Big Pain to deal with. Bug me later. Size is {}",
+                                    list.read().unwrap().len()
+                                )))
+                                .selectable(false),
+                            );
+                        }),
+                );
+            }
+        } else {
+            builder.node(
+                NodeBuilder::dir(hash(&id))
+                    .default_open(false)
+                    .activatable(true)
+                    .label_ui(|ui| {
+                        ui.add(Label::new(WidgetText::from(&name)).selectable(false));
+                    }),
+            );
+
+            for (field_name, info) in &meta.field_storage.name_lookup {
+                let id = format!("immediate_resources/{idx}/{field_name}");
+                let value = object.read().unwrap().get_field(field_name).unwrap();
+
+                // some types need extra context, so we have to define them here.
+                match info._type.as_ref() {
+                    "igObjectRefMetaField" => {
+                        if let Some(value) = value {
+                            let ark_info = info.ark_info.read().unwrap();
+                            let guard = value.read().unwrap();
+                            let referenced_object = guard.downcast_ref::<igObject>().unwrap();
+
+                            let referenced_object_type = ark_info.meta_object.clone().unwrap();
+                            let referenced_object_meta = self
+                                .alchemy
+                                .ark_core
+                                .metadata_manager
+                                .get_or_create_meta(referenced_object_type.as_ref())
+                                .unwrap();
+
+                            self.render_ig_object(
+                                &referenced_object_meta.read().unwrap(),
+                                builder,
+                                referenced_object.clone(),
+                                object_list.clone(),
+                                format!(
+                                    "{} (igObjectRefMetaField of {}) ",
+                                    info.name.clone().unwrap(),
+                                    referenced_object_type
+                                ),
+                                id.to_string(),
+                                i32::MAX as usize,
+                            )
+                        }
+                    }
+                    _ => {
+                        builder.node(
+                            NodeBuilder::leaf(hash(&id))
+                                .default_open(false)
+                                .activatable(false)
+                                .label_ui(|ui| {
+                                    ui.add(
+                                        Label::new(WidgetText::from(field_name.as_ref()))
+                                            .selectable(false),
+                                    );
+
+                                    match &value {
+                                        None => {
+                                            ui.add(
+                                                Label::new(WidgetText::from("(null)"))
+                                                    .selectable(false),
+                                            );
+                                        }
+                                        Some(value) => {
+                                            TfbIgzEditor::render_field_value(
+                                                ui,
+                                                &mut self.alchemy.ark_core.metadata_manager,
+                                                info,
+                                                value,
+                                                &meta,
+                                            );
+                                        }
+                                    }
+                                }),
+                        );
+                    }
+                }
+            }
+        }
+
+        builder.close_dir();
+    }
+
     fn render_igz(
         &mut self,
         id_prefix: &str,
@@ -248,126 +369,108 @@ impl TfbIgzEditor<'_> {
                 let name = format!("{name} ({})", object_guard.object_name());
 
                 let meta = object_guard.meta_type(&mut self.alchemy.ark_core.metadata_manager);
+                drop(object_guard);
                 if let Ok(meta) = meta.read() {
-                    if "igObjectList".eq(meta.name.as_ref()) {
-                        let list = object.clone().downcast::<igObjectList>().unwrap();
-                        if Arc::as_ptr(&object_dir.object_list) != Arc::as_ptr(&list) {
-                            builder.node(
-                                NodeBuilder::dir(hash(&id))
-                                    .default_open(false)
-                                    .activatable(true)
-                                    .label_ui(|ui| {
-                                        ui.add(Label::new(WidgetText::from(&name)).selectable(false));
-                                    }),
-                            );
-
-                            builder.node(
-                                NodeBuilder::leaf(hash(&id) + 69420)
-                                    .default_open(false)
-                                    .activatable(false)
-                                    .label_ui(|ui| {
-                                        ui.add(
-                                            Label::new(WidgetText::from(format!("Big Pain to deal with. Bug me later. Size is {}", list.read().unwrap().len())))
-                                                .selectable(false),
-                                        );
-                                    }),
-                            );
-                        }
-                    } else {
-                        builder.node(
-                            NodeBuilder::dir(hash(&id))
-                                .default_open(false)
-                                .activatable(true)
-                                .label_ui(|ui| {
-                                    ui.add(Label::new(WidgetText::from(&name)).selectable(false));
-                                }),
-                        );
-
-                        for (field_name, info) in &meta.field_storage.name_lookup {
-                            let id = format!("immediate_resources/{i}/{field_name}");
-                            let value = object_guard.get_field(field_name).unwrap();
-
-                            builder.node(
-                                NodeBuilder::leaf(hash(&id))
-                                    .default_open(false)
-                                    .activatable(false)
-                                    .label_ui(|ui| {
-                                        ui.add(
-                                            Label::new(WidgetText::from(field_name.as_ref()))
-                                                .selectable(false),
-                                        );
-
-                                        match &value {
-                                            None => {
-                                                ui.add(
-                                                    Label::new(WidgetText::from("(null)"))
-                                                        .selectable(false),
-                                                );
-                                            }
-                                            Some(value) => {
-                                                self.render_field_value(ui, info, value);
-                                            }
-                                        }
-                                    }),
-                            );
-                        }
-                    }
+                    self.render_ig_object(
+                        &meta,
+                        builder,
+                        object,
+                        object_dir.object_list.clone(),
+                        name,
+                        id.clone(),
+                        i,
+                    );
                 }
-
-                builder.close_dir();
             }
         }
     }
 
-    fn render_field_value(&self, ui: &mut Ui, info: &Arc<igMetaFieldInfo>, value: &igAny) {
+    fn render_field_value(
+        ui: &mut Ui,
+        ig_metadata_manager: &mut igMetadataManager,
+        info: &Arc<igMetaFieldInfo>,
+        value: &igAny,
+        object_meta: &igMetaObject,
+    ) {
         match info._type.as_ref() {
             "igStringMetaField" => {
                 ui.add(
                     Label::new(WidgetText::from(format!(
                         "{}",
-                        value
-                            .read()
-                            .unwrap()
-                            .downcast_ref::<Arc<str>>()
-                            .unwrap()
+                        value.read().unwrap().downcast_ref::<Arc<str>>().unwrap()
                     )))
-                        .selectable(false),
+                    .selectable(false),
                 );
             }
             "igIntMetaField" => {
                 ui.add(
                     Label::new(WidgetText::from(format!(
                         "{}",
-                        value
-                            .read()
-                            .unwrap()
-                            .downcast_ref::<i32>()
-                            .unwrap()
+                        value.read().unwrap().downcast_ref::<i32>().unwrap()
                     )))
-                        .selectable(false),
+                    .selectable(false),
                 );
-            },
-            // "igMemoryRefMetaField" => {
-            //     // let ig_memory = value.read().unwrap().downcast_ref::<igMemory<igAny>>().unwrap();
-            //     // ig_memory.
-            //     // let memory_ref_info = info.ark_info.read().unwrap().clone().ig_memory_ref_info.unwrap();
-            //     // let guard = memory_ref_info.read().unwrap();
-            //     // self.render_field_value(ui, Arc::new(igMetaFieldInfo {
-            //     //     ark_info: memory_ref_info,
-            //     //     _type: guard._type.clone(),
-            //     //     name: guard.name.clone(),
-            //     //     size: 0,
-            //     //     alignment: 0,
-            //     //     offset: 0,
-            //     // }), value)
-            // }
+            }
+            "igFloatMetaField" => {
+                ui.add(
+                    Label::new(WidgetText::from(format!(
+                        "{}",
+                        value.read().unwrap().downcast_ref::<f32>().unwrap()
+                    )))
+                    .selectable(false),
+                );
+            }
+            "igBoolMetaField" => {
+                ui.add(
+                    Label::new(WidgetText::from(format!(
+                        "{}",
+                        value.read().unwrap().downcast_ref::<bool>().unwrap()
+                    )))
+                    .selectable(false),
+                );
+            }
+            "igMemoryRefMetaField" => {
+                let weak_ig_memory = value.read().unwrap();
+                let ig_memory = weak_ig_memory.downcast_ref::<igMemory<igAny>>().unwrap();
+                let memory_ref_info = info
+                    .ark_info
+                    .read()
+                    .unwrap()
+                    .clone()
+                    .ig_memory_ref_info
+                    .unwrap();
+                let internal_ark_object = memory_ref_info.read().unwrap();
+                let meta = ig_metadata_manager
+                    .get_or_create_meta(&internal_ark_object._type)
+                    .unwrap();
+
+                println!(
+                    "igObject is of type {}. igMemory has {} objects. This is from field {} in object {}",
+                    meta.read().unwrap().name,
+                    ig_memory.data.len(),
+                    info.name.clone().unwrap(),
+                    object_meta.name
+                );
+
+                for entry in &ig_memory.data {}
+                // let memory_ref_info = info.ark_info.read().unwrap().clone().ig_memory_ref_info.unwrap();
+                // let guard = memory_ref_info.read().unwrap();
+                // self.render_field_value(ui, Arc::new(igMetaFieldInfo {
+                //     ark_info: memory_ref_info,
+                //     _type: guard._type.clone(),
+                //     name: guard.name.clone(),
+                //     size: 0,
+                //     alignment: 0,
+                //     offset: 0,
+                // }), value)
+            }
             _ => {
                 ui.add(
                     Label::new(WidgetText::from(format!(
                         "no implementation for {}",
                         info._type
                     )))
-                        .selectable(false),
+                    .selectable(false),
                 );
             }
         }
