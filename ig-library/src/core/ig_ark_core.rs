@@ -1,8 +1,8 @@
 use crate::core::ig_ark_core::EGame::*;
 use crate::core::ig_core_platform::IG_CORE_PLATFORM;
-use crate::core::meta::field::r#impl::ig_bit_field_meta_field::igBitFieldMetaField;
 use crate::core::meta::field::r#impl::ig_bool_meta_field::igBoolMetaField;
 use crate::core::meta::field::r#impl::ig_enum_meta_field::igEnumMetaField;
+use crate::core::meta::field::r#impl::ig_float_meta_field::igFloatMetaField;
 use crate::core::meta::field::r#impl::ig_int_meta_field::igIntMetaField;
 use crate::core::meta::field::r#impl::ig_memory_ref_meta_field::igMemoryRefMetaField;
 use crate::core::meta::field::r#impl::ig_object_ref_meta_field::igObjectRefMetaField;
@@ -13,6 +13,7 @@ use crate::core::meta::field::r#impl::ig_string_meta_field::igStringMetaField;
 use crate::core::meta::field::r#impl::ig_unsigned_int_meta_field::igUnsignedIntMetaField;
 use crate::core::meta::field::r#impl::ig_unsigned_long_meta_field::igUnsignedLongMetaField;
 use crate::core::meta::field::r#impl::ig_unsigned_short_meta_field::igUnsignedShortMetaField;
+use crate::core::meta::field::r#impl::ig_vector_meta_field::igVectorMetaField;
 use crate::core::meta::ig_metadata_manager::{igMetaFieldInfo, igMetadataManager};
 use crate::core::meta::ig_xml_metadata::load_xml_metadata;
 use crate::util::ig_name::igNameMetaField;
@@ -20,7 +21,7 @@ use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
-use crate::core::meta::field::r#impl::ig_vector_meta_field::igVectorMetaField;
+use crate::core::meta::field::r#impl::ig_short_meta_field::igShortMetaField;
 
 /// Contains reflection metadata information. Stands for Application Runtime Kernel.
 pub struct igArkCore {
@@ -69,6 +70,10 @@ fn register_metafields(imm: &mut igMetadataManager) {
     imm.meta_field_registry
         .register::<igIntMetaField>(Arc::from("igIntMetaField"), Arc::new(igIntMetaField));
     imm.meta_field_registry
+        .register::<igShortMetaField>(Arc::from("igShortMetaField"), Arc::new(igShortMetaField));
+    imm.meta_field_registry
+        .register::<igFloatMetaField>(Arc::from("igFloatMetaField"), Arc::new(igFloatMetaField));
+    imm.meta_field_registry
         .register::<igStringMetaField>(Arc::from("igStringMetaField"), Arc::new(igStringMetaField));
     imm.meta_field_registry
         .register::<igNameMetaField>(Arc::from("igNameMetaField"), Arc::new(igNameMetaField));
@@ -83,7 +88,7 @@ fn register_metafields(imm: &mut igMetadataManager) {
     imm.meta_field_registry
         .register_complex::<igMemoryRefMetaField>(
             Arc::from("igMemoryRefMetaField"),
-            |ark_field, metaobject, imm, _metafield_registry, platform| {
+            |ark_field, _metaobject, imm, _metafield_registry, platform| {
                 let raw_internal_metafield = &ark_field
                     .ark_info
                     .read()
@@ -118,7 +123,8 @@ fn register_metafields(imm: &mut igMetadataManager) {
                     .clone()
                     .ig_vector_info
                     .unwrap()
-                    .field.unwrap();
+                    .field
+                    .unwrap();
                 // TODO: i need a better system for this. so many types here it really is ugly but the oop side of this makes it hard to work through
                 let updated_internal_metafield = igMetaFieldInfo {
                     ark_info: raw_internal_metafield.clone(),
