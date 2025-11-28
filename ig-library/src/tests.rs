@@ -7,7 +7,7 @@ use crate::core::ig_memory::igMemoryPool;
 use crate::core::ig_objects::{igAny, ObjectExt};
 use crate::core::ig_registry::igRegistry;
 use crate::core::meta::ig_metadata_manager::{
-    __internalObjectBase, igMetaObject, FieldDoesntExist, SetObjectFieldError,
+    __internalObjectBase, igMetaObject, igMetadataManager, FieldDoesntExist, SetObjectFieldError,
 };
 use crate::util::ig_common::igAlchemy;
 use std::any::Any;
@@ -38,7 +38,10 @@ fn test_metadata_system() {
     let mut ig_alchemy = load_alchemy();
 
     // Test: Test loading every single meta object
-    ig_alchemy.ark_core.metadata_manager.load_all();
+    ig_alchemy
+        .ark_core
+        .metadata_manager
+        .load_all(&mut ig_alchemy.object_stream_manager);
 }
 
 // Not a real type, mock up of the real igModelData
@@ -54,7 +57,11 @@ struct igModelData {
 }
 
 impl __internalObjectBase for igModelData {
-    fn meta_type(&self) -> Arc<RwLock<igMetaObject>> {
+    fn object_name(&self) -> Arc<str> {
+        Arc::from("igModelData")
+    }
+
+    fn meta_type(&self, ig_metadata_manager: &mut igMetadataManager) -> Arc<RwLock<igMetaObject>> {
         todo!()
     }
 
@@ -66,12 +73,16 @@ impl __internalObjectBase for igModelData {
         todo!()
     }
 
-    fn set_field(
-        &mut self,
-        name: &str,
-        value: Option<igAny>,
-    ) -> Result<(), SetObjectFieldError> {
-        todo!()
+    fn set_field(&mut self, name: &str, value: Option<igAny>) -> Result<(), SetObjectFieldError> {
+        if let Some(arc) = value {
+            let guard = arc.read().unwrap();
+            match name {
+                "_min" => self._min = guard.downcast_ref::<Vec<i32>>().unwrap().clone(),
+                &_ => return Err(SetObjectFieldError::FieldDoesntExist),
+            }
+        }
+
+        Ok(())
     }
 
     fn get_non_null_field(&self, name: &str) -> Result<igAny, FieldDoesntExist> {
@@ -99,7 +110,11 @@ struct igModelInfo {
 }
 
 impl __internalObjectBase for igModelInfo {
-    fn meta_type(&self) -> Arc<RwLock<igMetaObject>> {
+    fn object_name(&self) -> Arc<str> {
+        Arc::from("igModelInfo")
+    }
+
+    fn meta_type(&self, ig_metadata_manager: &mut igMetadataManager) -> Arc<RwLock<igMetaObject>> {
         todo!()
     }
 
@@ -111,11 +126,7 @@ impl __internalObjectBase for igModelInfo {
         todo!()
     }
 
-    fn set_field(
-        &mut self,
-        name: &str,
-        value: Option<igAny>,
-    ) -> Result<(), SetObjectFieldError> {
+    fn set_field(&mut self, name: &str, value: Option<igAny>) -> Result<(), SetObjectFieldError> {
         todo!()
     }
 
@@ -150,7 +161,8 @@ fn test_type_usability() {
             &ig_alchemy.registry,
             &mut ig_alchemy.ark_core.metadata_manager,
             &mut ig_alchemy.ig_ext_ref_system,
-            "DriverMoneybone".to_string(),
+            &mut ig_alchemy.ig_object_handle_manager,
+            "DriverMoneybone",
         )
         .unwrap();
 
